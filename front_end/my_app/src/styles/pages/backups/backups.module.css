@@ -1,7 +1,7 @@
 .page {
   display: grid;
-  gap: 18px;
-  padding: 0 28px 28px;
+  gap: 20px;
+  padding: 0 30px 30px;
 }
 
 .toolbar {
@@ -16,10 +16,10 @@
   align-items: center;
   gap: 8px;
   padding: 0 14px;
-  border: 1px solid #dbe4ee;
-  border-radius: 8px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
   background: #ffffff;
-  color: #223149;
+  color: var(--foreground);
   font-size: 13px;
   font-weight: 800;
 }
@@ -30,8 +30,8 @@
 }
 
 .toolbar .primary {
-  border-color: #2563eb;
-  background: #2563eb;
+  border-color: var(--primary);
+  background: var(--primary);
   color: #ffffff;
 }
 
@@ -54,25 +54,25 @@
 
 .table th,
 .table td {
-  padding: 12px 20px;
+  padding: 14px 20px;
   border-bottom: 1px solid #e6edf5;
   text-align: left;
 }
 
 .table th {
-  color: #8a99ac;
+  color: var(--muted-soft);
   font-size: 11px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .table td {
-  color: #627189;
+  color: var(--muted);
 }
 
 .table td strong,
 .nameButton {
-  color: #1d4ed8;
+  color: var(--primary-strong);
 }
 
 .nameButton {
@@ -106,17 +106,18 @@
   height: 28px;
   display: grid;
   place-items: center;
-  border: 1px solid #dbe4ee;
-  border-radius: 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
   background: #ffffff;
-  color: #53647a;
+  color: var(--muted);
   font-size: 13px;
   font-weight: 900;
 }
 
 .actions button:hover {
   border-color: #93c5fd;
-  color: #1d4ed8;
+  background: #eff6ff;
+  color: var(--primary);
 }
 
 .actions button:disabled {
@@ -130,8 +131,8 @@
   align-items: center;
   padding: 0 10px;
   border-radius: 999px;
-  background: #e0f2fe;
-  color: #0369a1;
+  background: #ecfeff;
+  color: #0e7490;
   font-size: 12px;
   font-weight: 800;
 }
@@ -192,10 +193,10 @@
   z-index: 1;
   width: min(660px, 100%);
   overflow: hidden;
-  border: 1px solid #dbe4ee;
-  border-radius: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
   background: #ffffff;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+  box-shadow: var(--shadow-md);
 }
 
 .modalHeader {
@@ -208,24 +209,24 @@
 }
 
 .modalHeader p {
-  color: #66758a;
+  color: var(--muted);
   font-size: 13px;
   font-weight: 800;
 }
 
 .modalHeader h2 {
   margin-top: 2px;
-  color: #162235;
+  color: #0f172a;
   font-size: 24px;
 }
 
 .closeButton {
   width: 34px;
   height: 34px;
-  border: 1px solid #dbe4ee;
+  border: 1px solid var(--line);
   border-radius: 8px;
   background: #f8fafc;
-  color: #53647a;
+  color: var(--muted);
   font-size: 22px;
   line-height: 1;
 }
@@ -239,7 +240,7 @@
 .formGrid label {
   display: grid;
   gap: 6px;
-  color: #66758a;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 800;
 }
@@ -249,10 +250,10 @@
   min-width: 0;
   width: 100%;
   height: 38px;
-  border: 1px solid #dbe4ee;
+  border: 1px solid var(--line);
   border-radius: 8px;
   background: #ffffff;
-  color: #162235;
+  color: var(--foreground);
   padding: 0 10px;
 }
 

@@ -16,23 +16,23 @@
   align-items: start;
   gap: 14px;
   padding: 14px;
-  border: 1px solid #dbe4ee;
+  border: 1px solid var(--line);
   border-left-width: 5px;
-  border-radius: 12px;
+  border-radius: 10px;
   background: #ffffff;
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.16);
+  box-shadow: var(--shadow-md);
   pointer-events: auto;
 }
 
 .toast strong {
   display: block;
-  color: #162235;
+  color: var(--foreground);
   font-size: 13px;
 }
 
 .toast p {
   margin-top: 4px;
-  color: #53647a;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 700;
   line-height: 1.45;
@@ -41,10 +41,10 @@
 .toast button {
   width: 28px;
   height: 28px;
-  border: 1px solid #dbe4ee;
+  border: 1px solid var(--line);
   border-radius: 8px;
   background: #f8fafc;
-  color: #53647a;
+  color: var(--muted);
   font-size: 18px;
   line-height: 1;
 }

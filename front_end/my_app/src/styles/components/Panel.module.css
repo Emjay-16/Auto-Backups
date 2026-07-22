@@ -1,9 +1,9 @@
 .panel {
   overflow: hidden;
-  border: 1px solid #dbe4ee;
+  border: 1px solid var(--line);
   border-radius: 10px;
-  background: #ffffff;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.045);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow-sm);
 }
 
 .header {
@@ -14,9 +14,11 @@
   gap: 12px;
   padding: 0 20px;
   border-bottom: 1px solid #e6edf5;
+  background: linear-gradient(180deg, #ffffff, #fbfdff);
 }
 
 .header h2 {
+  color: #0f172a;
   font-size: 16px;
 }
 
@@ -24,7 +26,12 @@
 .header button {
   border: 0;
   background: transparent;
-  color: #2563eb;
+  color: var(--primary);
   font-size: 13px;
   font-weight: 800;
+}
+
+.header a:hover,
+.header button:hover {
+  color: var(--primary-strong);
 }

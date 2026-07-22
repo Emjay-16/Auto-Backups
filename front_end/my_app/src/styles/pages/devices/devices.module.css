@@ -1,13 +1,13 @@
 .page {
   display: grid;
-  gap: 18px;
-  padding: 0 28px 28px;
+  gap: 20px;
+  padding: 0 30px 30px;
 }
 
 .overview {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 
 .overview article {
@@ -17,20 +17,20 @@
   justify-content: center;
   gap: 6px;
   padding: 16px 18px;
-  border: 1px solid #dbe4ee;
+  border: 1px solid var(--line);
   border-radius: 10px;
-  background: #ffffff;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.045);
+  background: linear-gradient(180deg, #ffffff, #fbfdff);
+  box-shadow: var(--shadow-sm);
 }
 
 .overview span {
-  color: #66758a;
+  color: var(--muted);
   font-size: 13px;
   font-weight: 800;
 }
 
 .overview strong {
-  color: #162235;
+  color: #0f172a;
   font-size: 30px;
   line-height: 1;
 }
@@ -56,18 +56,18 @@
 .filters button {
   min-height: 30px;
   padding: 0 11px;
-  border: 1px solid #dbe4ee;
+  border: 1px solid var(--line);
   border-radius: 999px;
   background: #ffffff;
-  color: #53647a;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 800;
 }
 
 .filters .active {
-  border-color: #2563eb;
+  border-color: var(--primary);
   background: #dbeafe;
-  color: #1d4ed8;
+  color: var(--primary-strong);
 }
 
 .addButton {
@@ -79,7 +79,7 @@
   border: 1px solid #93c5fd;
   border-radius: 10px;
   background: #eff6ff;
-  color: #1d4ed8;
+  color: var(--primary-strong);
   font-size: 12px;
   font-weight: 900;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.7), 0 8px 18px rgba(37, 99, 235, 0.1);
@@ -124,7 +124,7 @@
 
 .table th,
 .table td {
-  padding: 13px 20px;
+  padding: 14px 20px;
   border-bottom: 1px solid #e6edf5;
   text-align: left;
   vertical-align: middle;
@@ -147,7 +147,7 @@
 }
 
 .table td {
-  color: #627189;
+  color: var(--muted);
 }
 
 .deviceCell {
@@ -159,14 +159,14 @@
 
 .deviceCell strong {
   display: block;
-  color: #1d4ed8;
+  color: var(--primary-strong);
   font-size: 14px;
 }
 
 .deviceCell span:not(:first-child) {
   display: block;
   margin-top: 2px;
-  color: #8a99ac;
+  color: var(--muted-soft);
   font-size: 12px;
 }
 
@@ -176,8 +176,8 @@
   align-items: center;
   padding: 0 10px;
   border-radius: 999px;
-  background: #e0f2fe;
-  color: #0369a1;
+  background: #ecfeff;
+  color: #0e7490;
   font-size: 12px;
   font-weight: 900;
 }
@@ -203,8 +203,8 @@
   height: 28px;
   display: grid;
   place-items: center;
-  border: 1px solid #dbe4ee;
-  border-radius: 7px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
   background: #ffffff;
   color: #55667d;
   font-size: 12px;
@@ -217,7 +217,8 @@
 
 .actions button:hover {
   border-color: #93c5fd;
-  color: #1d4ed8;
+  background: #eff6ff;
+  color: var(--primary);
 }
 
 .actions button:last-child {
@@ -247,10 +248,10 @@
   z-index: 1;
   width: min(760px, 100%);
   overflow: hidden;
-  border: 1px solid #dbe4ee;
-  border-radius: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
   background: #ffffff;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+  box-shadow: var(--shadow-md);
 }
 
 .modalHeader {
@@ -263,24 +264,24 @@
 }
 
 .modalHeader p {
-  color: #66758a;
+  color: var(--muted);
   font-size: 13px;
   font-weight: 800;
 }
 
 .modalHeader h2 {
   margin-top: 2px;
-  color: #162235;
+  color: #0f172a;
   font-size: 24px;
 }
 
 .closeButton {
   width: 34px;
   height: 34px;
-  border: 1px solid #dbe4ee;
+  border: 1px solid var(--line);
   border-radius: 8px;
   background: #f8fafc;
-  color: #53647a;
+  color: var(--muted);
   font-size: 22px;
   line-height: 1;
 }
@@ -306,10 +307,10 @@
 .actionForm textarea {
   min-width: 0;
   width: 100%;
-  border: 1px solid #dbe4ee;
+  border: 1px solid var(--line);
   border-radius: 8px;
   background: #ffffff;
-  color: #162235;
+  color: var(--foreground);
 }
 
 .formGrid input,
@@ -336,7 +337,7 @@
 .actionForm label {
   display: grid;
   gap: 6px;
-  color: #66758a;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 800;
 }
@@ -345,9 +346,9 @@
   align-self: end;
   min-height: 38px;
   padding: 0 14px;
-  border: 1px solid #2563eb;
+  border: 1px solid var(--primary);
   border-radius: 8px;
-  background: #2563eb;
+  background: var(--primary);
   color: #ffffff;
   font-size: 13px;
   font-weight: 800;
@@ -375,13 +376,13 @@
 }
 
 .backupSelectionSummary strong {
-  color: #162235;
+  color: var(--foreground);
   font-size: 16px;
   line-height: 1;
 }
 
 .backupSelectionSummary span {
-  color: #66758a;
+  color: var(--muted);
   font-size: 11px;
   font-weight: 800;
 }
@@ -416,8 +417,8 @@
   padding: 10px;
   border: 1px solid #e6edf5;
   border-radius: 8px;
-  background: #f8fafc;
-  color: #53647a;
+  background: #fbfdff;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 800;
 }
@@ -571,8 +572,8 @@
 }
 
 .modalActions button:last-child {
-  border-color: #2563eb;
-  background: #2563eb;
+  border-color: var(--primary);
+  background: var(--primary);
   color: #ffffff;
 }
 
@@ -593,7 +594,7 @@
 
 @media (max-width: 780px) {
   .page {
-    padding: 0 14px 18px;
+    padding: 0 16px 20px;
   }
 
   .table {

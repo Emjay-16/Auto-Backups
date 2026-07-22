@@ -1,21 +1,21 @@
 .shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 252px minmax(0, 1fr);
-  background:
-    linear-gradient(180deg, #f8fbff 0%, #f2f6fb 220px, #f3f6fa 100%);
-  color: #162235;
+  grid-template-columns: 264px minmax(0, 1fr);
+  color: var(--foreground);
 }
 
 .sidebar {
   min-height: 100vh;
+  position: sticky;
+  top: 0;
   display: flex;
   flex-direction: column;
   gap: 22px;
   padding: 18px 14px;
-  background: #0f172a;
-  color: #e5edf7;
-  box-shadow: 16px 0 34px rgba(15, 23, 42, 0.08);
+  background: linear-gradient(180deg, #111827 0%, #0b1220 100%);
+  color: #e7eef8;
+  box-shadow: 18px 0 40px rgba(15, 23, 42, 0.12);
 }
 
 .brand,
@@ -26,9 +26,9 @@
 }
 
 .brand {
-  min-height: 66px;
-  padding: 8px 10px 18px;
-  border-bottom: 1px solid rgba(219, 231, 245, 0.1);
+  min-height: 70px;
+  padding: 10px 10px 18px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.1);
 }
 
 .brand strong,
@@ -41,33 +41,32 @@
 .brand span,
 .operator span {
   display: block;
-  margin-top: 2px;
-  color: #96a6ba;
+  margin-top: 3px;
+  color: #99a8ba;
   font-size: 12px;
 }
 
 .brandMark,
 .avatar {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  border-radius: 12px;
+  border-radius: 10px;
   color: #ffffff;
-  font-weight: 800;
+  font-weight: 900;
 }
 
 .brandMark {
-  background: linear-gradient(135deg, #0891b2, #2563eb);
-  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.24);
+  background: linear-gradient(135deg, var(--accent), var(--primary));
+  box-shadow: 0 16px 34px rgba(8, 145, 178, 0.24);
 }
 
 .avatar {
   width: 38px;
   height: 38px;
-  border-radius: 10px;
-  background: #2563eb;
+  background: #334155;
 }
 
 .nav {
@@ -78,36 +77,39 @@
 
 .navGroup {
   display: grid;
-  gap: 4px;
+  gap: 5px;
 }
 
 .navGroup p {
   margin: 0 10px 8px;
-  color: #748499;
+  color: #718096;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .navItem {
-  min-height: 40px;
+  min-height: 42px;
   position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 0 12px;
-  border-radius: 8px;
-  color: #bfccdb;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: #c2cedd;
   font-size: 14px;
-  font-weight: 600;
-  transition: background 0.15s ease, color 0.15s ease;
+  font-weight: 700;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
 }
 
 .navItem span {
-  width: 22px;
+  width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
+  border-radius: 7px;
   color: #67e8f9;
   text-align: center;
 }
@@ -122,28 +124,36 @@
   min-width: 24px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: #263247;
+  background: rgba(251, 191, 36, 0.14);
   color: #fbbf24;
   font-size: 11px;
   text-align: center;
 }
 
-.navItem:hover,
-.navItem.active {
-  background: rgba(37, 99, 235, 0.92);
+.navItem:hover {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(255, 255, 255, 0.06);
   color: #ffffff;
-  box-shadow: inset 3px 0 0 #ffffff;
+  transform: translateX(2px);
+}
+
+.navItem.active {
+  border-color: rgba(96, 165, 250, 0.32);
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.96), rgba(8, 145, 178, 0.9));
+  color: #ffffff;
+  box-shadow: 0 12px 26px rgba(37, 99, 235, 0.22);
 }
 
 .navItem:hover span,
 .navItem.active span {
   color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .operator {
   margin-top: auto;
-  padding: 12px 10px;
-  border: 1px solid rgba(219, 231, 245, 0.08);
+  padding: 12px;
+  border: 1px solid rgba(226, 232, 240, 0.1);
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.06);
 }
@@ -155,8 +165,8 @@
 
 .operator button {
   min-height: 30px;
-  padding: 0 9px;
-  border: 1px solid rgba(219, 231, 245, 0.12);
+  padding: 0 10px;
+  border: 1px solid rgba(226, 232, 240, 0.12);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.08);
   color: #dbeafe;
@@ -186,23 +196,23 @@
   place-items: center;
   align-content: center;
   gap: 12px;
-  background: #eef3f8;
-  color: #162235;
+  background: var(--background);
+  color: var(--foreground);
 }
 
 .authLoading span {
-  width: 48px;
-  height: 48px;
+  width: 50px;
+  height: 50px;
   display: grid;
   place-items: center;
-  border-radius: 14px;
-  background: #2563eb;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--accent), var(--primary));
   color: #ffffff;
   font-weight: 900;
 }
 
 .authLoading strong {
-  color: #53647a;
+  color: var(--muted);
   font-size: 14px;
 }
 
@@ -213,14 +223,14 @@
 }
 
 .topbar {
-  min-height: 90px;
+  min-height: 96px;
   display: grid;
   grid-template-columns: minmax(220px, 1fr) auto;
   align-items: center;
   gap: 18px;
-  margin: 0 28px 18px;
-  padding: 18px 0;
-  border-bottom: 1px solid #dfe7f1;
+  margin: 0 30px 20px;
+  padding: 20px 0;
+  border-bottom: 1px solid rgba(200, 215, 232, 0.8);
 }
 
 .titleBlock {
@@ -228,22 +238,33 @@
 }
 
 .eyebrow {
-  margin-bottom: 2px;
-  color: #66758a;
+  margin-bottom: 4px;
+  color: var(--muted);
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .topbar h1 {
-  font-size: 28px;
-  line-height: 1.1;
+  color: #0f172a;
+  font-size: 30px;
+  line-height: 1.08;
 }
 
 .topActions {
   display: grid;
-  grid-template-columns: minmax(220px, 320px) 44px 112px 132px;
+  grid-template-columns: minmax(240px, 340px) 44px 122px 136px;
   align-items: center;
   gap: 12px;
+}
+
+.search,
+.iconButton,
+.dateBox,
+.statusBox {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: var(--shadow-sm);
+  backdrop-filter: blur(10px);
 }
 
 .search {
@@ -253,10 +274,13 @@
   align-items: center;
   gap: 8px;
   padding: 0 14px;
-  border: 1px solid #dbe4ee;
-  border-radius: 12px;
-  background: #ffffff;
-  color: #8a99ac;
+  border-radius: 10px;
+  color: var(--muted-soft);
+}
+
+.search:focus-within {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
 }
 
 .search span {
@@ -280,7 +304,7 @@
   border: 0;
   outline: 0;
   background: transparent;
-  color: #162235;
+  color: var(--foreground);
   font: inherit;
 }
 
@@ -298,11 +322,13 @@
   height: 44px;
   display: grid;
   place-items: center;
-  border: 1px solid #dbe4ee;
-  border-radius: 12px;
-  background: #ffffff;
-  color: #53647a;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+  border-radius: 10px;
+  color: var(--muted);
+}
+
+.iconButton:hover {
+  border-color: #93c5fd;
+  color: var(--primary);
 }
 
 .bellIcon {
@@ -318,11 +344,12 @@
   height: 20px;
   display: grid;
   place-items: center;
+  border: 2px solid #ffffff;
   border-radius: 50%;
-  background: #ef4444;
+  background: var(--danger);
   color: #ffffff;
-  font-size: 11px;
-  font-weight: 800;
+  font-size: 10px;
+  font-weight: 900;
 }
 
 .notificationPanel {
@@ -330,14 +357,14 @@
   top: calc(100% + 10px);
   right: 0;
   z-index: 20;
-  width: min(360px, calc(100vw - 36px));
-  max-height: 420px;
+  width: min(380px, calc(100vw - 36px));
+  max-height: 430px;
   overflow: auto;
   padding: 10px;
-  border: 1px solid #dbe4ee;
-  border-radius: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
   background: #ffffff;
-  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.16);
+  box-shadow: var(--shadow-md);
 }
 
 .notificationHeader {
@@ -345,7 +372,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 4px 4px 10px;
+  padding: 6px 6px 10px;
 }
 
 .notificationHeader div {
@@ -358,7 +385,7 @@
 }
 
 .notificationHeader span {
-  color: #66758a;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 700;
 }
@@ -366,10 +393,10 @@
 .notificationHeader button {
   min-height: 30px;
   padding: 0 10px;
-  border: 1px solid #dbe4ee;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  background: #f8fafc;
-  color: #53647a;
+  background: var(--surface-soft);
+  color: var(--muted);
   font-size: 12px;
   font-weight: 900;
 }
@@ -381,49 +408,52 @@
 
 .notificationItem {
   display: grid;
-  gap: 3px;
-  padding: 10px;
-  border-top: 1px solid #eef3f8;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 11px;
+  border: 1px solid #edf2f8;
   border-left: 3px solid #94a3b8;
+  border-radius: 9px;
+  background: #fbfdff;
 }
 
 .notificationItem b {
-  color: #162235;
+  color: var(--foreground);
   font-size: 13px;
 }
 
 .notificationItem p {
-  color: #66758a;
+  color: var(--muted);
   font-size: 12px;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .notificationItem time {
-  color: #94a3b8;
+  color: var(--muted-soft);
   font-size: 11px;
   font-weight: 700;
 }
 
 .notificationItem.fail {
-  border-left-color: #ef4444;
+  border-left-color: var(--danger);
 }
 
 .notificationItem.wait {
-  border-left-color: #f59e0b;
+  border-left-color: var(--warning);
 }
 
 .notificationItem.info {
-  border-left-color: #2563eb;
+  border-left-color: var(--primary);
 }
 
 .notificationItem.read {
-  opacity: 0.68;
+  opacity: 0.66;
 }
 
 .emptyNotice {
   margin: 0;
   padding: 18px 10px;
-  color: #66758a;
+  color: var(--muted);
   font-size: 13px;
   text-align: center;
 }
@@ -435,10 +465,7 @@
   flex-direction: column;
   justify-content: center;
   padding: 0 16px;
-  border: 1px solid #dbe4ee;
-  border-radius: 12px;
-  background: #ffffff;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+  border-radius: 10px;
 }
 
 .dateBox strong,
@@ -448,12 +475,12 @@
 
 .dateBox span,
 .statusBox span {
-  color: #66758a;
+  color: var(--muted);
   font-size: 12px;
 }
 
 .statusBox strong {
-  color: #15803d;
+  color: var(--success);
 }
 
 @media (max-width: 1180px) {
@@ -463,18 +490,25 @@
 
   .brand div:last-child,
   .navGroup p,
-  .navItem,
-  .operator div:last-child {
-    font-size: 0;
+  .operator div:last-child,
+  .operator button {
+    display: none;
+  }
+
+  .sidebar {
+    align-items: center;
   }
 
   .navItem {
     justify-content: center;
+    width: 48px;
     padding: 0;
+    font-size: 0;
   }
 
   .navItem span {
-    width: auto;
+    width: 28px;
+    height: 28px;
     font-size: 16px;
   }
 
@@ -490,6 +524,7 @@
 
   .sidebar {
     min-height: auto;
+    position: static;
     flex-direction: row;
     align-items: center;
     overflow-x: auto;
@@ -519,11 +554,7 @@
   }
 
   .topActions {
-    grid-template-columns: minmax(0, 1fr) 44px 112px;
-    width: 100%;
-  }
-
-  .search {
+    grid-template-columns: minmax(0, 1fr) 44px 122px;
     width: 100%;
   }
 

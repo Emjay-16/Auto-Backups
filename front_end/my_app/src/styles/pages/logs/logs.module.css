@@ -1,5 +1,5 @@
 .page {
-  padding: 0 28px 28px;
+  padding: 0 30px 30px;
 }
 
 .logs {
@@ -20,7 +20,7 @@
 }
 
 .log time {
-  color: #9aa8ba;
+  color: var(--muted-soft);
   font-size: 12px;
 }
 
@@ -34,25 +34,25 @@
 }
 
 .icon.ok { background: #dcfce7; color: #15803d; }
-.icon.run { background: #dbeafe; color: #1d4ed8; }
+.icon.run { background: #dbeafe; color: var(--primary-strong); }
 .icon.wait { background: #fef3c7; color: #92400e; }
 .icon.fail { background: #fee2e2; color: #b91c1c; }
 
 .log strong {
   display: block;
-  color: #162235;
+  color: var(--foreground);
   font-size: 14px;
 }
 
 .log p {
   margin-top: 2px;
-  color: #738299;
+  color: var(--muted);
   font-size: 12px;
 }
 
 @media (max-width: 780px) {
   .page {
-    padding: 0 14px 18px;
+    padding: 0 16px 20px;
   }
 
   .log {

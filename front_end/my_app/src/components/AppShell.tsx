@@ -54,7 +54,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { data: session, status } = useSession();
   const current = pageTitles[pathname] ?? pageTitles["/"];
-  const [deviceCount, setDeviceCount] = useState({ online: 14, total: 18 });
+  const [deviceCount, setDeviceCount] = useState({ online: 0, total: 0 });
   const [activeJobCount, setActiveJobCount] = useState(0);
   const [now, setNow] = useState<Date | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -105,7 +105,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           });
         })
         .catch(() => {
-          setDeviceCount({ online: 14, total: 18 });
+          setDeviceCount({ online: 0, total: 0 });
         })
         .finally(() => window.clearTimeout(timeoutId));
     }, 1000);

@@ -1,7 +1,7 @@
 .page {
   display: grid;
-  gap: 18px;
-  padding: 0 28px 28px;
+  gap: 20px;
+  padding: 0 30px 30px;
 }
 
 .tabs {
@@ -12,18 +12,18 @@
 .tabs button {
   min-height: 34px;
   padding: 0 14px;
-  border: 1px solid #dbe4ee;
+  border: 1px solid var(--line);
   border-radius: 999px;
   background: #ffffff;
-  color: #53647a;
+  color: var(--muted);
   font-size: 13px;
   font-weight: 800;
 }
 
 .tabs .active {
-  border-color: #2563eb;
+  border-color: var(--primary);
   background: #dbeafe;
-  color: #1d4ed8;
+  color: var(--primary-strong);
 }
 
 .jobs {
@@ -45,7 +45,7 @@
 
 .job strong {
   display: block;
-  color: #162235;
+  color: var(--foreground);
   font-size: 14px;
 }
 
@@ -53,7 +53,7 @@
 .job p,
 .job time {
   overflow: hidden;
-  color: #738299;
+  color: var(--muted);
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -63,14 +63,14 @@
   height: 7px;
   overflow: hidden;
   border-radius: 999px;
-  background: #eef3f8;
+  background: #edf3f9;
 }
 
 .progress span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #2563eb;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
 }
 
 @media (max-width: 900px) {
@@ -81,6 +81,6 @@
 
 @media (max-width: 780px) {
   .page {
-    padding: 0 14px 18px;
+    padding: 0 16px 20px;
   }
 }

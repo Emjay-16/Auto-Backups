@@ -1,13 +1,13 @@
 .page {
   display: grid;
-  gap: 18px;
-  padding: 0 28px 28px;
+  gap: 20px;
+  padding: 0 30px 30px;
 }
 
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 380px;
-  gap: 18px;
+  gap: 20px;
   align-items: start;
 }
 
@@ -24,14 +24,14 @@
   gap: 12px;
   width: 100%;
   padding: 14px;
-  border: 1px solid #e1e8f2;
+  border: 1px solid var(--line);
   border-radius: 10px;
   background: #fbfdff;
   text-align: left;
 }
 
 .snapshot.selected {
-  border-color: #2563eb;
+  border-color: var(--primary);
   background: #eff6ff;
 }
 
@@ -48,8 +48,8 @@
 }
 
 .selected .radio {
-  border-color: #2563eb;
-  background: #2563eb;
+  border-color: var(--primary);
+  background: var(--primary);
 }
 
 .snapshot strong,
@@ -382,9 +382,49 @@
 }
 
 .dialogFooter button:last-child {
-  border-color: #2563eb;
-  background: #2563eb;
+  border-color: var(--primary);
+  background: var(--primary);
   color: #ffffff;
+}
+
+.target input,
+.target select,
+.fileRow > input {
+  border-color: var(--line);
+  border-radius: 9px;
+}
+
+.target button {
+  background: var(--primary);
+}
+
+.snapshot,
+.filePickerSummary,
+.fileRow {
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.035);
+}
+
+.snapshot:hover,
+.fileRow:hover {
+  border-color: #bfdbfe;
+}
+
+.dialog {
+  border-color: var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow-md);
+}
+
+.dialogHeader h2,
+.fileRow strong,
+.preview strong {
+  color: var(--foreground);
+}
+
+.dialogHeader p,
+.fileRow small,
+.target label {
+  color: var(--muted);
 }
 
 @media (max-width: 980px) {

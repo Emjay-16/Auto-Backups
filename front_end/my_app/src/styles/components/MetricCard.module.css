@@ -1,10 +1,21 @@
 .card {
   min-height: 150px;
+  position: relative;
+  overflow: hidden;
   padding: 18px;
-  border: 1px solid #dbe4ee;
+  border: 1px solid var(--line);
   border-radius: 10px;
-  background: #ffffff;
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.045);
+  background: linear-gradient(180deg, #ffffff, #fbfdff);
+  box-shadow: var(--shadow-sm);
+}
+
+.card::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+  opacity: 0.78;
 }
 
 .icon {
@@ -13,9 +24,9 @@
   display: grid;
   place-items: center;
   margin-bottom: 14px;
-  border-radius: 10px;
-  background: #e0f2fe;
-  color: #0369a1;
+  border-radius: 9px;
+  background: #ecfeff;
+  color: #0e7490;
   font-weight: 800;
 }
 
@@ -25,7 +36,7 @@
 }
 
 .card p {
-  color: #66758a;
+  color: var(--muted);
   font-size: 13px;
   font-weight: 700;
 }
@@ -33,7 +44,7 @@
 .card strong {
   display: block;
   margin-top: 4px;
-  color: #162235;
+  color: #0f172a;
   font-size: 30px;
   line-height: 1;
 }
@@ -41,7 +52,7 @@
 .card small {
   display: block;
   margin-top: 8px;
-  color: #738299;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 700;
 }
@@ -52,7 +63,7 @@
   margin-top: 14px;
   overflow: hidden;
   border-radius: 999px;
-  background: #eef3f8;
+  background: #edf3f9;
 }
 
 .bar span,
@@ -60,9 +71,9 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #0891b2;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
 }
 
 .barWarning span {
-  background: #f59e0b;
+  background: linear-gradient(90deg, #f59e0b, #ef4444);
 }
