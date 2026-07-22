@@ -1,16 +1,17 @@
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from api import schemas
 from api.database import get_db
-from api.security import get_current_user, require_admin
+from api.errors import api_exception
 from api.services.cleanup_state import (
     get_auto_cleanup_settings,
     update_auto_cleanup_settings,
 )
+from api.services.backup_targets import add_custom_auto_backup_path, delete_custom_auto_backup_path
 from api.services.backup_service import (
     cleanup_old_backups,
     delete_backup,
@@ -34,20 +35,18 @@ router = APIRouter(
 def list_backups(
     limit: int = 50,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
 ):
     return get_backup_history(db, limit)
 
 
 @router.get("/cleanup/settings", response_model=schemas.AutoCleanupSettingsResponse)
-def get_cleanup_settings(_current_user=Depends(get_current_user)):
+def get_cleanup_settings():
     return get_auto_cleanup_settings()
 
 
 @router.put("/cleanup/settings", response_model=schemas.AutoCleanupSettingsResponse)
 def update_cleanup_settings(
     data: schemas.AutoCleanupSettingsRequest,
-    _admin=Depends(require_admin),
 ):
     return update_auto_cleanup_settings(
         enabled=data.enabled,
@@ -61,7 +60,6 @@ def update_cleanup_settings(
 def cleanup_backups(
     data: schemas.BackupCleanupRequest,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
 ):
     return cleanup_old_backups(data, db)
 
@@ -70,7 +68,6 @@ def cleanup_backups(
 def run_backup(
     data: schemas.BackupRunRequest,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
 ):
     return run_file_backup(data, db)
 
@@ -79,7 +76,6 @@ def run_backup(
 def auto_backup(
     data: schemas.AutoBackupRequest,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
 ):
     return run_auto_backups(data, db)
 
@@ -88,7 +84,6 @@ def auto_backup(
 def backup_robot_database(
     data: schemas.RobotDatabaseBackupRequest,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
 ):
     return run_robot_database_backup(data, db)
 
@@ -97,16 +92,57 @@ def backup_robot_database(
 def combined_backup(
     data: schemas.CombinedBackupRequest,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
 ):
     return run_combined_backup(data, db)
+
+
+@router.post("/auto-paths", response_model=schemas.CustomBackupPathResponse)
+def add_auto_backup_path(
+    data: schemas.CustomBackupPathRequest,
+):
+    try:
+        path = add_custom_auto_backup_path(data.path)
+    except ValueError as exc:
+        raise api_exception(
+            400,
+            "INVALID_BACKUP_PATH",
+            str(exc),
+        )
+
+    return schemas.CustomBackupPathResponse(
+        path=path,
+        message="Custom auto backup path saved",
+    )
+
+
+@router.delete("/auto-paths", response_model=schemas.CustomBackupPathResponse)
+def delete_auto_backup_path(path: str):
+    try:
+        deleted = delete_custom_auto_backup_path(path)
+    except ValueError as exc:
+        raise api_exception(
+            400,
+            "INVALID_BACKUP_PATH",
+            str(exc),
+        )
+
+    if not deleted:
+        raise api_exception(
+            404,
+            "CUSTOM_BACKUP_PATH_NOT_FOUND",
+            "Custom auto backup path not found",
+        )
+
+    return schemas.CustomBackupPathResponse(
+        path=path,
+        message="Custom auto backup path deleted",
+    )
 
 
 @router.get("/{backup_id}", response_model=schemas.BackupDetailResponse)
 def get_backup(
     backup_id: int,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
 ):
     return get_backup_detail(backup_id, db)
 
@@ -114,10 +150,10 @@ def get_backup(
 @router.get("/{backup_id}/download")
 def download_backup(
     backup_id: int,
+    file_ids: Optional[List[int]] = Query(None),
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
 ):
-    zip_file = get_backup_download_zip(backup_id, db)
+    zip_file = get_backup_download_zip(backup_id, db, file_ids)
     return FileResponse(
         path=str(zip_file),
         filename=zip_file.name,
@@ -129,6 +165,5 @@ def download_backup(
 def remove_backup(
     backup_id: int,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
 ):
     return delete_backup(backup_id, db)

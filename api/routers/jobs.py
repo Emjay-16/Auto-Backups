@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 from api import models, schemas
 from api.database import get_db
 from api.errors import api_exception
-from api.security import get_current_user
 
 
 router = APIRouter(
@@ -22,7 +21,6 @@ def list_jobs(
     device_id: Optional[int] = None,
     limit: int = 100,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
 ):
     limit = max(1, min(limit, 500))
     query = db.query(models.BackupJob)
@@ -45,7 +43,6 @@ def list_jobs(
 def get_job(
     job_id: int,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
 ):
     job = (
         db.query(models.BackupJob)

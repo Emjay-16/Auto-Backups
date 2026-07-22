@@ -1,6 +1,7 @@
 import ipaddress
 import os
 import socket
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends
@@ -10,7 +11,6 @@ from api import constants, schemas
 from api.database import get_db
 from api.errors import api_exception
 from api.models import Device, DeviceGroup
-from api.security import get_current_user, require_admin
 from api.schemas import (
     DeviceCreate,
     DeviceNameResponse,
@@ -18,10 +18,14 @@ from api.schemas import (
     DeviceStatusResponse,
     DeviceUpdate,
     BackupTargetResponse,
+    CustomBackupPathRequest,
+    CustomBackupPathResponse,
+    RemotePathCheckResponse,
     RemoteFileResponse,
 )
+from api.services.backup_targets import add_custom_auto_backup_path, get_custom_auto_backup_paths
 from api.services.device_resolver import map_device_name
-from api.services.sftp_backup import list_remote_path
+from api.services.sftp_backup import RemotePathNotFound, list_remote_path
 from api.utils.time import now_local
 
 
@@ -33,10 +37,12 @@ router = APIRouter(
 
 @router.get("/", response_model=List[DeviceResponse])
 def get_devices(
+    refresh_status: bool = False,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
 ):
     devices = db.query(Device).order_by(Device.device_id).all()
+    if refresh_status:
+        _refresh_devices_statuses(devices, db)
     return devices
 
 
@@ -63,7 +69,7 @@ def get_device_name_by_ip(ip_address: str):
 
 
 @router.get("/backup-targets", response_model=List[BackupTargetResponse])
-def get_backup_targets(_current_user=Depends(get_current_user)):
+def get_backup_targets():
     targets = []
     flow_path = os.getenv("ROBOT_NODE_RED_FLOW_PATH")
     maps_path = os.getenv("ROBOT_MAPS_PATH")
@@ -94,6 +100,20 @@ def get_backup_targets(_current_user=Depends(get_current_user)):
             )
         )
 
+    for index, custom_path in enumerate(get_custom_auto_backup_paths(), start=1):
+        target_type = _backup_target_type_from_path(custom_path)
+        targets.append(
+            BackupTargetResponse(
+                key=f"custom_{index}",
+                label=_backup_target_label_from_path(custom_path),
+                path=custom_path,
+                target_type=target_type,
+                browsable=target_type == "directory",
+                backup_api="file",
+                removable=True,
+            )
+        )
+
     if db_name and db_table:
         targets.append(
             BackupTargetResponse(
@@ -109,11 +129,29 @@ def get_backup_targets(_current_user=Depends(get_current_user)):
     return targets
 
 
+@router.post("/backup-targets/custom", response_model=CustomBackupPathResponse)
+def add_custom_backup_target(
+    data: CustomBackupPathRequest,
+):
+    try:
+        path = add_custom_auto_backup_path(data.path)
+    except ValueError as exc:
+        raise api_exception(
+            400,
+            "INVALID_BACKUP_PATH",
+            str(exc),
+        )
+
+    return CustomBackupPathResponse(
+        path=path,
+        message="Custom auto backup path saved",
+    )
+
+
 @router.get("/{device_id}/status", response_model=DeviceStatusResponse)
 def check_device_status(
     device_id: int,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
 ):
     device = (
         db.query(Device)
@@ -185,7 +223,6 @@ def list_device_files(
     device_id: int,
     path: Optional[str] = None,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
 ):
     device = _get_device_or_404(device_id, db)
     username = os.getenv("ROBOT_SSH_USERNAME")
@@ -219,6 +256,22 @@ def list_device_files(
                     remote_path=remote_path,
                 )
             )
+    except RemotePathNotFound as exc:
+        device.device_status = constants.DEVICE_STATUS_ONLINE
+        device.last_seen_at = now_local()
+        device.updated_at = now_local()
+        db.commit()
+        raise api_exception(
+            404,
+            "REMOTE_PATH_NOT_FOUND",
+            f"Remote path not found on {device.device_name}: {exc.remote_path}",
+            detail={
+                "device_id": device.device_id,
+                "device_name": device.device_name,
+                "ip_address": device.ip_address,
+                "remote_path": exc.remote_path,
+            },
+        )
     except RuntimeError as exc:
         raise api_exception(
             500,
@@ -252,11 +305,76 @@ def list_device_files(
     ]
 
 
+@router.get("/{device_id}/path-check", response_model=RemotePathCheckResponse)
+def check_device_remote_path(
+    device_id: int,
+    path: str,
+    db: Session = Depends(get_db),
+):
+    device = _get_device_or_404(device_id, db)
+    username = os.getenv("ROBOT_SSH_USERNAME")
+    password = os.getenv("ROBOT_SSH_PASSWORD")
+    port = int(os.getenv("ROBOT_SSH_PORT", "22"))
+
+    if not username or not password:
+        raise api_exception(
+            500,
+            "SSH_CREDENTIALS_MISSING",
+            "ROBOT_SSH_USERNAME and ROBOT_SSH_PASSWORD are required",
+        )
+
+    try:
+        files = list_remote_path(
+            host=device.ip_address,
+            username=username,
+            password=password,
+            port=port,
+            remote_path=path,
+        )
+    except RemotePathNotFound:
+        return RemotePathCheckResponse(
+            device_id=device.device_id,
+            device_name=device.device_name,
+            ip_address=device.ip_address,
+            path=path,
+            exists=False,
+            file_count=0,
+            message="Remote path does not exist for this device",
+        )
+    except RuntimeError as exc:
+        raise api_exception(
+            500,
+            "SFTP_OPERATION_FAILED",
+            str(exc),
+        )
+    except Exception as exc:
+        raise api_exception(
+            502,
+            "SFTP_LIST_FILES_FAILED",
+            f"SFTP list files failed: {exc}",
+            detail={
+                "device_id": device.device_id,
+                "device_name": device.device_name,
+                "ip_address": device.ip_address,
+                "remote_path": path,
+            },
+        )
+
+    return RemotePathCheckResponse(
+        device_id=device.device_id,
+        device_name=device.device_name,
+        ip_address=device.ip_address,
+        path=path,
+        exists=True,
+        file_count=len(files),
+        message="Remote path exists for this device",
+    )
+
+
 @router.get("/{device_id}", response_model=DeviceResponse)
 def get_device(
     device_id: int,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
 ):
     return _get_device_or_404(device_id, db)
 
@@ -265,7 +383,6 @@ def get_device(
 def create_device(
     data: DeviceCreate,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
 ):
     group = (
         db.query(DeviceGroup)
@@ -320,7 +437,6 @@ def update_device(
     device_id: int,
     data: DeviceUpdate,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
 ):
     device = (
         db.query(Device)
@@ -401,7 +517,6 @@ def update_device(
 def delete_device(
     device_id: int,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
 ):
     device = (
         db.query(Device)
@@ -423,10 +538,37 @@ def delete_device(
         "message": "Device deleted successfully",
     }
 
+def _refresh_devices_statuses(devices: List[Device], db: Session) -> None:
+    if not devices:
+        return
+
+    max_workers = max(1, min(int(os.getenv("DEVICE_STATUS_WORKERS", "16")), len(devices)))
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        statuses = list(executor.map(lambda device: (device.device_id, _can_connect(device.ip_address)), devices))
+
+    now = now_local()
+    status_by_id = dict(statuses)
+    for device in devices:
+        online = status_by_id.get(device.device_id, False)
+        device.device_status = (
+            constants.DEVICE_STATUS_ONLINE
+            if online
+            else constants.DEVICE_STATUS_OFFLINE
+        )
+        if online:
+            device.last_seen_at = now
+        device.updated_at = now
+
+    db.commit()
+    for device in devices:
+        db.refresh(device)
+
+
 def _can_connect(ip_address: str) -> bool:
     port = int(os.getenv("ROBOT_SSH_PORT", "22"))
+    timeout = float(os.getenv("DEVICE_STATUS_TIMEOUT_SECONDS", "1.5"))
     try:
-        with socket.create_connection((ip_address, port), timeout=2):
+        with socket.create_connection((ip_address, port), timeout=timeout):
             return True
     except OSError:
         return False
@@ -456,3 +598,15 @@ def _default_browse_paths() -> List[str]:
         )
         if path
     ]
+
+
+def _backup_target_label_from_path(path: str) -> str:
+    normalized_path = path.rstrip("/")
+    return os.path.basename(normalized_path) or normalized_path
+
+
+def _backup_target_type_from_path(path: str) -> str:
+    normalized_path = path.rstrip("/")
+    if path.endswith("/"):
+        return "directory"
+    return "file" if os.path.splitext(os.path.basename(normalized_path))[1] else "directory"

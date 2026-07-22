@@ -5,7 +5,6 @@ from sqlalchemy.orm import Session
 
 from api import schemas
 from api.database import get_db
-from api.security import require_admin
 from api.services.upload_service import upload_files_to_device
 
 
@@ -24,7 +23,6 @@ def upload_to_device(
     device_name: Optional[str] = Form(None),
     files: List[UploadFile] = File(...),
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
 ):
     return upload_files_to_device(
         db=db,

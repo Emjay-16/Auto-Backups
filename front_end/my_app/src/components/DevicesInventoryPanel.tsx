@@ -5,9 +5,12 @@ import { useMemo, useState } from "react";
 import type { Device } from "@/lib/types";
 import {
   createDevice,
+  backupTargetLabelFromPath,
+  backupTargetTypeFromPath,
   getBackupTargets,
   listDeviceFiles,
   runCombinedBackup,
+  saveCustomBackupPath,
   updateDevice,
   type BackupRunResult,
   type BackupTarget,
@@ -51,6 +54,7 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
   const [remotePath, setRemotePath] = useState("");
   const [backupTargets, setBackupTargets] = useState<BackupTarget[]>([]);
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
+  const [customBackupPath, setCustomBackupPath] = useState("");
   const [includeDatabase, setIncludeDatabase] = useState(false);
   const [backupName, setBackupName] = useState("");
   const [zipOutput, setZipOutput] = useState(false);
@@ -107,6 +111,7 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
   async function openBackup(device: Device) {
     setSelectedDevice(device);
     setSelectedPaths([]);
+    setCustomBackupPath("");
     setIncludeDatabase(false);
     setBackupName("");
     setZipOutput(false);
@@ -224,6 +229,48 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
         openedPath,
       ]);
     });
+  }
+
+  async function addCustomBackupPath() {
+    const path = customBackupPath.trim();
+    if (!path) return;
+    if (!path.startsWith("/")) {
+      setError("Custom backup path must start with /");
+      return;
+    }
+    try {
+      const savedPath = await saveCustomBackupPath(path);
+      setSelectedPaths((current) => uniquePaths([...current, savedPath.path]));
+      setBackupTargets((current) => {
+        if (current.some((target) => target.path === savedPath.path)) return current;
+        const targetType = backupTargetTypeFromPath(savedPath.path);
+        return [
+          ...current,
+          {
+            key: `custom_${Date.now()}`,
+            label: backupTargetLabelFromPath(savedPath.path),
+            path: savedPath.path,
+            target_type: targetType,
+            browsable: targetType === "directory",
+            backup_api: "file",
+            removable: true,
+          },
+        ];
+      });
+      setCustomBackupPath("");
+      setError("");
+      showToast({
+        tone: "success",
+        title: "Auto backup path added",
+        message: savedPath.path,
+      });
+    } catch (errorResponse) {
+      showToast({
+        tone: "error",
+        title: "Save auto backup path failed",
+        message: getErrorMessage(errorResponse, "Save auto backup path failed"),
+      });
+    }
   }
 
   async function submitForm() {
@@ -425,6 +472,33 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
                       </label>
                     )) : <p>No backup targets loaded</p>}
                   </div>
+                  <div className={styles.customPathRow}>
+                    <label>
+                      Add custom path
+                      <input
+                        value={customBackupPath}
+                        onChange={(event) => setCustomBackupPath(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void addCustomBackupPath();
+                          }
+                        }}
+                        placeholder="/home/matrix/path/to/file-or-folder"
+                      />
+                    </label>
+                    <button onClick={() => void addCustomBackupPath()} type="button">Add path</button>
+                  </div>
+                  {selectedPaths.length ? (
+                    <div className={styles.selectedPathList}>
+                      {selectedPaths.map((path) => (
+                        <button key={path} onClick={() => toggleBackupPath(path)} type="button">
+                          <span>{path}</span>
+                          <b>×</b>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
                   {openedPath ? (
                     <div className={styles.browser}>
                       <div className={styles.browserHeader}>

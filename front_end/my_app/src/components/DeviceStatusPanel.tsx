@@ -4,9 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   checkDeviceStatus,
+  backupTargetLabelFromPath,
+  backupTargetTypeFromPath,
   getBackupTargets,
   listDeviceFiles,
   runCombinedBackup,
+  saveCustomBackupPath,
   type BackupTarget,
   type BackupRunResult,
   type DeviceStatusResult,
@@ -31,6 +34,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
   const [backupTargets, setBackupTargets] = useState<BackupTarget[]>([]);
   const [browserPath, setBrowserPath] = useState("");
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
+  const [customPath, setCustomPath] = useState("");
   const [loading, setLoading] = useState("");
   const [error, setError] = useState("");
 
@@ -41,6 +45,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
     setBackupResult(null);
     setBrowserPath("");
     setSelectedPaths([]);
+    setCustomPath("");
     setError("");
 
     setLoading("status");
@@ -66,6 +71,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
     setBackupResult(null);
     setBrowserPath("");
     setSelectedPaths([]);
+    setCustomPath("");
     setError("");
   }
 
@@ -219,6 +225,35 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
                   )
                 )) : <p>No backup targets loaded</p>}
               </div>
+              <div className={styles.customPathRow}>
+                <label>
+                  Add custom path
+                  <input
+                    value={customPath}
+                    onChange={(event) => setCustomPath(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void addCustomPath();
+                      }
+                    }}
+                    placeholder="/home/matrix/path/to/file-or-folder"
+                  />
+                </label>
+                <button onClick={() => void addCustomPath()} type="button">Add path</button>
+              </div>
+              {selectedPaths.length ? (
+                <div className={styles.selectedPathList}>
+                  {selectedPaths
+                    .filter((path) => path.startsWith("/"))
+                    .map((path) => (
+                      <button key={path} onClick={() => togglePath(path, "file")} type="button">
+                        <span>{path}</span>
+                        <b>×</b>
+                      </button>
+                    ))}
+                </div>
+              ) : null}
 
               {browserPath ? (
                 <div className={styles.browser}>
@@ -307,6 +342,48 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
         openedParentFolder,
       ]);
     });
+  }
+
+  async function addCustomPath() {
+    const path = customPath.trim();
+    if (!path) return;
+    if (!path.startsWith("/")) {
+      setError("Custom backup path must start with /");
+      return;
+    }
+    try {
+      const savedPath = await saveCustomBackupPath(path);
+      setSelectedPaths((current) => uniquePaths([...current, savedPath.path]));
+      setBackupTargets((current) => {
+        if (current.some((target) => target.path === savedPath.path)) return current;
+        const targetType = backupTargetTypeFromPath(savedPath.path);
+        return [
+          ...current,
+          {
+            key: `custom_${Date.now()}`,
+            label: backupTargetLabelFromPath(savedPath.path),
+            path: savedPath.path,
+            target_type: targetType,
+            browsable: targetType === "directory",
+            backup_api: "file",
+            removable: true,
+          },
+        ];
+      });
+      setCustomPath("");
+      setError("");
+      showToast({
+        tone: "success",
+        title: "Auto backup path added",
+        message: savedPath.path,
+      });
+    } catch (errorResponse) {
+      showToast({
+        tone: "error",
+        title: "Save auto backup path failed",
+        message: getErrorMessage(errorResponse, "Save auto backup path failed"),
+      });
+    }
   }
 }
 

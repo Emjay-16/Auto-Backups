@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from api import constants, models, schemas
 from api.errors import api_exception
 from api.services.activity_log import log_activity
+from api.services.backup_targets import get_default_auto_backup_paths
 from api.services.device_resolver import resolve_device, resolve_user
 from api.services.job_service import (
     acquire_job_lock,
@@ -26,6 +27,7 @@ from api.services.job_service import (
 from api.services.robot_database import dump_mysql_table_to_json, dump_mysql_table_via_ssh
 from api.services.sftp_backup import (
     DownloadedFile,
+    RemotePathNotFound,
     RemotePathSnapshot,
     build_backup_directory,
     create_zip_archive,
@@ -56,27 +58,28 @@ def get_backup_detail(backup_id: int, db: Session) -> dict:
     return response
 
 
-def get_backup_download_zip(backup_id: int, db: Session) -> Path:
+def get_backup_download_zip(backup_id: int, db: Session, file_ids: Optional[List[int]] = None) -> Path:
     backup = get_backup_or_404(backup_id, db)
-    backup_files = (
+    query = (
         db.query(models.BackupFile)
         .filter(models.BackupFile.backup_id == backup.backup_id)
-        .order_by(models.BackupFile.backup_file_id)
-        .all()
     )
+    if file_ids:
+        query = query.filter(models.BackupFile.backup_file_id.in_(file_ids))
+    backup_files = query.order_by(models.BackupFile.backup_file_id).all()
 
     if not backup_files:
         raise api_exception(
             status.HTTP_404_NOT_FOUND,
             "BACKUP_FILES_NOT_FOUND",
-            "Backup files not found",
+            "Selected backup files not found",
         )
 
     zip_file = _existing_zip_file(backup_files)
-    if zip_file:
+    if zip_file and not file_ids:
         return zip_file
 
-    return _make_download_zip(backup, backup_files)
+    return _make_download_zip(backup, backup_files, selected=bool(file_ids))
 
 
 def delete_backup(backup_id: int, db: Session) -> schemas.BackupDeleteResponse:
@@ -806,6 +809,7 @@ def _run_auto_backup_for_device(
 ) -> dict:
     latest_backup = _latest_auto_backup_for_device(db, device.device_id)
     path_checks = []
+    missing_path_items = []
 
     for remote_path in remote_paths:
         try:
@@ -816,6 +820,19 @@ def _run_auto_backup_for_device(
                 port=port,
                 remote_path=remote_path,
             )
+        except RemotePathNotFound as exc:
+            missing_path_items.append(
+                schemas.AutoBackupItemResponse(
+                    device_id=device.device_id,
+                    ip_address=device.ip_address,
+                    device_name=device.device_name,
+                    remote_path=remote_path,
+                    online=True,
+                    changed=False,
+                    message=f"Remote path not found, skipped: {exc.remote_path}",
+                )
+            )
+            continue
         except Exception as exc:
             _mark_device_status(db, device, online=False)
             ensure_pending_auto_backup_job(
@@ -844,7 +861,7 @@ def _run_auto_backup_for_device(
         changed = _remote_snapshot_changed(snapshot, latest_backup, remote_path)
         path_checks.append((remote_path, snapshot, changed))
 
-    device_items = []
+    device_items = missing_path_items
     database_dump = None
     with tempfile.TemporaryDirectory(prefix="robot-db-check-") as temp_dir:
         database_path = _configured_robot_database_path(Path(temp_dir))
@@ -870,6 +887,7 @@ def _run_auto_backup_for_device(
             if database_dump
             else False
         )
+        existing_remote_paths = [remote_path for remote_path, _, _ in path_checks]
         has_changes = any(changed for _, _, changed in path_checks) or database_changed
 
         backup_created = False
@@ -878,7 +896,7 @@ def _run_auto_backup_for_device(
                 db=db,
                 device=device,
                 created_by=data.created_by,
-                remote_paths=remote_paths,
+                remote_paths=existing_remote_paths,
                 database_dump=database_dump,
                 zip_output=data.zip_output,
             )
@@ -1283,10 +1301,14 @@ def _existing_zip_file(backup_files: List[models.BackupFile]) -> Optional[Path]:
     return None
 
 
-def _make_download_zip(backup: models.Backup, backup_files: List[models.BackupFile]) -> Path:
+def _make_download_zip(backup: models.Backup, backup_files: List[models.BackupFile], selected: bool = False) -> Path:
     base_path = Path(os.getenv("BACKUP_STORAGE_PATH", "storage/backups")) / "downloads"
     base_path.mkdir(parents=True, exist_ok=True)
-    zip_path = base_path / f"backup_{backup.backup_id}.zip"
+    if selected:
+        selected_ids = "_".join(str(file.backup_file_id) for file in backup_files)
+        zip_path = base_path / f"backup_{backup.backup_id}_selected_{selected_ids}.zip"
+    else:
+        zip_path = base_path / f"backup_{backup.backup_id}.zip"
 
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
         for backup_file in backup_files:
@@ -1416,14 +1438,7 @@ def _remove_empty_backup_dirs(directory: Path, backup_storage_root: Path) -> Non
 
 
 def _default_auto_backup_paths() -> List[str]:
-    return [
-        path
-        for path in (
-            os.getenv("ROBOT_NODE_RED_FLOW_PATH"),
-            os.getenv("ROBOT_MAPS_PATH"),
-        )
-        if path
-    ]
+    return get_default_auto_backup_paths()
 
 
 def _local_files_signature(backup_files: List[models.BackupFile]) -> str:

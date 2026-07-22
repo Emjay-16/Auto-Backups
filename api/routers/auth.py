@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from api import models, schemas
 from api.database import get_db
 from api.errors import api_exception
-from api.security import create_access_token, get_current_user, hash_password, password_needs_rehash, verify_password
+from api.security import create_access_token, hash_password, password_needs_rehash, verify_password
 
 
 router = APIRouter(
@@ -51,5 +51,12 @@ def login(login_data: schemas.LoginRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/me", response_model=schemas.UserResponse)
-def me(current_user: models.User = Depends(get_current_user)):
-    return current_user
+def me(db: Session = Depends(get_db)):
+    user = db.query(models.User).order_by(models.User.user_id).first()
+    if not user:
+        raise api_exception(
+            status.HTTP_404_NOT_FOUND,
+            "USER_NOT_FOUND",
+            "User not found",
+        )
+    return user

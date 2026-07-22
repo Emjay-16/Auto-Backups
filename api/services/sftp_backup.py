@@ -1,3 +1,4 @@
+import errno
 import hashlib
 import os
 import posixpath
@@ -9,6 +10,12 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 from api.utils.time import now_local
+
+
+class RemotePathNotFound(RuntimeError):
+    def __init__(self, remote_path: str):
+        self.remote_path = remote_path
+        super().__init__(f"Remote path not found: {remote_path}")
 
 
 @dataclass
@@ -221,7 +228,7 @@ def create_zip_archive(source_path: Path, archive_name: str) -> DownloadedFile:
 
 
 def _download_path(sftp, remote_path: str, local_path: Path, downloaded_files):
-    remote_stat = sftp.stat(remote_path)
+    remote_stat = _stat_remote_path(sftp, remote_path)
 
     if stat.S_ISDIR(remote_stat.st_mode):
         local_path.mkdir(parents=True, exist_ok=True)
@@ -247,7 +254,7 @@ def _download_path(sftp, remote_path: str, local_path: Path, downloaded_files):
 
 
 def _list_remote_path(sftp, remote_path: str) -> List[RemoteFileItem]:
-    remote_stat = sftp.stat(remote_path)
+    remote_stat = _stat_remote_path(sftp, remote_path)
     if not stat.S_ISDIR(remote_stat.st_mode):
         return [_remote_file_item(remote_path, remote_stat)]
 
@@ -279,7 +286,7 @@ def _sha256_file(path: Path) -> str:
 
 
 def _snapshot_path(sftp, remote_path: str) -> RemotePathSnapshot:
-    remote_stat = sftp.stat(remote_path)
+    remote_stat = _stat_remote_path(sftp, remote_path)
     modified_at = datetime.fromtimestamp(remote_stat.st_mtime)
 
     if not stat.S_ISDIR(remote_stat.st_mode):
@@ -331,6 +338,15 @@ def _sha256_remote_file(sftp, remote_path: str) -> str:
         for chunk in iter(lambda: remote_file.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _stat_remote_path(sftp, remote_path: str):
+    try:
+        return sftp.stat(remote_path)
+    except OSError as exc:
+        if getattr(exc, "errno", None) == errno.ENOENT or "No such file" in str(exc):
+            raise RemotePathNotFound(remote_path) from exc
+        raise
 
 
 def _ensure_remote_directory(sftp, remote_path: str) -> None:

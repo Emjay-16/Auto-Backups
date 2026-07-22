@@ -85,28 +85,27 @@ export function AppShell({ children }: { children: ReactNode }) {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
     const startId = window.setTimeout(() => {
       const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => controller.abort(), 1500);
+      const timeoutId = window.setTimeout(() => controller.abort(), 20000);
 
-      fetch(`${apiUrl}/devices/`, {
+      fetch(`${apiUrl}/devices/?refresh_status=true`, {
         cache: "no-store",
-        headers: {
-          Authorization: `Bearer ${session.accessToken}`,
-        },
         signal: controller.signal,
       })
         .then((response) => {
           if (!response.ok) throw new Error("Failed to load devices");
           return response.json() as Promise<{ device_status: number }[]>;
         })
+        .catch(() => fetch(`${apiUrl}/devices/`, { cache: "no-store" }).then((response) => {
+          if (!response.ok) throw new Error("Failed to load devices");
+          return response.json() as Promise<{ device_status: number }[]>;
+        }))
         .then((devices) => {
           setDeviceCount({
             online: devices.filter((device) => device.device_status === 1).length,
             total: devices.length,
           });
         })
-        .catch(() => {
-          setDeviceCount({ online: 0, total: 0 });
-        })
+        .catch(() => undefined)
         .finally(() => window.clearTimeout(timeoutId));
     }, 1000);
 
@@ -118,8 +117,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!session) return;
     const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-    const accessToken = session.accessToken;
-
     function loadActiveJobs() {
       const controller = new AbortController();
       const timeoutId = window.setTimeout(() => controller.abort(), 1500);
@@ -127,16 +124,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       Promise.all([
         fetch(`${apiUrl}/jobs/?job_status=0&limit=100`, {
           cache: "no-store",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
           signal: controller.signal,
         }).then((response) => (response.ok ? response.json() as Promise<unknown[]> : [])),
         fetch(`${apiUrl}/jobs/?job_status=4&limit=100`, {
           cache: "no-store",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
           signal: controller.signal,
         }).then((response) => (response.ok ? response.json() as Promise<unknown[]> : [])),
       ])

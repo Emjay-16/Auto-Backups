@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 from api.database import get_db
 from api.errors import api_exception
 from api.models import DeviceGroup
-from api.security import get_current_user, require_admin
 from api.schemas import DeviceGroupCreate, DeviceGroupResponse
 
 
@@ -19,7 +18,6 @@ router = APIRouter(
 @router.get("/", response_model=List[DeviceGroupResponse])
 def get_device_groups(
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
 ):
     groups = db.query(DeviceGroup).order_by(DeviceGroup.group_id).all()
     return groups
@@ -29,7 +27,6 @@ def get_device_groups(
 def get_device_group(
     group_id: int,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
 ):
     group = (
         db.query(DeviceGroup)
@@ -51,7 +48,6 @@ def get_device_group(
 def create_device_group(
     data: DeviceGroupCreate,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
 ):
     existing_group = (
         db.query(DeviceGroup)
@@ -79,7 +75,6 @@ def create_device_group(
 def delete_device_group(
     group_id: int,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
 ):
     group = (
         db.query(DeviceGroup)

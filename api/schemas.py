@@ -102,6 +102,16 @@ class RemoteFileResponse(BaseModel):
     modified_at: Optional[datetime] = None
 
 
+class RemotePathCheckResponse(BaseModel):
+    device_id: int
+    device_name: str
+    ip_address: str
+    path: str
+    exists: bool
+    file_count: int = 0
+    message: str
+
+
 class BackupTargetResponse(BaseModel):
     key: str
     label: str
@@ -109,6 +119,16 @@ class BackupTargetResponse(BaseModel):
     target_type: str
     browsable: bool = False
     backup_api: str = "file"
+    removable: bool = False
+
+
+class CustomBackupPathRequest(BaseModel):
+    path: str
+
+
+class CustomBackupPathResponse(BaseModel):
+    path: str
+    message: str
 
 
 class DeviceSeedResponse(BaseModel):

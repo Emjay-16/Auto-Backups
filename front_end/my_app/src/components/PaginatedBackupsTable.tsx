@@ -11,12 +11,10 @@ const PAGE_SIZE = 10;
 export function PaginatedBackupsTable({
   backups,
   onDelete,
-  onDownload,
   onOpen,
 }: {
   backups: Backup[];
   onDelete?: (backup: Backup) => void;
-  onDownload?: (backup: Backup) => void;
   onOpen?: (backup: Backup) => void;
 }) {
   const [page, setPage] = useState(0);
@@ -60,8 +58,7 @@ export function PaginatedBackupsTable({
               <td>{backup.createdAt}</td>
               <td className={styles.actionsCell}>
                 <div className={styles.actions}>
-                  <button disabled={!backup.id} onClick={() => onOpen?.(backup)} title="Open">▤</button>
-                  <button disabled={!backup.id} onClick={() => onDownload?.(backup)} title="Download">⇩</button>
+                  <button disabled={!backup.id} onClick={() => onOpen?.(backup)} title="Details and download">▤</button>
                   <button disabled={!backup.id} onClick={() => onDelete?.(backup)} title="Delete">×</button>
                 </div>
               </td>

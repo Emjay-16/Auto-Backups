@@ -10,7 +10,6 @@ from sqlalchemy.orm import Session
 from api import constants, models, schemas
 from api.database import get_db
 from api.errors import api_exception
-from api.security import require_admin
 from api.services.activity_log import log_activity
 from api.services.device_resolver import resolve_user
 from api.services.robot_database import restore_mysql_table_from_json, restore_mysql_table_via_ssh
@@ -29,7 +28,6 @@ def restore_backup(
     backup_id: int,
     data: schemas.RestoreRunRequest,
     db: Session = Depends(get_db),
-    _admin=Depends(require_admin),
 ):
     backup = _get_backup_or_404(backup_id, db)
     device = backup.device

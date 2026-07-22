@@ -7,10 +7,8 @@ import {
   type Job,
   type JobStatus,
 } from "./types";
-import { cache } from "react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-let clientAccessTokenCache: string | null = null;
 
 type ApiDevice = {
   device_id: number;
@@ -60,6 +58,12 @@ export type BackupTarget = {
   target_type: "file" | "directory" | "database" | string;
   browsable: boolean;
   backup_api: "file" | "robot_db" | string;
+  removable?: boolean;
+};
+
+export type CustomBackupPathResult = {
+  path: string;
+  message: string;
 };
 
 export type BackupRunPayload = {
@@ -226,11 +230,11 @@ export type LoginPayload = {
 };
 
 export function clearClientAccessTokenCache(): void {
-  clientAccessTokenCache = null;
+  return;
 }
 
 export function setClientAccessTokenCache(token: string | null): void {
-  clientAccessTokenCache = token;
+  void token;
 }
 
 type ApiErrorResponse = {
@@ -257,7 +261,7 @@ async function getJson<T>(path: string, timeoutMs = 1500): Promise<T> {
 
 export async function getDevicesForUi(): Promise<Device[]> {
   const [apiDevices, pendingJobs] = await Promise.all([
-    getJson<ApiDevice[]>("/devices/"),
+    getJson<ApiDevice[]>("/devices/?refresh_status=true", 20000),
     getJson<ApiJob[]>("/jobs/?job_status=4").catch(() => []),
   ]);
   const pendingDeviceIds = new Set(
@@ -323,6 +327,47 @@ export async function getBackupTargets(): Promise<BackupTarget[]> {
   return getJson<BackupTarget[]>("/devices/backup-targets", 5000);
 }
 
+export async function saveCustomBackupPath(path: string): Promise<CustomBackupPathResult> {
+  const primary = await postCustomBackupPath("/backups/auto-paths", path);
+  if (primary.ok) return primary.data;
+
+  if (primary.status === 404) {
+    const fallback = await postCustomBackupPath("/devices/backup-targets/custom", path);
+    if (fallback.ok) return fallback.data;
+    if (fallback.status !== 404) throw new Error(fallback.message);
+  }
+
+  if (primary.status === 404) {
+    throw new Error("Auto backup path endpoint not found. Please confirm FastAPI is running from the latest backend code.");
+  }
+
+  throw new Error(primary.message);
+}
+
+export async function deleteCustomBackupPath(path: string): Promise<CustomBackupPathResult> {
+  const response = await fetch(`${API_URL}/backups/auto-paths?path=${encodeURIComponent(path)}`, {
+    method: "DELETE",
+    headers: await authHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, `API /backups/auto-paths failed: ${response.status}`));
+  }
+
+  return response.json() as Promise<CustomBackupPathResult>;
+}
+
+export function backupTargetLabelFromPath(path: string): string {
+  const normalizedPath = path.replace(/\/+$/, "");
+  return normalizedPath.split("/").filter(Boolean).at(-1) ?? normalizedPath;
+}
+
+export function backupTargetTypeFromPath(path: string): "file" | "directory" {
+  if (path.endsWith("/")) return "directory";
+  const name = backupTargetLabelFromPath(path);
+  return name.includes(".") ? "file" : "directory";
+}
+
 export async function listDeviceFiles(deviceId: number, path?: string): Promise<RemoteFile[]> {
   const params = path?.trim() ? `?path=${encodeURIComponent(path.trim())}` : "";
   return getJson<RemoteFile[]>(`/devices/${deviceId}/files${params}`, 30000);
@@ -363,8 +408,9 @@ export async function deleteBackup(backupId: number): Promise<void> {
   }
 }
 
-export function backupDownloadUrl(backupId: number): string {
-  return `${API_URL}/backups/${backupId}/download`;
+export function backupDownloadUrl(backupId: number, fileIds: number[] = []): string {
+  const params = fileIds.map((fileId) => `file_ids=${encodeURIComponent(fileId)}`).join("&");
+  return `${API_URL}/backups/${backupId}/download${params ? `?${params}` : ""}`;
 }
 
 export async function restoreBackup(backupId: number, payload: RestoreRunPayload): Promise<RestoreRunResult> {
@@ -413,28 +459,36 @@ async function sendJson<T = void>(path: string, method: "POST" | "PUT", payload:
   return response.json() as Promise<T>;
 }
 
-async function authHeaders(): Promise<HeadersInit> {
-  const token = await getSessionAccessToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
+async function postCustomBackupPath(path: string, remotePath: string): Promise<
+  | { ok: true; data: CustomBackupPathResult }
+  | { ok: false; status: number; message: string }
+> {
+  const response = await fetch(`${API_URL}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(await authHeaders()),
+    },
+    body: JSON.stringify({ path: remotePath }),
+  });
 
-async function getSessionAccessToken(): Promise<string | null> {
-  if (typeof window !== "undefined") {
-    if (clientAccessTokenCache) return clientAccessTokenCache;
-    const { getSession } = await import("next-auth/react");
-    const session = await getSession();
-    clientAccessTokenCache = session?.accessToken ?? null;
-    return clientAccessTokenCache;
+  if (response.ok) {
+    return {
+      ok: true,
+      data: await response.json() as CustomBackupPathResult,
+    };
   }
 
-  return getServerAccessToken();
+  return {
+    ok: false,
+    status: response.status,
+    message: await readApiError(response, `API ${path} failed: ${response.status}`),
+  };
 }
 
-const getServerAccessToken = cache(async () => {
-  const { auth } = await import("@/auth");
-  const session = await auth();
-  return session?.accessToken ?? null;
-});
+async function authHeaders(): Promise<HeadersInit> {
+  return {};
+}
 
 async function readApiError(response: Response, fallback: string): Promise<string> {
   const contentType = response.headers.get("content-type") ?? "";
@@ -443,7 +497,8 @@ async function readApiError(response: Response, fallback: string): Promise<strin
       const data = await response.json() as ApiErrorResponse;
       const message = data.message || (typeof data.detail === "string" ? data.detail : "");
       const code = data.error_code ? `[${data.error_code}] ` : "";
-      return message ? `${code}${message}` : fallback;
+      const detail = formatApiErrorDetail(data.detail);
+      return message ? `${code}${message}${detail}` : fallback;
     } catch {
       return fallback;
     }
@@ -451,6 +506,19 @@ async function readApiError(response: Response, fallback: string): Promise<strin
 
   const text = await response.text();
   return text || fallback;
+}
+
+function formatApiErrorDetail(detail: unknown): string {
+  if (!detail || typeof detail !== "object" || Array.isArray(detail)) return "";
+
+  const data = detail as Record<string, unknown>;
+  const parts = [
+    typeof data.device_name === "string" ? data.device_name : "",
+    typeof data.ip_address === "string" ? data.ip_address : "",
+    typeof data.remote_path === "string" ? data.remote_path : "",
+  ].filter(Boolean);
+
+  return parts.length ? ` (${parts.join(" · ")})` : "";
 }
 
 function mapDevice(device: ApiDevice, pendingDeviceIds: Set<number>): Device {

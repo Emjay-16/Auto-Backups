@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 from api.database import get_db
 from api.errors import api_exception
 from api.models import ActivityLog
-from api.security import get_current_user
 from api.schemas import ActivityLogResponse
 
 
@@ -25,7 +24,6 @@ def get_activity_logs(
     activity_status: Optional[int] = None,
     limit: int = 100,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
 ):
     limit = max(1, min(limit, 500))
     query = db.query(ActivityLog)
@@ -52,7 +50,6 @@ def get_activity_logs(
 def get_activity_log(
     log_id: int,
     db: Session = Depends(get_db),
-    _current_user=Depends(get_current_user),
 ):
     log = (
         db.query(ActivityLog)

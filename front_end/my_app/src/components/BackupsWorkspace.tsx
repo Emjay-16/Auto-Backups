@@ -5,10 +5,12 @@ import { useEffect, useState } from "react";
 import {
   backupDownloadUrl,
   cleanupBackups,
+  deleteCustomBackupPath,
   getAutoCleanupSettings,
   getBackupDetail,
   listDeviceFiles,
   runCombinedBackup,
+  saveCustomBackupPath,
   type AutoCleanupSettings,
   type BackupDetail,
   type BackupCleanupResult,
@@ -40,12 +42,14 @@ export function BackupsWorkspace({
   const [mode, setMode] = useState<ModalMode>(null);
   const [deviceId, setDeviceId] = useState(String(usableDevices[0]?.id ?? ""));
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
+  const [customPath, setCustomPath] = useState("");
   const [includeDatabase, setIncludeDatabase] = useState(false);
   const [zipOutput, setZipOutput] = useState(false);
   const [browsePath, setBrowsePath] = useState(targets.find((target) => target.browsable)?.path ?? targets[0]?.path ?? "");
   const [remoteFiles, setRemoteFiles] = useState<RemoteFile[]>([]);
   const [openedPath, setOpenedPath] = useState("");
   const [backupDetail, setBackupDetail] = useState<BackupDetail | null>(null);
+  const [selectedDownloadFileIds, setSelectedDownloadFileIds] = useState<number[]>([]);
   const [cleanupDays, setCleanupDays] = useState("90");
   const [cleanupDryRun, setCleanupDryRun] = useState(true);
   const [cleanupKeepLatest, setCleanupKeepLatest] = useState(true);
@@ -54,6 +58,7 @@ export function BackupsWorkspace({
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [pendingDeleteBackup, setPendingDeleteBackup] = useState<Backup | null>(null);
+  const [pendingDeletePath, setPendingDeletePath] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -81,6 +86,7 @@ export function BackupsWorkspace({
 
   function openBackupModal(databaseOnly = false) {
     setSelectedPaths([]);
+    setCustomPath("");
     setIncludeDatabase(databaseOnly);
     setZipOutput(false);
     setRemoteFiles([]);
@@ -176,12 +182,14 @@ export function BackupsWorkspace({
     if (!backup.id) return;
     setMode("detail");
     setBackupDetail(null);
+    setSelectedDownloadFileIds([]);
     setResult(null);
     setError("");
     setSaving(true);
     try {
       const detail = await getBackupDetail(backup.id);
       setBackupDetail(detail);
+      setSelectedDownloadFileIds(detail.files.map((file) => file.backup_file_id));
     } catch (errorResponse) {
       showToast({ tone: "error", title: "Load backup detail failed", message: getErrorMessage(errorResponse, "Load backup detail failed") });
     } finally {
@@ -231,8 +239,9 @@ export function BackupsWorkspace({
       setPendingDeleteBackup(null);
       showToast({ tone: "success", title: "Backup deleted", message: backup.name });
       if (backupDetail?.backup_id === backup.id) {
-        setBackupDetail(null);
-        closeModal();
+      setBackupDetail(null);
+      setSelectedDownloadFileIds([]);
+      closeModal();
       }
       router.refresh();
     } catch (errorResponse) {
@@ -271,6 +280,90 @@ export function BackupsWorkspace({
     });
   }
 
+  async function addCustomPath() {
+    const path = customPath.trim();
+    if (!path) return;
+    if (!path.startsWith("/")) {
+      setError("Custom backup path must start with /");
+      return;
+    }
+    try {
+      const savedPath = await saveCustomBackupPath(path);
+      setSelectedPaths((current) => uniquePaths([...current, savedPath.path]));
+      setCustomPath("");
+      setError("");
+      showToast({
+        tone: "success",
+        title: "Auto backup path added",
+        message: savedPath.path,
+      });
+      router.refresh();
+    } catch (errorResponse) {
+      showToast({
+        tone: "error",
+        title: "Save auto backup path failed",
+        message: getErrorMessage(errorResponse, "Save auto backup path failed"),
+      });
+    }
+  }
+
+  function requestDeleteCustomPath(path: string) {
+    setPendingDeletePath(path);
+    setError("");
+  }
+
+  function toggleDownloadFile(fileId: number) {
+    setSelectedDownloadFileIds((current) => (
+      current.includes(fileId)
+        ? current.filter((selectedId) => selectedId !== fileId)
+        : [...current, fileId]
+    ));
+  }
+
+  function toggleAllDownloadFiles() {
+    if (!backupDetail) return;
+    const allFileIds = backupDetail.files.map((file) => file.backup_file_id);
+    setSelectedDownloadFileIds((current) => (
+      current.length === allFileIds.length ? [] : allFileIds
+    ));
+  }
+
+  function downloadSelectedFiles() {
+    if (!backupDetail) return;
+    if (!selectedDownloadFileIds.length) {
+      setError("Please select at least one file to download.");
+      return;
+    }
+    window.open(backupDownloadUrl(backupDetail.backup_id, selectedDownloadFileIds), "_blank");
+  }
+
+  async function confirmDeleteCustomPath() {
+    const path = pendingDeletePath;
+    if (!path) return;
+
+    setSaving(true);
+    setError("");
+    try {
+      await deleteCustomBackupPath(path);
+      setPendingDeletePath(null);
+      setSelectedPaths((current) => current.filter((selectedPath) => selectedPath !== path));
+      showToast({
+        tone: "success",
+        title: "Auto backup path removed",
+        message: path,
+      });
+      router.refresh();
+    } catch (errorResponse) {
+      showToast({
+        tone: "error",
+        title: "Delete auto backup path failed",
+        message: getErrorMessage(errorResponse, "Delete auto backup path failed"),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className={styles.page}>
       <section className={styles.toolbar}>
@@ -288,15 +381,27 @@ export function BackupsWorkspace({
         <PaginatedBackupsTable
           backups={backups}
           onDelete={requestDeleteBackup}
-          onDownload={(backup) => backup.id && window.open(backupDownloadUrl(backup.id), "_blank")}
           onOpen={openBackupDetail}
         />
       </Panel>
 
       <section className={styles.cards}>
-        <Panel title="Selected Paths">
+        <Panel title="Backup Paths">
           <div className={styles.pathList}>
-            {targets.map((target) => <p key={target.key}>{target.label}: {target.path}</p>)}
+            {targets.length ? (
+              targets.map((target) => (
+                <div className={styles.pathItem} key={target.key}>
+                  <p>{target.label}: {target.path}</p>
+                  {target.removable ? (
+                    <button onClick={() => requestDeleteCustomPath(target.path)} type="button">
+                      Delete
+                    </button>
+                  ) : null}
+                </div>
+              ))
+            ) : (
+              <p>No auto backup paths configured yet. Add a custom path from New backup.</p>
+            )}
           </div>
         </Panel>
         <Panel title="Auto Backup Rule">
@@ -341,9 +446,28 @@ export function BackupsWorkspace({
                       <strong>{backupDetail.backup_name}</strong>
                       <span>{backupDetail.device_name ?? `Device #${backupDetail.device_id}`} · {backupDetail.total_file} file(s) · {Number(backupDetail.total_size_mb).toFixed(2)} MB</span>
                     </div>
+                    <div className={styles.fileToolbar}>
+                      <button onClick={toggleAllDownloadFiles} type="button">
+                        {selectedDownloadFileIds.length === backupDetail.files.length ? "Clear selection" : "Select all"}
+                      </button>
+                      <span>
+                        {selectedDownloadFileIds.length} / {backupDetail.files.length} selected for zip
+                      </span>
+                    </div>
                     <div className={styles.fileList}>
                       {backupDetail.files.map((file) => (
-                        <button key={file.backup_file_id}>
+                        <button
+                          className={selectedDownloadFileIds.includes(file.backup_file_id) ? styles.selectedFile : ""}
+                          key={file.backup_file_id}
+                          onClick={() => toggleDownloadFile(file.backup_file_id)}
+                          type="button"
+                        >
+                          <input
+                            checked={selectedDownloadFileIds.includes(file.backup_file_id)}
+                            onChange={() => toggleDownloadFile(file.backup_file_id)}
+                            onClick={(event) => event.stopPropagation()}
+                            type="checkbox"
+                          />
                           <span>{file.file_name}</span>
                           <b>{Number(file.file_size_mb).toFixed(2)} MB</b>
                         </button>
@@ -434,6 +558,33 @@ export function BackupsWorkspace({
                         </label>
                       ))}
                     </div>
+                    <div className={styles.customPathRow}>
+                      <label>
+                        Add custom path
+                        <input
+                          value={customPath}
+                          onChange={(event) => setCustomPath(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter") {
+                              event.preventDefault();
+                              void addCustomPath();
+                            }
+                          }}
+                          placeholder="/home/matrix/path/to/file-or-folder"
+                        />
+                      </label>
+                      <button onClick={() => void addCustomPath()} type="button">Add path</button>
+                    </div>
+                    {selectedPaths.length ? (
+                      <div className={styles.selectedPathList}>
+                        {selectedPaths.map((path) => (
+                          <button key={path} onClick={() => togglePath(path)} type="button">
+                            <span>{path}</span>
+                            <b>×</b>
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
                     {openedPath ? (
                       <div className={styles.browser}>
                         <div className={styles.browserHeader}>
@@ -484,6 +635,11 @@ export function BackupsWorkspace({
             <div className={styles.modalActions}>
               <button onClick={closeModal}>Close</button>
               {mode === "detail" && backupDetail ? (
+                <button onClick={downloadSelectedFiles} disabled={saving || !selectedDownloadFileIds.length}>
+                  Download selected zip
+                </button>
+              ) : null}
+              {mode === "detail" && backupDetail ? (
                 <button
                   className={styles.dangerButton}
                   onClick={() => requestDeleteBackup({
@@ -526,6 +682,30 @@ export function BackupsWorkspace({
               <button onClick={() => setPendingDeleteBackup(null)} disabled={saving}>Cancel</button>
               <button onClick={confirmDeleteBackup} disabled={saving}>
                 {saving ? "Deleting..." : "Delete backup"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {pendingDeletePath ? (
+        <div className={styles.confirmOverlay} role="dialog" aria-modal="true" aria-labelledby="delete-path-title">
+          <button className={styles.confirmBackdrop} onClick={() => !saving && setPendingDeletePath(null)} aria-label="Cancel delete" />
+          <section className={styles.confirmDialog}>
+            <div className={styles.confirmIcon}>!</div>
+            <div className={styles.confirmContent}>
+              <h2 id="delete-path-title">ยืนยันการลบ path</h2>
+              <p>
+                คุณต้องการลบ auto backup path นี้ใช่หรือไม่?
+                path นี้จะไม่ถูกนำไปใช้ใน auto backup รอบถัดไป
+              </p>
+              <code>{pendingDeletePath}</code>
+            </div>
+            {error ? <p className={styles.formError}>{error}</p> : null}
+            <div className={styles.confirmActions}>
+              <button onClick={() => setPendingDeletePath(null)} disabled={saving}>Cancel</button>
+              <button onClick={() => void confirmDeleteCustomPath()} disabled={saving}>
+                {saving ? "Deleting..." : "Delete path"}
               </button>
             </div>
           </section>
