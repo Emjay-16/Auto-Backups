@@ -61,11 +61,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [showNotifications, setShowNotifications] = useState(false);
   useEffect(() => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-    const startId = window.setTimeout(() => {
-      const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => controller.abort(), 20000);
 
-      fetch(`${apiUrl}/devices/?refresh_status=true`, {
+    function loadDeviceCount(path: string, timeoutMs: number) {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+      return fetch(`${apiUrl}${path}`, {
         cache: "no-store",
         signal: controller.signal,
       })
@@ -85,6 +86,11 @@ export function AppShell({ children }: { children: ReactNode }) {
         })
         .catch(() => undefined)
         .finally(() => window.clearTimeout(timeoutId));
+    }
+
+    void loadDeviceCount("/devices/", 5000);
+    const startId = window.setTimeout(() => {
+      void loadDeviceCount("/devices/?refresh_status=true", 20000);
     }, 1000);
 
     return () => {
@@ -98,18 +104,13 @@ export function AppShell({ children }: { children: ReactNode }) {
       const controller = new AbortController();
       const timeoutId = window.setTimeout(() => controller.abort(), 1500);
 
-      Promise.all([
-        fetch(`${apiUrl}/jobs/?job_status=0&limit=100`, {
-          cache: "no-store",
-          signal: controller.signal,
-        }).then((response) => (response.ok ? response.json() as Promise<unknown[]> : [])),
-        fetch(`${apiUrl}/jobs/?job_status=4&limit=100`, {
-          cache: "no-store",
-          signal: controller.signal,
-        }).then((response) => (response.ok ? response.json() as Promise<unknown[]> : [])),
-      ])
-        .then(([runningJobs, pendingJobs]) => {
-          setActiveJobCount(runningJobs.length + pendingJobs.length);
+      fetch(`${apiUrl}/jobs/?limit=100`, {
+        cache: "no-store",
+        signal: controller.signal,
+      })
+        .then((response) => (response.ok ? response.json() as Promise<{ job_status: number }[]> : []))
+        .then((jobs) => {
+          setActiveJobCount(jobs.filter((job) => job.job_status === 0 || job.job_status === 4).length);
         })
         .catch(() => {
           setActiveJobCount(0);
@@ -200,7 +201,6 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className={styles.brandMark}>AB</div>
           <div>
             <strong>Auto Backup</strong>
-            <span>Robot fleet manager</span>
           </div>
         </div>
 

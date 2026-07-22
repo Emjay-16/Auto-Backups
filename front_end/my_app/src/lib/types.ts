@@ -35,8 +35,13 @@ export type Job = {
 };
 
 export type Activity = {
+  id: number;
   kind: ActivityKind;
   text: string;
   meta: string;
   time: string;
+  action: string;
+  status: string;
+  device: string;
+  backup: string;
 };

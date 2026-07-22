@@ -253,7 +253,7 @@ async function getJson<T>(path: string, timeoutMs = 1500): Promise<T> {
 
 export async function getDevicesForUi(): Promise<Device[]> {
   const [apiDevices, pendingJobs] = await Promise.all([
-    getJson<ApiDevice[]>("/devices/?refresh_status=true", 20000),
+    getJson<ApiDevice[]>("/devices/", 5000),
     getJson<ApiJob[]>("/jobs/?job_status=4").catch(() => []),
   ]);
   const pendingDeviceIds = new Set(
@@ -285,11 +285,12 @@ export async function getActivitiesForUi(): Promise<Activity[]> {
 }
 
 export async function getNotificationsForUi(): Promise<NotificationItem[]> {
-  const [failedJobs, pendingJobs, activities] = await Promise.all([
-    getJson<ApiJob[]>("/jobs/?job_status=2&limit=5").catch(() => []),
-    getJson<ApiJob[]>("/jobs/?job_status=4&limit=5").catch(() => []),
+  const [jobs, activities] = await Promise.all([
+    getJson<ApiJob[]>("/jobs/?limit=20").catch(() => []),
     getJson<ApiActivity[]>("/logs/?limit=8").catch(() => []),
   ]);
+  const failedJobs = jobs.filter((job) => job.job_status === 2).slice(0, 5);
+  const pendingJobs = jobs.filter((job) => job.job_status === 4).slice(0, 5);
 
   return [
     ...failedJobs.map((job) => mapJobNotification(job, "fail")),
@@ -590,10 +591,15 @@ function mapJobProgress(jobStatus: number): number {
 
 function mapActivity(activity: ApiActivity): Activity {
   return {
+    id: activity.log_id,
     kind: mapActivityKind(activity.activity_status),
     text: activity.action,
     meta: activity.activity_message ?? `Device #${activity.device_id}`,
     time: formatTime(activity.created_at),
+    action: activity.action,
+    status: mapActivityStatusLabel(activity.activity_status),
+    device: `Device #${activity.device_id}`,
+    backup: activity.backup_id ? `Backup #${activity.backup_id}` : "-",
   };
 }
 
@@ -602,6 +608,13 @@ function mapActivityKind(activityStatus: number): ActivityKind {
   if (activityStatus === 2) return "fail";
   if (activityStatus === 0) return "run";
   return "wait";
+}
+
+function mapActivityStatusLabel(activityStatus: number): string {
+  if (activityStatus === 1) return "Success";
+  if (activityStatus === 2) return "Failed";
+  if (activityStatus === 0) return "Running";
+  return "Pending";
 }
 
 function mapJobNotification(job: ApiJob, tone: NotificationItem["tone"]): NotificationItem & { sortTime: number } {

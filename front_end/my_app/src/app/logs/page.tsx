@@ -14,9 +14,30 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
   const filteredActivities = activities.filter((activity) =>
     matchesQuery(query, [activity.kind, activity.text, activity.meta, activity.time]),
   );
+  const successCount = filteredActivities.filter((activity) => activity.kind === "ok").length;
+  const failedCount = filteredActivities.filter((activity) => activity.kind === "fail").length;
+  const runningCount = filteredActivities.filter((activity) => activity.kind === "run" || activity.kind === "wait").length;
 
   return (
     <div className={styles.page}>
+      <section className={styles.summaryGrid}>
+        <article>
+          <span>Total logs</span>
+          <strong>{filteredActivities.length}</strong>
+        </article>
+        <article className={styles.success}>
+          <span>Success</span>
+          <strong>{successCount}</strong>
+        </article>
+        <article className={styles.failed}>
+          <span>Failed</span>
+          <strong>{failedCount}</strong>
+        </article>
+        <article className={styles.running}>
+          <span>Running / Pending</span>
+          <strong>{runningCount}</strong>
+        </article>
+      </section>
       <Panel title="Activity Timeline">
         <PaginatedLogsList activities={filteredActivities} />
       </Panel>
