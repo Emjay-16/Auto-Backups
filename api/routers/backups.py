@@ -22,6 +22,7 @@ from api.services.backup_service import (
     run_combined_backup,
     run_file_backup,
     run_robot_database_backup,
+    safe_download_filename,
 )
 
 
@@ -151,12 +152,13 @@ def get_backup(
 def download_backup(
     backup_id: int,
     file_ids: Optional[List[int]] = Query(None),
+    filename: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     zip_file = get_backup_download_zip(backup_id, db, file_ids)
     return FileResponse(
         path=str(zip_file),
-        filename=zip_file.name,
+        filename=safe_download_filename(filename, zip_file.name),
         media_type="application/zip",
     )
 

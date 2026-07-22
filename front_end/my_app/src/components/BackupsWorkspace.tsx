@@ -50,6 +50,8 @@ export function BackupsWorkspace({
   const [openedPath, setOpenedPath] = useState("");
   const [backupDetail, setBackupDetail] = useState<BackupDetail | null>(null);
   const [selectedDownloadFileIds, setSelectedDownloadFileIds] = useState<number[]>([]);
+  const [downloadFilename, setDownloadFilename] = useState("");
+  const [pendingDownloadConfirm, setPendingDownloadConfirm] = useState(false);
   const [cleanupDays, setCleanupDays] = useState("90");
   const [cleanupDryRun, setCleanupDryRun] = useState(true);
   const [cleanupKeepLatest, setCleanupKeepLatest] = useState(true);
@@ -183,6 +185,7 @@ export function BackupsWorkspace({
     setMode("detail");
     setBackupDetail(null);
     setSelectedDownloadFileIds([]);
+    setDownloadFilename("");
     setResult(null);
     setError("");
     setSaving(true);
@@ -190,6 +193,7 @@ export function BackupsWorkspace({
       const detail = await getBackupDetail(backup.id);
       setBackupDetail(detail);
       setSelectedDownloadFileIds(detail.files.map((file) => file.backup_file_id));
+      setDownloadFilename(`${detail.backup_name}.zip`);
     } catch (errorResponse) {
       showToast({ tone: "error", title: "Load backup detail failed", message: getErrorMessage(errorResponse, "Load backup detail failed") });
     } finally {
@@ -241,6 +245,7 @@ export function BackupsWorkspace({
       if (backupDetail?.backup_id === backup.id) {
       setBackupDetail(null);
       setSelectedDownloadFileIds([]);
+      setPendingDownloadConfirm(false);
       closeModal();
       }
       router.refresh();
@@ -334,7 +339,32 @@ export function BackupsWorkspace({
       setError("Please select at least one file to download.");
       return;
     }
-    window.open(backupDownloadUrl(backupDetail.backup_id, selectedDownloadFileIds), "_blank");
+    setPendingDownloadConfirm(true);
+  }
+
+  async function confirmDownloadSelectedFiles() {
+    if (!backupDetail || !selectedDownloadFileIds.length) return;
+    setSaving(true);
+    setError("");
+    try {
+      const response = await fetch(backupDownloadUrl(backupDetail.backup_id, selectedDownloadFileIds, downloadFilename));
+      if (!response.ok) throw new Error(`Download failed: ${response.status}`);
+
+      const blob = await response.blob();
+      const objectUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = normalizeZipFilename(downloadFilename || backupDetail.backup_name);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(objectUrl);
+      setPendingDownloadConfirm(false);
+    } catch (errorResponse) {
+      setError(errorResponse instanceof Error ? errorResponse.message : "Download failed");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function confirmDeleteCustomPath() {
@@ -711,6 +741,37 @@ export function BackupsWorkspace({
           </section>
         </div>
       ) : null}
+
+      {pendingDownloadConfirm && backupDetail ? (
+        <div className={styles.confirmOverlay} role="dialog" aria-modal="true" aria-labelledby="download-zip-title">
+          <button className={styles.confirmBackdrop} onClick={() => setPendingDownloadConfirm(false)} aria-label="Cancel download" />
+          <section className={`${styles.confirmDialog} ${styles.downloadDialog}`}>
+            <div className={`${styles.confirmIcon} ${styles.downloadIcon}`}>↓</div>
+            <div className={styles.confirmContent}>
+              <h2 id="download-zip-title">ยืนยันการดาวน์โหลด</h2>
+              <p>
+                ตั้งชื่อไฟล์ zip ก่อนดาวน์โหลด {selectedDownloadFileIds.length} ไฟล์จาก {backupDetail.backup_name}
+              </p>
+              <label className={styles.downloadNameField}>
+                Zip file name
+                <input
+                  autoFocus
+                  value={downloadFilename}
+                  onChange={(event) => setDownloadFilename(event.target.value)}
+                  placeholder={`${backupDetail.backup_name}.zip`}
+                />
+              </label>
+            </div>
+            {error ? <p className={styles.formError}>{error}</p> : null}
+            <div className={`${styles.confirmActions} ${styles.downloadActions}`}>
+              <button onClick={() => setPendingDownloadConfirm(false)} disabled={saving}>Cancel</button>
+              <button onClick={() => void confirmDownloadSelectedFiles()} disabled={saving}>
+                {saving ? "Downloading..." : "Download zip"}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -742,6 +803,13 @@ function formatBytes(value?: number | null): string {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function normalizeZipFilename(filename: string): string {
+  const safeName = filename.trim().replace(/[/:*?"<>|\\\x00-\x1f]+/g, "_").replace(/^[ ._-]+|[ ._-]+$/g, "");
+  const fallback = "backup";
+  const name = safeName || fallback;
+  return name.toLowerCase().endsWith(".zip") ? name : `${name}.zip`;
 }
 
 function findParentFolder(path: string, selectedPaths: string[], targets: BackupTarget[]): string | null {

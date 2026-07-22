@@ -82,6 +82,14 @@ def get_backup_download_zip(backup_id: int, db: Session, file_ids: Optional[List
     return _make_download_zip(backup, backup_files, selected=bool(file_ids))
 
 
+def safe_download_filename(filename: Optional[str], fallback: str) -> str:
+    raw_name = (filename or fallback).strip()
+    safe_name = re.sub(r"[/\\:*?\"<>|\x00-\x1f]+", "_", raw_name).strip(" ._-")
+    if not safe_name:
+        safe_name = fallback
+    return safe_name if safe_name.lower().endswith(".zip") else f"{safe_name}.zip"
+
+
 def delete_backup(backup_id: int, db: Session) -> schemas.BackupDeleteResponse:
     backup = get_backup_or_404(backup_id, db)
 
@@ -1311,6 +1319,7 @@ def _make_download_zip(backup: models.Backup, backup_files: List[models.BackupFi
         zip_path = base_path / f"backup_{backup.backup_id}.zip"
 
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
+        used_names = set()
         for backup_file in backup_files:
             file_path = Path(backup_file.file_path)
             if not file_path.exists():
@@ -1320,9 +1329,23 @@ def _make_download_zip(backup: models.Backup, backup_files: List[models.BackupFi
                     "Backup file missing on server",
                     {"file_path": str(file_path)},
                 )
-            archive.write(file_path, arcname=f"{backup_file.backup_file_id}_{backup_file.file_name}")
+            archive.write(file_path, arcname=_unique_archive_name(backup_file.file_name, used_names))
 
     return zip_path
+
+
+def _unique_archive_name(file_name: str, used_names: set) -> str:
+    archive_name = file_name
+    stem = Path(file_name).stem
+    suffix = Path(file_name).suffix
+    index = 2
+
+    while archive_name in used_names:
+        archive_name = f"{stem} ({index}){suffix}"
+        index += 1
+
+    used_names.add(archive_name)
+    return archive_name
 
 
 def _total_size_mb(files: List[DownloadedFile]) -> Decimal:

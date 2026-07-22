@@ -401,8 +401,11 @@ export async function deleteBackup(backupId: number): Promise<void> {
   }
 }
 
-export function backupDownloadUrl(backupId: number, fileIds: number[] = []): string {
-  const params = fileIds.map((fileId) => `file_ids=${encodeURIComponent(fileId)}`).join("&");
+export function backupDownloadUrl(backupId: number, fileIds: number[] = [], filename = ""): string {
+  const params = [
+    ...fileIds.map((fileId) => `file_ids=${encodeURIComponent(fileId)}`),
+    ...(filename.trim() ? [`filename=${encodeURIComponent(filename.trim())}`] : []),
+  ].join("&");
   return `${API_URL}/backups/${backupId}/download${params ? `?${params}` : ""}`;
 }
 
