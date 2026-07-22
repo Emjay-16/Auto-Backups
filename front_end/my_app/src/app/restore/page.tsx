@@ -30,7 +30,7 @@ export default function RestorePage() {
   const [backupDetail, setBackupDetail] = useState<BackupDetail | null>(null);
   const [selectedFileIds, setSelectedFileIds] = useState<number[]>([]);
   const [targetPaths, setTargetPaths] = useState<Record<number, string>>({});
-  const [defaultTargetPath, setDefaultTargetPath] = useState("/home/matrix/node-red-dev/node-red-user/flows.json");
+  const [fallbackTargetPath, setFallbackTargetPath] = useState("");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [result, setResult] = useState<RestoreRunResult | UploadRunResult | null>(null);
   const [error, setError] = useState("");
@@ -122,7 +122,7 @@ export default function RestorePage() {
 
     const items = selectedFileIds.map((backupFileId) => ({
       backup_file_id: backupFileId,
-      target_path: targetPaths[backupFileId] || defaultTargetPath,
+      target_path: targetPaths[backupFileId] || fallbackTargetPath,
     }));
 
     setSaving(true);
@@ -153,7 +153,7 @@ export default function RestorePage() {
       setError("Please select a device from API data.");
       return;
     }
-    if (!defaultTargetPath.trim()) {
+    if (!fallbackTargetPath.trim()) {
       setError("Please enter target path.");
       return;
     }
@@ -168,7 +168,7 @@ export default function RestorePage() {
     try {
       const response = await uploadFilesToDevice({
         device_id: deviceId,
-        target_path: defaultTargetPath.trim(),
+        target_path: fallbackTargetPath.trim(),
         files: uploadFiles,
       });
       setResult(response);
@@ -258,7 +258,7 @@ export default function RestorePage() {
                 </label>
                 <label>
                   Target path
-                  <input value={defaultTargetPath} onChange={(event) => setDefaultTargetPath(event.target.value)} />
+                  <input value={fallbackTargetPath} onChange={(event) => setFallbackTargetPath(event.target.value)} placeholder="/remote/path/on/robot" />
                 </label>
                 <label className={styles.uploadField}>
                   Upload file
@@ -279,8 +279,9 @@ export default function RestorePage() {
                   </select>
                 </label>
                 <label>
-                  Default target path
-                  <input value={defaultTargetPath} onChange={(event) => setDefaultTargetPath(event.target.value)} />
+                  Fallback target path
+                  <input value={fallbackTargetPath} onChange={(event) => setFallbackTargetPath(event.target.value)} placeholder="ใช้เฉพาะไฟล์ที่ไม่มี target path แยก" />
+                  <span className={styles.hint}>ไฟล์ที่เลือกใน popup จะใช้ target path ของตัวเองก่อน ช่องนี้เป็นค่าสำรองเท่านั้น</span>
                 </label>
                 <div className={styles.filePickerSummary}>
                   <div>
@@ -317,7 +318,7 @@ export default function RestorePage() {
           <p><span className={styles.warn}>◷</span> Target robot will be reached through SSH/SFTP during restore.</p>
           <p>
             <span className={styles.warn}>!</span>
-            {restoreMode === "upload" ? "Uploaded files will be sent to the selected target path." : "Selected backup files will overwrite target paths."}
+            {restoreMode === "upload" ? "Uploaded files will be sent to the selected target path." : "Each selected file restores to its own target path from the file picker."}
           </p>
         </div>
       </Panel>
@@ -344,25 +345,32 @@ export default function RestorePage() {
 
             <div className={styles.files}>
               {backupDetail ? (
-                backupDetail.files.map((file) => (
-                  <article className={styles.fileRow} key={file.backup_file_id}>
-                    <label>
+                <>
+                  <div className={styles.fileHeader}>
+                    <span>Backup file</span>
+                    <span>Target path on robot</span>
+                  </div>
+                  {backupDetail.files.map((file) => (
+                    <article className={styles.fileRow} key={file.backup_file_id}>
+                      <label>
+                        <input
+                          checked={selectedFileIds.includes(file.backup_file_id)}
+                          onChange={() => toggleFile(file.backup_file_id)}
+                          type="checkbox"
+                        />
+                        <span>
+                          <strong>{file.file_name}</strong>
+                          <small>{Number(file.file_size_mb).toFixed(2)} MB · {file.file_type}</small>
+                        </span>
+                      </label>
                       <input
-                        checked={selectedFileIds.includes(file.backup_file_id)}
-                        onChange={() => toggleFile(file.backup_file_id)}
-                        type="checkbox"
+                        value={targetPaths[file.backup_file_id] ?? fallbackTargetPath}
+                        onChange={(event) => setTargetPaths({ ...targetPaths, [file.backup_file_id]: event.target.value })}
+                        placeholder="Target path for this file"
                       />
-                      <span>
-                        <strong>{file.file_name}</strong>
-                        <small>{Number(file.file_size_mb).toFixed(2)} MB · {file.file_type}</small>
-                      </span>
-                    </label>
-                    <input
-                      value={targetPaths[file.backup_file_id] ?? defaultTargetPath}
-                      onChange={(event) => setTargetPaths({ ...targetPaths, [file.backup_file_id]: event.target.value })}
-                    />
-                  </article>
-                ))
+                    </article>
+                  ))}
+                </>
               ) : (
                 <p className={styles.empty}>{saving ? "Loading backup files..." : "Select a backup to restore."}</p>
               )}

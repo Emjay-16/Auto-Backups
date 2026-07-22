@@ -81,6 +81,13 @@
   font-weight: 800;
 }
 
+.hint {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
 .target input,
 .target select {
   min-width: 0;
@@ -199,6 +206,18 @@
   border: 1px solid #e6edf5;
   border-radius: 10px;
   background: #fbfdff;
+}
+
+.fileHeader {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.85fr);
+  gap: 12px;
+  padding: 0 12px 2px;
+  color: var(--muted-soft);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .fileRow label {
