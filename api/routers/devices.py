@@ -3,11 +3,12 @@ import os
 import socket
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from api import constants, schemas
 from api.database import get_db
+from api.errors import api_exception
 from api.models import Device, DeviceGroup
 from api.security import get_current_user, require_admin
 from api.schemas import (
@@ -44,16 +45,18 @@ def get_device_name_by_ip(ip_address: str):
     try:
         parsed_ip = ipaddress.ip_address(ip_address)
     except ValueError:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid IP address",
+        raise api_exception(
+            400,
+            "INVALID_IP_ADDRESS",
+            "Invalid IP address",
         )
 
     device_name = map_device_name(str(parsed_ip))
     if device_name == str(parsed_ip):
-        raise HTTPException(
-            status_code=404,
-            detail="Device name cannot be mapped from this IP",
+        raise api_exception(
+            404,
+            "DEVICE_NAME_NOT_MAPPED",
+            "Device name cannot be mapped from this IP",
         )
 
     return DeviceNameResponse(device_name=device_name)
@@ -119,9 +122,10 @@ def check_device_status(
     )
 
     if not device:
-        raise HTTPException(
-            status_code=404,
-            detail="Device not found",
+        raise api_exception(
+            404,
+            "DEVICE_NOT_FOUND",
+            "Device not found",
         )
 
     online = _can_connect(device.ip_address)
@@ -152,9 +156,10 @@ def check_device_status_by_ip(ip_address: str):
     try:
         parsed_ip = ipaddress.ip_address(ip_address)
     except ValueError:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid IP address",
+        raise api_exception(
+            400,
+            "INVALID_IP_ADDRESS",
+            "Invalid IP address",
         )
 
     ip_text = str(parsed_ip)
@@ -188,16 +193,18 @@ def list_device_files(
     port = int(os.getenv("ROBOT_SSH_PORT", "22"))
 
     if not username or not password:
-        raise HTTPException(
-            status_code=500,
-            detail="ROBOT_SSH_USERNAME and ROBOT_SSH_PASSWORD are required",
+        raise api_exception(
+            500,
+            "SSH_CREDENTIALS_MISSING",
+            "ROBOT_SSH_USERNAME and ROBOT_SSH_PASSWORD are required",
         )
 
     remote_paths = [path] if path else _default_browse_paths()
     if not remote_paths:
-        raise HTTPException(
-            status_code=400,
-            detail="path is required when default browse paths are not configured",
+        raise api_exception(
+            400,
+            "REMOTE_PATH_REQUIRED",
+            "path is required when default browse paths are not configured",
         )
 
     files = []
@@ -213,17 +220,19 @@ def list_device_files(
                 )
             )
     except RuntimeError as exc:
-        raise HTTPException(
-            status_code=500,
-            detail=str(exc),
+        raise api_exception(
+            500,
+            "SFTP_OPERATION_FAILED",
+            str(exc),
         )
     except Exception as exc:
         device.device_status = constants.DEVICE_STATUS_OFFLINE
         device.updated_at = now_local()
         db.commit()
-        raise HTTPException(
-            status_code=502,
-            detail=f"SFTP list files failed: {exc}",
+        raise api_exception(
+            502,
+            "SFTP_LIST_FILES_FAILED",
+            f"SFTP list files failed: {exc}",
         )
 
     device.device_status = constants.DEVICE_STATUS_ONLINE
@@ -265,9 +274,10 @@ def create_device(
     )
 
     if not group:
-        raise HTTPException(
-            status_code=404,
-            detail="Device group not found",
+        raise api_exception(
+            404,
+            "DEVICE_GROUP_NOT_FOUND",
+            "Device group not found",
         )
 
     existing_device = (
@@ -280,9 +290,10 @@ def create_device(
     )
 
     if existing_device:
-        raise HTTPException(
-            status_code=400,
-            detail="Device code or IP address already exists",
+        raise api_exception(
+            400,
+            "DEVICE_ALREADY_EXISTS",
+            "Device code or IP address already exists",
         )
 
     now = now_local()
@@ -318,9 +329,10 @@ def update_device(
     )
 
     if not device:
-        raise HTTPException(
-            status_code=404,
-            detail="Device not found",
+        raise api_exception(
+            404,
+            "DEVICE_NOT_FOUND",
+            "Device not found",
         )
 
     update_data = {
@@ -336,9 +348,10 @@ def update_device(
             .first()
         )
         if not group:
-            raise HTTPException(
-                status_code=404,
-                detail="Device group not found",
+            raise api_exception(
+                404,
+                "DEVICE_GROUP_NOT_FOUND",
+                "Device group not found",
             )
 
     if "device_code" in update_data:
@@ -351,9 +364,10 @@ def update_device(
             .first()
         )
         if existing_device:
-            raise HTTPException(
-                status_code=400,
-                detail="Device code already exists",
+            raise api_exception(
+                400,
+                "DEVICE_CODE_ALREADY_EXISTS",
+                "Device code already exists",
             )
 
     if "ip_address" in update_data:
@@ -366,9 +380,10 @@ def update_device(
             .first()
         )
         if existing_device:
-            raise HTTPException(
-                status_code=400,
-                detail="IP address already exists",
+            raise api_exception(
+                400,
+                "IP_ADDRESS_ALREADY_EXISTS",
+                "IP address already exists",
             )
 
     for field, value in update_data.items():
@@ -395,9 +410,10 @@ def delete_device(
     )
 
     if not device:
-        raise HTTPException(
-            status_code=404,
-            detail="Device not found",
+        raise api_exception(
+            404,
+            "DEVICE_NOT_FOUND",
+            "Device not found",
         )
 
     db.delete(device)
@@ -423,9 +439,10 @@ def _get_device_or_404(device_id: int, db: Session) -> Device:
         .first()
     )
     if not device:
-        raise HTTPException(
-            status_code=404,
-            detail="Device not found",
+        raise api_exception(
+            404,
+            "DEVICE_NOT_FOUND",
+            "Device not found",
         )
     return device
 

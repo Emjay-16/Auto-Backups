@@ -4,11 +4,12 @@ import json
 from pathlib import Path
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from api import constants, models, schemas
 from api.database import get_db
+from api.errors import api_exception
 from api.security import require_admin
 from api.services.activity_log import log_activity
 from api.services.device_resolver import resolve_user
@@ -34,9 +35,10 @@ def restore_backup(
     device = backup.device
     restorer = resolve_user(db, data.restored_by)
     if not device:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Device not found",
+        raise api_exception(
+            status.HTTP_404_NOT_FOUND,
+            "DEVICE_NOT_FOUND",
+            "Device not found",
         )
 
     all_backup_files = (
@@ -46,9 +48,10 @@ def restore_backup(
     )
 
     if not all_backup_files:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Backup files not found",
+        raise api_exception(
+            status.HTTP_404_NOT_FOUND,
+            "BACKUP_FILES_NOT_FOUND",
+            "Backup files not found",
         )
 
     restore_items = _build_restore_items(all_backup_files, data)
@@ -118,9 +121,10 @@ def restore_backup(
             str(exc),
         )
         db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+        raise api_exception(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "RESTORE_FAILED",
+            str(exc),
         )
     except Exception as exc:
         message = f"SFTP restore failed: {exc}"
@@ -137,9 +141,10 @@ def restore_backup(
             message,
         )
         db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=message,
+        raise api_exception(
+            status.HTTP_502_BAD_GATEWAY,
+            "SFTP_RESTORE_FAILED",
+            message,
         )
 
     for item in restore_items:
@@ -193,9 +198,11 @@ def _build_restore_items(
         for item in data.items:
             backup_file = backup_file_by_id.get(item.backup_file_id)
             if not backup_file:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Backup file not found in this backup: {item.backup_file_id}",
+                raise api_exception(
+                    status.HTTP_404_NOT_FOUND,
+                    "BACKUP_FILE_NOT_FOUND",
+                    "Backup file not found in this backup",
+                    {"backup_file_id": item.backup_file_id},
                 )
             restore_items.append(
                 {
@@ -207,9 +214,10 @@ def _build_restore_items(
         return restore_items
 
     if not data.target_path:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="target_path is required when items is not provided",
+        raise api_exception(
+            status.HTTP_400_BAD_REQUEST,
+            "TARGET_PATH_REQUIRED",
+            "target_path is required when items is not provided",
         )
 
     return [
@@ -225,9 +233,11 @@ def _validate_restore_files_exist(restore_items: List[dict]) -> None:
     for item in restore_items:
         file_path = Path(item["file"].file_path)
         if not file_path.exists():
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Backup file missing on server: {file_path}",
+            raise api_exception(
+                status.HTTP_404_NOT_FOUND,
+                "BACKUP_FILE_MISSING_ON_SERVER",
+                "Backup file missing on server",
+                {"file_path": str(file_path)},
             )
 
 
@@ -313,8 +323,9 @@ def _get_backup_or_404(backup_id: int, db: Session) -> models.Backup:
         .first()
     )
     if not backup:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Backup not found",
+        raise api_exception(
+            status.HTTP_404_NOT_FOUND,
+            "BACKUP_NOT_FOUND",
+            "Backup not found",
         )
     return backup

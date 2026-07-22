@@ -2,10 +2,11 @@ import os
 import re
 from typing import Optional
 
-from fastapi import HTTPException, status
+from fastapi import status
 from sqlalchemy.orm import Session
 
 from api import constants, models
+from api.errors import api_exception
 from api.utils.time import now_local
 
 
@@ -25,9 +26,10 @@ def resolve_device(
 
     ip_text = ip_address or (device.ip_address if device else None)
     if not ip_text:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="ip_address is required when device_id is not found",
+        raise api_exception(
+            status.HTTP_400_BAD_REQUEST,
+            "IP_ADDRESS_REQUIRED",
+            "ip_address is required when device_id is not found",
         )
 
     if not device:
@@ -80,9 +82,10 @@ def resolve_user(db: Session, user_id: Optional[int]) -> models.User:
             .first()
         )
         if not user:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found",
+            raise api_exception(
+                status.HTTP_404_NOT_FOUND,
+                "USER_NOT_FOUND",
+                "User not found",
             )
         return user
 

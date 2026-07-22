@@ -33,6 +33,20 @@ def http_error_detail(error_code: str, message: str, detail: Optional[Any] = Non
     }
 
 
+def api_exception(
+    status_code: int,
+    error_code: str,
+    message: str,
+    detail: Optional[Any] = None,
+    headers: Optional[Dict[str, str]] = None,
+) -> HTTPException:
+    return HTTPException(
+        status_code=status_code,
+        detail=http_error_detail(error_code, message, detail),
+        headers=headers,
+    )
+
+
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     if isinstance(exc.detail, dict):
         error_code = str(exc.detail.get("error_code") or _error_code_from_status(exc.status_code))

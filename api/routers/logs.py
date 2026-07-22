@@ -1,9 +1,10 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from api.database import get_db
+from api.errors import api_exception
 from api.models import ActivityLog
 from api.security import get_current_user
 from api.schemas import ActivityLogResponse
@@ -60,9 +61,10 @@ def get_activity_log(
     )
 
     if not log:
-        raise HTTPException(
-            status_code=404,
-            detail="Activity log not found",
+        raise api_exception(
+            404,
+            "ACTIVITY_LOG_NOT_FOUND",
+            "Activity log not found",
         )
 
     return log

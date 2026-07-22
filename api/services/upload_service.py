@@ -5,10 +5,11 @@ from decimal import Decimal
 from pathlib import Path
 from typing import List, Optional
 
-from fastapi import HTTPException, UploadFile, status
+from fastapi import UploadFile, status
 from sqlalchemy.orm import Session
 
 from api import constants, models, schemas
+from api.errors import api_exception
 from api.services.device_resolver import resolve_device, resolve_user
 from api.services.activity_log import log_activity
 from api.services.sftp_backup import upload_files
@@ -25,14 +26,16 @@ def upload_files_to_device(
     device_name: Optional[str] = None,
 ) -> schemas.UploadRunResponse:
     if not files:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least one file is required",
+        raise api_exception(
+            status.HTTP_400_BAD_REQUEST,
+            "UPLOAD_FILE_REQUIRED",
+            "At least one file is required",
         )
     if not target_path:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="target_path is required",
+        raise api_exception(
+            status.HTTP_400_BAD_REQUEST,
+            "TARGET_PATH_REQUIRED",
+            "target_path is required",
         )
 
     device = resolve_device(db, device_id, ip_address, device_name)
@@ -43,9 +46,10 @@ def upload_files_to_device(
     port = int(os.getenv("ROBOT_SSH_PORT", "22"))
 
     if not username or not password:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="ROBOT_SSH_USERNAME and ROBOT_SSH_PASSWORD are required",
+        raise api_exception(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "SSH_CREDENTIALS_MISSING",
+            "ROBOT_SSH_USERNAME and ROBOT_SSH_PASSWORD are required",
         )
 
     uploaded_files = []
@@ -57,9 +61,10 @@ def upload_files_to_device(
         for file in files:
             safe_name = Path(file.filename or "").name
             if not safe_name:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Every uploaded file must have a file name",
+                raise api_exception(
+                    status.HTTP_400_BAD_REQUEST,
+                    "UPLOAD_FILE_NAME_REQUIRED",
+                    "Every uploaded file must have a file name",
                 )
 
             local_path = temp_root / safe_name
@@ -96,9 +101,10 @@ def upload_files_to_device(
                 str(exc),
             )
             db.commit()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=str(exc),
+            raise api_exception(
+                status.HTTP_500_INTERNAL_SERVER_ERROR,
+                "SFTP_UPLOAD_FAILED",
+                str(exc),
             )
         except Exception as exc:
             message = f"SFTP upload failed: {exc}"
@@ -113,9 +119,10 @@ def upload_files_to_device(
                 message,
             )
             db.commit()
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=message,
+            raise api_exception(
+                status.HTTP_502_BAD_GATEWAY,
+                "SFTP_UPLOAD_FAILED",
+                message,
             )
 
     device.device_status = constants.DEVICE_STATUS_ONLINE

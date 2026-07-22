@@ -61,5 +61,6 @@ def test_auto_backup_memory_lock_returns_409(db_session, sample_user_device):
         backup_service._AUTO_BACKUP_LOCK.release()
 
     assert exc_info.value.status_code == 409
+    assert exc_info.value.detail["error_code"] == "AUTO_BACKUP_ALREADY_RUNNING"
     assert db_session.query(models.BackupJob).count() == 1
     assert db_session.query(models.BackupJob).first().job_status == constants.JOB_STATUS_SKIPPED

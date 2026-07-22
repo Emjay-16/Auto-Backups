@@ -1,10 +1,11 @@
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from api import models, schemas
 from api.database import get_db
+from api.errors import api_exception
 from api.security import get_current_user
 
 
@@ -52,8 +53,9 @@ def get_job(
         .first()
     )
     if not job:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
+        raise api_exception(
+            404,
+            "JOB_NOT_FOUND",
+            "Job not found",
         )
     return job

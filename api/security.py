@@ -7,12 +7,13 @@ import secrets
 from datetime import timedelta
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from api import constants, models
 from api.database import get_db
+from api.errors import api_exception
 from api.utils.time import now_local
 
 
@@ -78,9 +79,10 @@ def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> models.User:
-    credentials_error = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid or expired access token",
+    credentials_error = api_exception(
+        status.HTTP_401_UNAUTHORIZED,
+        "INVALID_ACCESS_TOKEN",
+        "Invalid or expired access token",
         headers={"WWW-Authenticate": "Bearer"},
     )
 
@@ -105,9 +107,10 @@ def get_current_user(
 
 def require_admin(current_user: models.User = Depends(get_current_user)) -> models.User:
     if current_user.role != constants.ROLE_ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin role is required",
+        raise api_exception(
+            status.HTTP_403_FORBIDDEN,
+            "ADMIN_REQUIRED",
+            "Admin role is required",
         )
     return current_user
 

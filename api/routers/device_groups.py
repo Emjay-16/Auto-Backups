@@ -1,9 +1,10 @@
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from api.database import get_db
+from api.errors import api_exception
 from api.models import DeviceGroup
 from api.security import get_current_user, require_admin
 from api.schemas import DeviceGroupCreate, DeviceGroupResponse
@@ -37,9 +38,10 @@ def get_device_group(
     )
 
     if not group:
-        raise HTTPException(
-            status_code=404,
-            detail="Device group not found",
+        raise api_exception(
+            404,
+            "DEVICE_GROUP_NOT_FOUND",
+            "Device group not found",
         )
 
     return group
@@ -58,9 +60,10 @@ def create_device_group(
     )
 
     if existing_group:
-        raise HTTPException(
-            status_code=400,
-            detail="Device group already exists",
+        raise api_exception(
+            400,
+            "DEVICE_GROUP_ALREADY_EXISTS",
+            "Device group already exists",
         )
 
     new_group = DeviceGroup(group_name=data.group_name)
@@ -85,9 +88,10 @@ def delete_device_group(
     )
 
     if not group:
-        raise HTTPException(
-            status_code=404,
-            detail="Device group not found",
+        raise api_exception(
+            404,
+            "DEVICE_GROUP_NOT_FOUND",
+            "Device group not found",
         )
 
     db.delete(group)

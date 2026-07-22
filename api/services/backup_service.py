@@ -13,6 +13,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from api import constants, models, schemas
+from api.errors import api_exception
 from api.services.activity_log import log_activity
 from api.services.device_resolver import resolve_device, resolve_user
 from api.services.job_service import (
@@ -65,9 +66,10 @@ def get_backup_download_zip(backup_id: int, db: Session) -> Path:
     )
 
     if not backup_files:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Backup files not found",
+        raise api_exception(
+            status.HTTP_404_NOT_FOUND,
+            "BACKUP_FILES_NOT_FOUND",
+            "Backup files not found",
         )
 
     zip_file = _existing_zip_file(backup_files)
@@ -176,9 +178,10 @@ def run_file_backup(data: schemas.BackupRunRequest, db: Session) -> schemas.Back
             message="SSH username/password are required for this device",
             finished=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="SSH username/password are required for this device",
+        raise api_exception(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "SSH_CREDENTIALS_MISSING",
+            "SSH username/password are required for this device",
         )
 
     backup_name = data.backup_name or f"{device.device_name}_{now_local():%Y%m%d_%H%M%S}"
@@ -228,9 +231,10 @@ def run_file_backup(data: schemas.BackupRunRequest, db: Session) -> schemas.Back
             message=str(exc),
             finished=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+        raise api_exception(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "FILE_BACKUP_FAILED",
+            str(exc),
         )
     except Exception as exc:
         message = f"SFTP backup failed: {exc}"
@@ -246,9 +250,10 @@ def run_file_backup(data: schemas.BackupRunRequest, db: Session) -> schemas.Back
             message=message,
             finished=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=message,
+        raise api_exception(
+            status.HTTP_502_BAD_GATEWAY,
+            "SFTP_BACKUP_FAILED",
+            message,
         )
 
     return schemas.BackupRunResponse(
@@ -297,9 +302,10 @@ def run_robot_database_backup(
             message="Database name/table/user/password are required for this device",
             finished=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Database name/table/user/password are required for this device",
+        raise api_exception(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "ROBOT_DATABASE_CONFIG_MISSING",
+            "Database name/table/user/password are required for this device",
         )
 
     backup_name = data.backup_name or f"{device.device_name}_{database_name}_{table_name}_{now_local():%Y%m%d_%H%M%S}"
@@ -363,9 +369,10 @@ def run_robot_database_backup(
             message=str(exc),
             finished=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+        raise api_exception(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "ROBOT_DATABASE_BACKUP_FAILED",
+            str(exc),
         )
     except Exception as exc:
         message = f"Robot database backup failed: {exc}"
@@ -381,9 +388,10 @@ def run_robot_database_backup(
             message=message,
             finished=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=message,
+        raise api_exception(
+            status.HTTP_502_BAD_GATEWAY,
+            "ROBOT_DATABASE_BACKUP_FAILED",
+            message,
         )
 
     return schemas.BackupRunResponse(
@@ -409,9 +417,10 @@ def run_combined_backup(
     remote_paths = [path for path in data.remote_paths if path]
 
     if not remote_paths and not data.include_database:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Select at least one remote path or database target",
+        raise api_exception(
+            status.HTTP_400_BAD_REQUEST,
+            "BACKUP_TARGET_REQUIRED",
+            "Select at least one remote path or database target",
         )
 
     job = create_job(
@@ -428,9 +437,10 @@ def run_combined_backup(
             if data.include_database:
                 database_path = _configured_robot_database_path(Path(temp_dir))
                 if not database_path:
-                    raise HTTPException(
-                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail="Robot database config is incomplete",
+                    raise api_exception(
+                        status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        "ROBOT_DATABASE_CONFIG_MISSING",
+                        "Robot database config is incomplete",
                     )
                 database_dump = _dump_robot_database(device, database_path)
 
@@ -494,9 +504,10 @@ def run_combined_backup(
             message=message,
             finished=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=message,
+        raise api_exception(
+            status.HTTP_502_BAD_GATEWAY,
+            "COMBINED_BACKUP_FAILED",
+            message,
         )
 
 
@@ -518,9 +529,10 @@ def run_auto_backups(data: schemas.AutoBackupRequest, db: Session) -> schemas.Au
             message="Auto backup is already running in this process",
             finished=True,
         )
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Auto backup is already running",
+        raise api_exception(
+            status.HTTP_409_CONFLICT,
+            "AUTO_BACKUP_ALREADY_RUNNING",
+            "Auto backup is already running",
         )
 
     lock_owner = None
@@ -538,9 +550,10 @@ def run_auto_backups(data: schemas.AutoBackupRequest, db: Session) -> schemas.Au
                 message="Auto backup is already running on another server",
                 finished=True,
             )
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Auto backup is already running",
+            raise api_exception(
+                status.HTTP_409_CONFLICT,
+                "AUTO_BACKUP_ALREADY_RUNNING",
+                "Auto backup is already running",
             )
 
         response = _run_auto_backups(data, db, job, max_retries)
@@ -671,16 +684,18 @@ def _run_auto_backups(
     port = int(os.getenv("ROBOT_SSH_PORT", "22"))
 
     if not username or not password:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="SSH username/password are required",
+        raise api_exception(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "SSH_CREDENTIALS_MISSING",
+            "SSH username/password are required",
         )
 
     remote_paths = data.remote_paths or _default_auto_backup_paths()
     if not remote_paths:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No remote paths configured for auto backup",
+        raise api_exception(
+            status.HTTP_400_BAD_REQUEST,
+            "AUTO_BACKUP_PATHS_MISSING",
+            "No remote paths configured for auto backup",
         )
 
     devices_query = db.query(models.Device).order_by(models.Device.device_id)
@@ -954,9 +969,10 @@ def _create_combined_auto_backup(
     port = int(os.getenv("ROBOT_SSH_PORT", "22"))
 
     if remote_paths and (not username or not password):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="SSH username/password are required",
+        raise api_exception(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "SSH_CREDENTIALS_MISSING",
+            "SSH username/password are required",
         )
 
     backup_name = backup_name or _auto_full_backup_name(device.device_name)
@@ -1002,16 +1018,18 @@ def _create_combined_auto_backup(
         _finish_backup_success(db, backup, downloaded_files, total_size_mb, message)
     except RuntimeError as exc:
         _finish_backup_failed(db, backup, str(exc))
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=str(exc),
+        raise api_exception(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "COMBINED_BACKUP_FAILED",
+            str(exc),
         )
     except Exception as exc:
         message = f"Combined auto backup failed: {exc}"
         _finish_backup_failed(db, backup, message)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=message,
+        raise api_exception(
+            status.HTTP_502_BAD_GATEWAY,
+            "COMBINED_BACKUP_FAILED",
+            message,
         )
 
     return backup
@@ -1183,9 +1201,10 @@ def get_backup_or_404(backup_id: int, db: Session) -> models.Backup:
         .first()
     )
     if not backup:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Backup not found",
+        raise api_exception(
+            status.HTTP_404_NOT_FOUND,
+            "BACKUP_NOT_FOUND",
+            "Backup not found",
         )
     return backup
 
@@ -1273,9 +1292,11 @@ def _make_download_zip(backup: models.Backup, backup_files: List[models.BackupFi
         for backup_file in backup_files:
             file_path = Path(backup_file.file_path)
             if not file_path.exists():
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail=f"Backup file missing on server: {file_path}",
+                raise api_exception(
+                    status.HTTP_404_NOT_FOUND,
+                    "BACKUP_FILE_MISSING_ON_SERVER",
+                    "Backup file missing on server",
+                    {"file_path": str(file_path)},
                 )
             archive.write(file_path, arcname=f"{backup_file.backup_file_id}_{backup_file.file_name}")
 
