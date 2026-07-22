@@ -1,0 +1,416 @@
+.page {
+  display: grid;
+  gap: 18px;
+  padding: 0 28px 28px;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 18px;
+  align-items: start;
+}
+
+.snapshots {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+}
+
+.snapshot {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px;
+  border: 1px solid #e1e8f2;
+  border-radius: 10px;
+  background: #fbfdff;
+  text-align: left;
+}
+
+.snapshot.selected {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.snapshot:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.radio {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #94a3b8;
+  border-radius: 50%;
+}
+
+.selected .radio {
+  border-color: #2563eb;
+  background: #2563eb;
+}
+
+.snapshot strong,
+.snapshot b {
+  color: #162235;
+  font-size: 14px;
+}
+
+.snapshot p {
+  margin-top: 2px;
+  overflow: hidden;
+  color: #738299;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.target {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+}
+
+.target label {
+  display: grid;
+  gap: 6px;
+  color: #66758a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.target input,
+.target select {
+  min-width: 0;
+  width: 100%;
+  height: 38px;
+  border: 1px solid #dbe4ee;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #162235;
+  padding: 0 10px;
+}
+
+.target input[type="file"] {
+  height: auto;
+  padding: 9px 10px;
+  background: #f8fafc;
+  color: #53647a;
+}
+
+.uploadField {
+  padding: 12px;
+  border: 1px dashed #93c5fd;
+  border-radius: 10px;
+  background: #eff6ff;
+}
+
+.uploadField span {
+  color: #53647a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.filePickerSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+
+.filePickerSummary div {
+  display: grid;
+  gap: 2px;
+}
+
+.filePickerSummary strong {
+  color: #162235;
+  font-size: 16px;
+}
+
+.filePickerSummary span {
+  color: #66758a;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.target button {
+  height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.target button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.target .filePickerSummary button {
+  width: auto;
+  min-width: 112px;
+  padding: 0 14px;
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  color: #1d4ed8;
+}
+
+.error,
+.success {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.files {
+  display: grid;
+  gap: 10px;
+  max-height: min(58vh, 560px);
+  overflow: auto;
+  padding: 14px 18px;
+}
+
+.fileRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.85fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #e6edf5;
+  border-radius: 10px;
+  background: #fbfdff;
+}
+
+.fileRow label {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fileRow label input {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.fileRow span {
+  min-width: 0;
+}
+
+.fileRow strong,
+.fileRow small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileRow strong {
+  color: #162235;
+  font-size: 13px;
+}
+
+.fileRow small {
+  margin-top: 3px;
+  color: #66758a;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.fileRow > input {
+  min-width: 0;
+  width: 100%;
+  height: 36px;
+  border: 1px solid #dbe4ee;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #162235;
+  padding: 0 10px;
+}
+
+.empty {
+  margin: 0;
+  padding: 14px 0;
+  color: #66758a;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.preview {
+  display: grid;
+  gap: 10px;
+  padding: 18px 20px;
+}
+
+.preview p {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #53647a;
+  font-size: 14px;
+}
+
+.ok,
+.warn {
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-weight: 900;
+}
+
+.ok {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.warn {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.dialogBackdrop {
+  position: fixed;
+  z-index: 80;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.46);
+}
+
+.dialog {
+  width: min(920px, 100%);
+  max-height: min(86vh, 780px);
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  overflow: hidden;
+  border: 1px solid #dbe4ee;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+}
+
+.dialogHeader,
+.dialogFooter,
+.dialogActions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.dialogHeader {
+  border-bottom: 1px solid #e6edf5;
+}
+
+.dialogHeader h2 {
+  margin: 0;
+  color: #162235;
+  font-size: 18px;
+}
+
+.dialogHeader p {
+  margin: 4px 0 0;
+  color: #66758a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dialogHeader button {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #dbe4ee;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #223149;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.dialogActions {
+  justify-content: flex-start;
+  padding-top: 12px;
+  padding-bottom: 0;
+}
+
+.dialogActions button,
+.dialogFooter button {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid #dbe4ee;
+  border-radius: 9px;
+  background: #ffffff;
+  color: #223149;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.dialogActions button:disabled,
+.dialogFooter button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.dialogFooter {
+  justify-content: flex-end;
+  border-top: 1px solid #e6edf5;
+}
+
+.dialogFooter button:last-child {
+  border-color: #2563eb;
+  background: #2563eb;
+  color: #ffffff;
+}
+
+@media (max-width: 980px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 780px) {
+  .page {
+    padding: 0 14px 18px;
+  }
+
+  .fileRow {
+    grid-template-columns: 1fr;
+  }
+
+  .dialogBackdrop {
+    padding: 12px;
+  }
+
+  .dialogHeader,
+  .dialogFooter,
+  .dialogActions,
+  .files {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}

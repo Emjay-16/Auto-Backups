@@ -1,0 +1,86 @@
+.page {
+  display: grid;
+  gap: 18px;
+  padding: 0 28px 28px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.tabs button {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid #dbe4ee;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #53647a;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.tabs .active {
+  border-color: #2563eb;
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.jobs {
+  display: grid;
+}
+
+.job {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr) 160px auto 48px;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 20px;
+  border-bottom: 1px solid #e6edf5;
+}
+
+.job:last-child {
+  border-bottom: 0;
+}
+
+.job strong {
+  display: block;
+  color: #162235;
+  font-size: 14px;
+}
+
+.job span,
+.job p,
+.job time {
+  overflow: hidden;
+  color: #738299;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #eef3f8;
+}
+
+.progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #2563eb;
+}
+
+@media (max-width: 900px) {
+  .job {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 780px) {
+  .page {
+    padding: 0 14px 18px;
+  }
+}

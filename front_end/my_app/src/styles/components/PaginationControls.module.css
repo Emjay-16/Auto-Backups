@@ -1,0 +1,48 @@
+.pagination {
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 20px;
+  border-top: 1px solid #e6edf5;
+  color: #66758a;
+  font-size: 13px;
+}
+
+.pagination div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pagination button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid #dbe4ee;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #223149;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.pagination button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.pagination strong {
+  min-width: 48px;
+  color: #162235;
+  font-size: 12px;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .pagination {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 12px 20px;
+  }
+}

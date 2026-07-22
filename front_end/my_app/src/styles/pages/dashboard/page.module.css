@@ -1,0 +1,23 @@
+.page {
+  display: grid;
+  gap: 18px;
+  padding: 0 28px 28px;
+}
+
+.metricGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 980px) {
+  .metricGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 780px) {
+  .page {
+    padding: 0 14px 18px;
+  }
+}

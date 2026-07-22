@@ -1,0 +1,52 @@
+.badge {
+  display: inline-flex;
+  min-height: 24px;
+  align-items: center;
+  justify-content: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  display: inline-block;
+  border-radius: 50%;
+  background: #94a3b8;
+}
+
+.success,
+.online {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.dot.online {
+  background: #10b981;
+}
+
+.failed,
+.offline {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.dot.offline {
+  background: #ef4444;
+}
+
+.pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.dot.pending {
+  background: #f59e0b;
+}
+
+.running {
+  background: #dbeafe;
+  color: #1d4ed8;
+}

@@ -1,0 +1,105 @@
+.card {
+  display: flex;
+  min-height: 154px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid #e1e8f2;
+  border-radius: 10px;
+  background: #fbfdff;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.top > span:last-child {
+  margin-left: auto;
+}
+
+.avatar {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.top strong {
+  display: block;
+  color: #1d4ed8;
+  font-size: 15px;
+}
+
+.top div span {
+  display: block;
+  margin-top: 2px;
+  color: #738299;
+  font-size: 12px;
+}
+
+.meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.meta p {
+  min-width: 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: #f3f7fb;
+}
+
+.meta span {
+  display: block;
+  color: #8a99ac;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.meta b {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: #223149;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.actions {
+  display: flex;
+  gap: 6px;
+}
+
+.actions button {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #dbe4ee;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #55667d;
+}
+
+.actions button svg {
+  width: 15px;
+  height: 15px;
+}
