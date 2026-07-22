@@ -1,4 +1,5 @@
 from api.services.robot_database import (
+    _build_replace_table_sql,
     _database_payload_checksum,
     _mysql_batch_output_to_rows,
 )
@@ -23,3 +24,21 @@ def test_database_checksum_ignores_dump_time_and_is_stable():
 
     assert first == second
     assert first != _database_payload_checksum("istuvd", "ros_maps", [{"id": "2"}])
+
+
+def test_build_replace_table_sql_uses_transaction_and_escapes_values():
+    sql = _build_replace_table_sql(
+        "ros_maps",
+        [
+            {"id": "1", "name": "Map's home", "note": "line\nbreak"},
+            {"id": "2", "name": None, "note": "ok"},
+        ],
+    )
+
+    assert "START TRANSACTION;" in sql
+    assert "DELETE FROM `ros_maps`;" in sql
+    assert "INSERT INTO `ros_maps` (`id`, `name`, `note`) VALUES" in sql
+    assert "'Map\\'s home'" in sql
+    assert "'line\\nbreak'" in sql
+    assert "NULL" in sql
+    assert "COMMIT;" in sql

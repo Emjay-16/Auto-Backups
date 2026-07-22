@@ -5,12 +5,20 @@ import os
 import shlex
 import socket
 import time
+from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 from api.services.sftp_backup import DownloadedFile, _sha256_file
+
+
+@dataclass
+class DatabaseRestoreResult:
+    database: str
+    table: str
+    row_count: int
 
 
 def dump_mysql_table_to_json(
@@ -145,6 +153,120 @@ def dump_mysql_table_via_ssh(
     )
 
 
+def restore_mysql_table_from_json(
+    host: str,
+    username: str,
+    password: str,
+    input_path: Path,
+    port: int = 3306,
+    database: Optional[str] = None,
+    table: Optional[str] = None,
+) -> DatabaseRestoreResult:
+    try:
+        import pymysql
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("Missing dependency: install pymysql") from exc
+
+    target_database, target_table, rows = _load_database_dump(input_path, database, table)
+    _ensure_mysql_handshake(host, port, timeout=5)
+
+    connection = pymysql.connect(
+        host=host,
+        port=port,
+        user=username,
+        password=password,
+        database=target_database,
+        cursorclass=pymysql.cursors.DictCursor,
+        autocommit=False,
+        connect_timeout=5,
+        read_timeout=30,
+        write_timeout=30,
+    )
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(f"DELETE FROM {_quote_mysql_identifier(target_table)}")
+            if rows:
+                columns = _ordered_row_columns(rows)
+                placeholders = ", ".join(["%s"] * len(columns))
+                column_sql = ", ".join(_quote_mysql_identifier(column) for column in columns)
+                insert_sql = f"INSERT INTO {_quote_mysql_identifier(target_table)} ({column_sql}) VALUES ({placeholders})"
+                values = [
+                    tuple(row.get(column) for column in columns)
+                    for row in rows
+                ]
+                cursor.executemany(insert_sql, values)
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
+
+    return DatabaseRestoreResult(
+        database=target_database,
+        table=target_table,
+        row_count=len(rows),
+    )
+
+
+def restore_mysql_table_via_ssh(
+    host: str,
+    ssh_username: str,
+    ssh_password: str,
+    db_username: str,
+    db_password: str,
+    input_path: Path,
+    ssh_port: int = 22,
+    db_port: int = 3306,
+    database: Optional[str] = None,
+    table: Optional[str] = None,
+) -> DatabaseRestoreResult:
+    try:
+        import paramiko
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("Missing dependency: install paramiko") from exc
+
+    target_database, target_table, rows = _load_database_dump(input_path, database, table)
+    sql = _build_replace_table_sql(target_table, rows)
+    command = " ".join(
+        [
+            f"MYSQL_PWD={shlex.quote(db_password)}",
+            "mysql",
+            "--binary-mode",
+            "-h",
+            "127.0.0.1",
+            "-P",
+            str(db_port),
+            "-u",
+            shlex.quote(db_username),
+            shlex.quote(target_database),
+        ]
+    )
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    try:
+        _connect_ssh_with_retry(ssh, host, ssh_port, ssh_username, ssh_password)
+        stdin, stdout, stderr = ssh.exec_command(command, timeout=120)
+        stdin.write(sql)
+        stdin.channel.shutdown_write()
+        error_data = stderr.read().decode("utf-8", errors="replace").strip()
+        exit_status = stdout.channel.recv_exit_status()
+    finally:
+        ssh.close()
+
+    if exit_status != 0:
+        raise RuntimeError(error_data or f"mysql restore failed with exit status {exit_status}")
+
+    return DatabaseRestoreResult(
+        database=target_database,
+        table=target_table,
+        row_count=len(rows),
+    )
+
+
 def _json_default(value):
     if isinstance(value, (datetime, date)):
         return value.isoformat()
@@ -206,6 +328,84 @@ def _mysql_batch_output_to_rows(output_data: str) -> List[Dict[str, Any]]:
         rows.append(row)
 
     return rows
+
+
+def _load_database_dump(
+    input_path: Path,
+    database_override: Optional[str],
+    table_override: Optional[str],
+) -> Tuple[str, str, List[Dict[str, Any]]]:
+    try:
+        with input_path.open("r", encoding="utf-8") as file:
+            payload = json.load(file)
+    except (OSError, ValueError) as exc:
+        raise RuntimeError(f"Invalid database backup JSON: {exc}") from exc
+
+    database = database_override or payload.get("database")
+    table = table_override or payload.get("table")
+    rows = payload.get("rows")
+
+    if not database or not table or not isinstance(rows, list):
+        raise RuntimeError("Invalid database backup JSON: database, table, and rows are required")
+
+    for row in rows:
+        if not isinstance(row, dict):
+            raise RuntimeError("Invalid database backup JSON: every row must be an object")
+
+    return str(database), str(table), rows
+
+
+def _build_replace_table_sql(table: str, rows: List[Dict[str, Any]]) -> str:
+    statements = [
+        "SET autocommit=0;",
+        "START TRANSACTION;",
+        f"DELETE FROM {_quote_mysql_identifier(table)};",
+    ]
+
+    if rows:
+        columns = _ordered_row_columns(rows)
+        column_sql = ", ".join(_quote_mysql_identifier(column) for column in columns)
+        values_sql = ",\n".join(
+            "(" + ", ".join(_mysql_literal(row.get(column)) for column in columns) + ")"
+            for row in rows
+        )
+        statements.append(
+            f"INSERT INTO {_quote_mysql_identifier(table)} ({column_sql}) VALUES\n{values_sql};"
+        )
+
+    statements.extend(["COMMIT;", "SET autocommit=1;"])
+    return "\n".join(statements) + "\n"
+
+
+def _ordered_row_columns(rows: List[Dict[str, Any]]) -> List[str]:
+    columns = list(rows[0].keys())
+    seen = set(columns)
+    for row in rows[1:]:
+        for column in row.keys():
+            if column not in seen:
+                seen.add(column)
+                columns.append(column)
+    return columns
+
+
+def _mysql_literal(value: Any) -> str:
+    if value is None:
+        return "NULL"
+    if isinstance(value, bool):
+        return "1" if value else "0"
+    if isinstance(value, (int, float, Decimal)):
+        return str(value)
+
+    text = str(value)
+    return "'" + (
+        text
+        .replace("\\", "\\\\")
+        .replace("\0", "\\0")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\x1a", "\\Z")
+        .replace("'", "\\'")
+    ) + "'"
 
 
 def _quote_mysql_identifier(identifier: str) -> str:

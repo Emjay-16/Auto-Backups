@@ -1,5 +1,6 @@
 import os
 import posixpath
+import json
 from pathlib import Path
 from typing import List
 
@@ -11,6 +12,7 @@ from api.database import get_db
 from api.security import require_admin
 from api.services.activity_log import log_activity
 from api.services.device_resolver import resolve_user
+from api.services.robot_database import restore_mysql_table_from_json, restore_mysql_table_via_ssh
 from api.services.sftp_backup import upload_files_to_targets
 from api.utils.time import now_local
 
@@ -52,16 +54,6 @@ def restore_backup(
     restore_items = _build_restore_items(all_backup_files, data)
     _validate_restore_files_exist(restore_items)
 
-    username = os.getenv("ROBOT_SSH_USERNAME")
-    password = os.getenv("ROBOT_SSH_PASSWORD")
-    port = int(os.getenv("ROBOT_SSH_PORT", "22"))
-
-    if not username or not password:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="SSH username/password are required for this device",
-        )
-
     now = now_local()
     restore_log = models.RestoreLog(
         backup_id=backup.backup_id,
@@ -76,21 +68,42 @@ def restore_backup(
     db.commit()
     db.refresh(restore_log)
 
-    transfers = []
+    file_restore_items = []
+    database_restore_items = []
     for item in restore_items:
+        if _is_database_backup_file(item["file"]):
+            database_restore_items.append(item)
+            continue
+
+        file_restore_items.append(item)
         local_path = Path(item["file"].file_path)
         resolved_target_path = _resolve_restore_target_path(local_path, item["target_path"])
         item["resolved_target_path"] = resolved_target_path
-        transfers.append((local_path, resolved_target_path))
 
     try:
-        upload_files_to_targets(
-            host=device.ip_address,
-            username=username,
-            password=password,
-            port=port,
-            transfers=transfers,
-        )
+        for item in database_restore_items:
+            result = _restore_database_backup_file(device, Path(item["file"].file_path))
+            item["resolved_target_path"] = f"mysql://{result.database}/{result.table}"
+            item["result_message"] = f"Restored {result.row_count} row(s) into MySQL"
+
+        if file_restore_items:
+            username = os.getenv("ROBOT_SSH_USERNAME")
+            password = os.getenv("ROBOT_SSH_PASSWORD")
+            port = int(os.getenv("ROBOT_SSH_PORT", "22"))
+
+            if not username or not password:
+                raise RuntimeError("SSH username/password are required for file restore")
+
+            upload_files_to_targets(
+                host=device.ip_address,
+                username=username,
+                password=password,
+                port=port,
+                transfers=[
+                    (Path(item["file"].file_path), item["resolved_target_path"])
+                    for item in file_restore_items
+                ],
+            )
     except RuntimeError as exc:
         restore_log.restore_log_status = constants.BACKUP_STATUS_FAILED
         restore_log.restore_message = str(exc)
@@ -138,7 +151,7 @@ def restore_backup(
                 file_name=file.file_name,
                 target_path=item["resolved_target_path"],
                 restore_item_status=constants.BACKUP_STATUS_SUCCESS,
-                message="Restored",
+                message=item.get("result_message", "Restored"),
                 created_at=now,
             )
         )
@@ -216,6 +229,66 @@ def _validate_restore_files_exist(restore_items: List[dict]) -> None:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Backup file missing on server: {file_path}",
             )
+
+
+def _is_database_backup_file(backup_file: models.BackupFile) -> bool:
+    file_path = Path(backup_file.file_path)
+    if file_path.suffix.lower() != ".json":
+        return False
+
+    try:
+        with file_path.open("r", encoding="utf-8") as file:
+            payload = json.load(file)
+    except (OSError, ValueError):
+        return False
+
+    return (
+        isinstance(payload, dict)
+        and isinstance(payload.get("database"), str)
+        and isinstance(payload.get("table"), str)
+        and isinstance(payload.get("rows"), list)
+    )
+
+
+def _restore_database_backup_file(device: models.Device, input_path: Path):
+    database_name = os.getenv("ROBOT_DB_NAME")
+    table_name = os.getenv("ROBOT_DB_TABLE")
+    db_username = os.getenv("ROBOT_DB_USER")
+    db_password = os.getenv("ROBOT_DB_PASSWORD")
+    db_port = int(os.getenv("ROBOT_DB_PORT", "3306"))
+    ssh_username = os.getenv("ROBOT_SSH_USERNAME")
+    ssh_password = os.getenv("ROBOT_SSH_PASSWORD")
+    ssh_port = int(os.getenv("ROBOT_SSH_PORT", "22"))
+
+    if not db_username or not db_password:
+        raise RuntimeError("Robot database username/password are required for database restore")
+
+    try:
+        return restore_mysql_table_from_json(
+            host=device.ip_address,
+            port=db_port,
+            username=db_username,
+            password=db_password,
+            database=database_name,
+            table=table_name,
+            input_path=input_path,
+        )
+    except Exception as direct_exc:
+        if not ssh_username or not ssh_password:
+            raise RuntimeError(f"Robot database restore failed: {direct_exc}") from direct_exc
+
+        return restore_mysql_table_via_ssh(
+            host=device.ip_address,
+            ssh_username=ssh_username,
+            ssh_password=ssh_password,
+            ssh_port=ssh_port,
+            db_username=db_username,
+            db_password=db_password,
+            db_port=db_port,
+            database=database_name,
+            table=table_name,
+            input_path=input_path,
+        )
 
 
 def _resolve_restore_target_path(local_path: Path, target_path: str) -> str:
