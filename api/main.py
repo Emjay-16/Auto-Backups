@@ -19,7 +19,7 @@ from api.errors import (
     unhandled_exception_handler,
     validation_exception_handler,
 )
-from api.routers import auth, backups, device_groups, devices, jobs, logs, restore, uploads
+from api.routers import backups, device_groups, devices, jobs, logs, restore, uploads
 from api.services.auto_backup_state import auto_backup_loop, pending_backup_loop
 from api.services.backup_service import cleanup_old_backups, process_pending_auto_backups, run_auto_backups
 from api.services.cleanup_state import auto_cleanup_loop
@@ -47,7 +47,6 @@ app.add_middleware(
     expose_headers=["*"]
 )
 
-app.include_router(auth.router)
 app.include_router(backups.router)
 app.include_router(device_groups.router)
 app.include_router(devices.router)

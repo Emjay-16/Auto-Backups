@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { signOut, useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { clearClientAccessTokenCache, getNotificationsForUi, setClientAccessTokenCache, type NotificationItem } from "@/lib/api";
+import { getNotificationsForUi, type NotificationItem } from "@/lib/api";
 import styles from "@/styles/components/AppShell.module.css";
 import { BackupIcon, DashboardIcon, DeviceIcon, JobIcon, RestoreIcon } from "./ActionIcons";
 
@@ -52,7 +51,6 @@ const CLEARED_NOTIFICATIONS_KEY = "auto_backup_cleared_notifications";
 export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { data: session, status } = useSession();
   const current = pageTitles[pathname] ?? pageTitles["/"];
   const [deviceCount, setDeviceCount] = useState({ online: 0, total: 0 });
   const [activeJobCount, setActiveJobCount] = useState(0);
@@ -61,27 +59,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>(() => readStoredIds(READ_NOTIFICATIONS_KEY));
   const [clearedNotificationIds, setClearedNotificationIds] = useState<string[]>(() => readStoredIds(CLEARED_NOTIFICATIONS_KEY));
   const [showNotifications, setShowNotifications] = useState(false);
-  const isLoginPage = pathname === "/login";
-
   useEffect(() => {
-    const startId = window.setTimeout(() => {
-      if (status === "unauthenticated" && !isLoginPage) {
-        router.replace("/login");
-      }
-      if (status === "authenticated" && isLoginPage) {
-        router.replace("/");
-      }
-    }, 0);
-
-    return () => window.clearTimeout(startId);
-  }, [isLoginPage, router, status]);
-
-  useEffect(() => {
-    setClientAccessTokenCache(session?.accessToken ?? null);
-  }, [session?.accessToken]);
-
-  useEffect(() => {
-    if (!session) return;
     const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
     const startId = window.setTimeout(() => {
       const controller = new AbortController();
@@ -112,10 +90,9 @@ export function AppShell({ children }: { children: ReactNode }) {
     return () => {
       window.clearTimeout(startId);
     };
-  }, [session]);
+  }, []);
 
   useEffect(() => {
-    if (!session) return;
     const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
     function loadActiveJobs() {
       const controller = new AbortController();
@@ -147,7 +124,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       window.clearTimeout(startId);
       window.clearInterval(intervalId);
     };
-  }, [session]);
+  }, []);
 
   useEffect(() => {
     const startId = window.setTimeout(() => setNow(new Date()), 0);
@@ -159,7 +136,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (!session) return;
     let mounted = true;
 
     function loadNotifications() {
@@ -180,7 +156,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       window.clearTimeout(startId);
       window.clearInterval(intervalId);
     };
-  }, [session]);
+  }, []);
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -208,11 +184,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     setReadNotificationIds((current) => saveStoredIds(READ_NOTIFICATIONS_KEY, [...current, ...ids]));
   }
 
-  function logout() {
-    clearClientAccessTokenCache();
-    signOut({ callbackUrl: "/login" });
-  }
-
   const dateText = now
     ? now.toLocaleDateString("th-TH", { day: "2-digit", month: "short", year: "numeric" })
     : "--";
@@ -221,19 +192,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     : "--";
   const visibleNotifications = notifications.filter((item) => !clearedNotificationIds.includes(item.id));
   const unreadCount = visibleNotifications.filter((item) => !readNotificationIds.includes(item.id)).length;
-
-  if (isLoginPage) {
-    return <>{children}</>;
-  }
-
-  if (status === "loading" || !session) {
-    return (
-      <main className={styles.authLoading}>
-        <span>AB</span>
-        <strong>กำลังตรวจสอบสิทธิ์...</strong>
-      </main>
-    );
-  }
 
   return (
     <main className={styles.shell}>
@@ -267,10 +225,9 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className={styles.operator}>
           <div className={styles.avatar}>A</div>
           <div>
-            <strong>{session.user.name}</strong>
+            <strong>Admin</strong>
             <span>online</span>
           </div>
-          <button onClick={logout} type="button">Logout</button>
         </div>
       </aside>
 

@@ -229,14 +229,6 @@ export type LoginPayload = {
   password: string;
 };
 
-export function clearClientAccessTokenCache(): void {
-  return;
-}
-
-export function setClientAccessTokenCache(token: string | null): void {
-  void token;
-}
-
 type ApiErrorResponse = {
   error_code?: string;
   message?: string;

@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import { auth } from "@/auth";
 import { AppShell } from "@/components/AppShell";
-import { AuthSessionProvider } from "@/components/AuthSessionProvider";
 import { ToastProvider } from "@/components/ToastProvider";
 import "./globals.css";
 
@@ -15,16 +13,12 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const session = await auth();
-
   return (
     <html lang="th">
       <body>
-        <AuthSessionProvider session={session}>
-          <ToastProvider>
-            <AppShell>{children}</AppShell>
-          </ToastProvider>
-        </AuthSessionProvider>
+        <ToastProvider>
+          <AppShell>{children}</AppShell>
+        </ToastProvider>
       </body>
     </html>
   );
