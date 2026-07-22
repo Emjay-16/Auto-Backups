@@ -1,13 +1,15 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   backupDownloadUrl,
   cleanupBackups,
+  getAutoCleanupSettings,
   getBackupDetail,
   listDeviceFiles,
   runCombinedBackup,
+  type AutoCleanupSettings,
   type BackupDetail,
   type BackupCleanupResult,
   type BackupRunResult,
@@ -47,10 +49,29 @@ export function BackupsWorkspace({
   const [cleanupDays, setCleanupDays] = useState("90");
   const [cleanupDryRun, setCleanupDryRun] = useState(true);
   const [cleanupKeepLatest, setCleanupKeepLatest] = useState(true);
+  const [cleanupSettings, setCleanupSettings] = useState<AutoCleanupSettings | null>(null);
   const [result, setResult] = useState<BackupRunResult | BackupCleanupResult | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [pendingDeleteBackup, setPendingDeleteBackup] = useState<Backup | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    getAutoCleanupSettings()
+      .then((settings) => {
+        if (!mounted) return;
+        setCleanupSettings(settings);
+        setCleanupDays(String(settings.older_than_days));
+        setCleanupKeepLatest(settings.keep_latest_per_device);
+      })
+      .catch(() => {
+        if (mounted) setCleanupSettings(null);
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   function openModal(nextMode: ModalMode) {
     setMode(nextMode);
@@ -284,6 +305,20 @@ export function BackupsWorkspace({
             <span>Compare remote mtime and SHA-256 hash. Offline devices become pending jobs.</span>
           </div>
         </Panel>
+        <Panel title="Auto Cleanup Rule">
+          <div className={styles.rule}>
+            <strong>
+              {cleanupSettings
+                ? `${cleanupSettings.enabled ? "Enabled" : "Disabled"} · older than ${cleanupSettings.older_than_days} days`
+                : "Loading cleanup settings"}
+            </strong>
+            <span>
+              {cleanupSettings
+                ? `Runs every ${cleanupSettings.interval_hours} hour(s). ${cleanupSettings.keep_latest_per_device ? "Keeps latest backup per device." : "Latest backups can be removed."}`
+                : "Reading /backups/cleanup/settings from API."}
+            </span>
+          </div>
+        </Panel>
       </section>
 
       {mode ? (
@@ -324,6 +359,11 @@ export function BackupsWorkspace({
                 <label>
                   Older than days
                   <input value={cleanupDays} onChange={(event) => setCleanupDays(event.target.value)} />
+                  {cleanupSettings ? (
+                    <span className={styles.fieldHint}>
+                      Current auto cleanup setting: {cleanupSettings.older_than_days} day(s)
+                    </span>
+                  ) : null}
                 </label>
                 <label className={styles.checkRow}>
                   <input checked={cleanupDryRun} onChange={(event) => setCleanupDryRun(event.target.checked)} type="checkbox" />

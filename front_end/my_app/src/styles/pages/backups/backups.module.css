@@ -139,7 +139,7 @@
 
 .cards {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
 }
 
@@ -170,6 +170,13 @@
   color: #627189;
   font-size: 13px;
   line-height: 1.6;
+}
+
+.fieldHint {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.45;
 }
 
 .overlay {

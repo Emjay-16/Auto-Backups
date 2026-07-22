@@ -123,6 +123,13 @@ export type BackupCleanupResult = {
   }>;
 };
 
+export type AutoCleanupSettings = {
+  enabled: boolean;
+  older_than_days: number;
+  interval_hours: number;
+  keep_latest_per_device: boolean;
+};
+
 export type BackupFileDetail = {
   backup_file_id: number;
   backup_id: number;
@@ -335,6 +342,10 @@ export async function runCombinedBackup(payload: CombinedBackupPayload): Promise
 
 export async function cleanupBackups(payload: BackupCleanupPayload): Promise<BackupCleanupResult> {
   return sendJson<BackupCleanupResult>("/backups/cleanup", "POST", payload);
+}
+
+export async function getAutoCleanupSettings(): Promise<AutoCleanupSettings> {
+  return getJson<AutoCleanupSettings>("/backups/cleanup/settings", 5000);
 }
 
 export async function getBackupDetail(backupId: number): Promise<BackupDetail> {
