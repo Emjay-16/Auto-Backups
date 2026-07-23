@@ -1,21 +1,33 @@
 .card {
-  min-height: 150px;
+  min-height: 142px;
   position: relative;
   overflow: hidden;
-  padding: 18px;
+  padding: 17px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 12px;
   background: linear-gradient(180deg, #ffffff, #fbfdff);
   box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
-.card::after {
+.card::before {
   content: "";
   position: absolute;
-  inset: 0 0 auto;
-  height: 3px;
-  background: linear-gradient(90deg, var(--primary), var(--accent));
-  opacity: 0.78;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), transparent 44%);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.card:hover {
+  border-color: #c4d7ee;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.card:hover::before {
+  opacity: 1;
 }
 
 .icon {
@@ -24,9 +36,10 @@
   display: grid;
   place-items: center;
   margin-bottom: 14px;
-  border-radius: 9px;
-  background: #ecfeff;
-  color: #0e7490;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #f0f7ff;
+  color: var(--primary);
   font-weight: 800;
 }
 
@@ -59,7 +72,7 @@
 
 .bar,
 .barWarning {
-  height: 5px;
+  height: 6px;
   margin-top: 14px;
   overflow: hidden;
   border-radius: 999px;

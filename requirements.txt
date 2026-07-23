@@ -1,6 +1,5 @@
 alembic==1.14.1
 fastapi==0.124.4
-httpx==0.28.1
 paramiko==3.5.1
 psycopg2-binary==2.9.10
 pydantic==2.10.6

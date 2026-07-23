@@ -240,7 +240,6 @@ type ApiErrorResponse = {
 async function getJson<T>(path: string, timeoutMs = 1500): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     cache: "no-store",
-    headers: await authHeaders(),
     signal: AbortSignal.timeout(timeoutMs),
   });
 
@@ -340,7 +339,6 @@ export async function saveCustomBackupPath(path: string): Promise<CustomBackupPa
 export async function deleteCustomBackupPath(path: string): Promise<CustomBackupPathResult> {
   const response = await fetch(`${API_URL}/backups/auto-paths?path=${encodeURIComponent(path)}`, {
     method: "DELETE",
-    headers: await authHeaders(),
   });
 
   if (!response.ok) {
@@ -393,7 +391,6 @@ export async function getBackupDetail(backupId: number): Promise<BackupDetail> {
 export async function deleteBackup(backupId: number): Promise<void> {
   const response = await fetch(`${API_URL}/backups/${backupId}`, {
     method: "DELETE",
-    headers: await authHeaders(),
   });
 
   if (!response.ok) {
@@ -427,7 +424,6 @@ export async function uploadFilesToDevice(payload: {
 
   const response = await fetch(`${API_URL}/uploads/`, {
     method: "POST",
-    headers: await authHeaders(),
     body: formData,
   });
 
@@ -443,7 +439,6 @@ async function sendJson<T = void>(path: string, method: "POST" | "PUT", payload:
     method,
     headers: {
       "Content-Type": "application/json",
-      ...(await authHeaders()),
     },
     body: JSON.stringify(payload),
   });
@@ -463,7 +458,6 @@ async function postCustomBackupPath(path: string, remotePath: string): Promise<
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(await authHeaders()),
     },
     body: JSON.stringify({ path: remotePath }),
   });
@@ -480,10 +474,6 @@ async function postCustomBackupPath(path: string, remotePath: string): Promise<
     status: response.status,
     message: await readApiError(response, `API ${path} failed: ${response.status}`),
   };
-}
-
-async function authHeaders(): Promise<HeadersInit> {
-  return {};
 }
 
 async function readApiError(response: Response, fallback: string): Promise<string> {

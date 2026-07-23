@@ -359,10 +359,6 @@
   opacity: 0.55;
 }
 
-.fullField {
-  grid-column: 1 / -1;
-}
-
 .backupSelectionSummary {
   display: grid;
   align-self: end;

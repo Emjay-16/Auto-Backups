@@ -1,7 +1,7 @@
 .shell {
   min-height: 100vh;
   display: grid;
-  grid-template-columns: 264px minmax(0, 1fr);
+  grid-template-columns: 252px minmax(0, 1fr);
   color: var(--foreground);
 }
 
@@ -12,10 +12,12 @@
   display: flex;
   flex-direction: column;
   gap: 22px;
-  padding: 18px 14px;
-  background: linear-gradient(180deg, #111827 0%, #0b1220 100%);
+  padding: 18px 12px;
+  background:
+    linear-gradient(180deg, rgba(17, 24, 39, 0.98) 0%, rgba(9, 15, 28, 0.99) 100%),
+    #0b1220;
   color: #e7eef8;
-  box-shadow: 18px 0 40px rgba(15, 23, 42, 0.12);
+  box-shadow: 16px 0 40px rgba(15, 23, 42, 0.1);
 }
 
 .brand,
@@ -27,7 +29,7 @@
 
 .brand {
   min-height: 70px;
-  padding: 10px 10px 18px;
+  padding: 10px 12px 18px;
   border-bottom: 1px solid rgba(226, 232, 240, 0.1);
 }
 
@@ -72,12 +74,12 @@
 .nav {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 
 .navGroup {
   display: grid;
-  gap: 5px;
+  gap: 6px;
 }
 
 .navGroup p {
@@ -90,18 +92,18 @@
 }
 
 .navItem {
-  min-height: 42px;
+  min-height: 44px;
   position: relative;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 12px;
+  padding: 0 11px;
   border: 1px solid transparent;
-  border-radius: 9px;
+  border-radius: 11px;
   color: #c2cedd;
   font-size: 14px;
   font-weight: 700;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .navItem span {
@@ -134,14 +136,14 @@
   border-color: rgba(148, 163, 184, 0.16);
   background: rgba(255, 255, 255, 0.06);
   color: #ffffff;
-  transform: translateX(2px);
+  transform: translateX(1px);
 }
 
 .navItem.active {
   border-color: rgba(96, 165, 250, 0.32);
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.96), rgba(8, 145, 178, 0.9));
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.92), rgba(8, 145, 178, 0.86));
   color: #ffffff;
-  box-shadow: 0 12px 26px rgba(37, 99, 235, 0.22);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
 }
 
 .navItem:hover span,
@@ -190,32 +192,6 @@
   background: #10b981;
 }
 
-.authLoading {
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 12px;
-  background: var(--background);
-  color: var(--foreground);
-}
-
-.authLoading span {
-  width: 50px;
-  height: 50px;
-  display: grid;
-  place-items: center;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--accent), var(--primary));
-  color: #ffffff;
-  font-weight: 900;
-}
-
-.authLoading strong {
-  color: var(--muted);
-  font-size: 14px;
-}
-
 .workspace {
   min-width: 0;
   display: grid;
@@ -223,12 +199,12 @@
 }
 
 .topbar {
-  min-height: 96px;
+  min-height: 92px;
   display: grid;
   grid-template-columns: minmax(220px, 1fr) auto;
   align-items: center;
   gap: 18px;
-  margin: 0 30px 20px;
+  margin: 0 30px 18px;
   padding: 20px 0;
   border-bottom: 1px solid rgba(200, 215, 232, 0.8);
 }
@@ -246,13 +222,13 @@
 
 .topbar h1 {
   color: #0f172a;
-  font-size: 30px;
+  font-size: 29px;
   line-height: 1.08;
 }
 
 .topActions {
   display: grid;
-  grid-template-columns: minmax(240px, 340px) 44px 122px 136px;
+  grid-template-columns: minmax(240px, 350px) 44px 124px 136px;
   align-items: center;
   gap: 12px;
 }
@@ -262,7 +238,7 @@
 .dateBox,
 .statusBox {
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.86);
+  background: rgba(255, 255, 255, 0.9);
   box-shadow: var(--shadow-sm);
   backdrop-filter: blur(10px);
 }
@@ -274,7 +250,7 @@
   align-items: center;
   gap: 8px;
   padding: 0 14px;
-  border-radius: 10px;
+  border-radius: 12px;
   color: var(--muted-soft);
 }
 
@@ -322,7 +298,7 @@
   height: 44px;
   display: grid;
   place-items: center;
-  border-radius: 10px;
+  border-radius: 12px;
   color: var(--muted);
 }
 
@@ -465,7 +441,7 @@
   flex-direction: column;
   justify-content: center;
   padding: 0 16px;
-  border-radius: 10px;
+  border-radius: 12px;
 }
 
 .dateBox strong,
