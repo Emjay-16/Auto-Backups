@@ -134,6 +134,8 @@ export type AutoCleanupSettings = {
   keep_latest_per_device: boolean;
 };
 
+export type AutoCleanupSettingsPayload = Partial<AutoCleanupSettings>;
+
 export type BackupFileDetail = {
   backup_file_id: number;
   backup_id: number;
@@ -389,6 +391,10 @@ export async function cleanupBackups(payload: BackupCleanupPayload): Promise<Bac
 
 export async function getAutoCleanupSettings(): Promise<AutoCleanupSettings> {
   return getJson<AutoCleanupSettings>("/backups/cleanup/settings", 5000);
+}
+
+export async function updateAutoCleanupSettings(payload: AutoCleanupSettingsPayload): Promise<AutoCleanupSettings> {
+  return sendJson<AutoCleanupSettings>("/backups/cleanup/settings", "PUT", payload);
 }
 
 export async function getBackupDetail(backupId: number): Promise<BackupDetail> {

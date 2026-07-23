@@ -11,6 +11,7 @@ import {
   listDeviceFiles,
   runCombinedBackup,
   saveCustomBackupPath,
+  updateAutoCleanupSettings,
   type AutoCleanupSettings,
   type BackupDetail,
   type BackupCleanupResult,
@@ -41,6 +42,7 @@ export function BackupsWorkspace({
   const usableDevices = devices.filter((device) => device.id);
   const [mode, setMode] = useState<ModalMode>(null);
   const [deviceId, setDeviceId] = useState(String(usableDevices[0]?.id ?? ""));
+  const [backupName, setBackupName] = useState("");
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
   const [customPath, setCustomPath] = useState("");
   const [includeDatabase, setIncludeDatabase] = useState(false);
@@ -53,6 +55,8 @@ export function BackupsWorkspace({
   const [downloadFilename, setDownloadFilename] = useState("");
   const [pendingDownloadConfirm, setPendingDownloadConfirm] = useState(false);
   const [cleanupDays, setCleanupDays] = useState("90");
+  const [cleanupEnabled, setCleanupEnabled] = useState(false);
+  const [cleanupIntervalHours, setCleanupIntervalHours] = useState("720");
   const [cleanupDryRun, setCleanupDryRun] = useState(true);
   const [cleanupKeepLatest, setCleanupKeepLatest] = useState(true);
   const [cleanupSettings, setCleanupSettings] = useState<AutoCleanupSettings | null>(null);
@@ -69,6 +73,8 @@ export function BackupsWorkspace({
         if (!mounted) return;
         setCleanupSettings(settings);
         setCleanupDays(String(settings.older_than_days));
+        setCleanupEnabled(settings.enabled);
+        setCleanupIntervalHours(String(settings.interval_hours));
         setCleanupKeepLatest(settings.keep_latest_per_device);
       })
       .catch(() => {
@@ -87,6 +93,7 @@ export function BackupsWorkspace({
   }
 
   function openBackupModal(databaseOnly = false) {
+    setBackupName("");
     setSelectedPaths([]);
     setCustomPath("");
     setIncludeDatabase(databaseOnly);
@@ -123,6 +130,7 @@ export function BackupsWorkspace({
     try {
       const response = await runCombinedBackup({
         device_id: numericDeviceId,
+        backup_name: backupName.trim() || undefined,
         remote_paths: remotePaths,
         include_database: databaseSelected,
         zip_output: zipOutput,
@@ -220,6 +228,33 @@ export function BackupsWorkspace({
       router.refresh();
     } catch (errorResponse) {
       showToast({ tone: "error", title: "Cleanup failed", message: getErrorMessage(errorResponse, "Cleanup failed") });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveCleanupSettings() {
+    setSaving(true);
+    setError("");
+    try {
+      const settings = await updateAutoCleanupSettings({
+        enabled: cleanupEnabled,
+        older_than_days: Number(cleanupDays) || 90,
+        interval_hours: Number(cleanupIntervalHours) || 720,
+        keep_latest_per_device: cleanupKeepLatest,
+      });
+      setCleanupSettings(settings);
+      setCleanupDays(String(settings.older_than_days));
+      setCleanupEnabled(settings.enabled);
+      setCleanupIntervalHours(String(settings.interval_hours));
+      setCleanupKeepLatest(settings.keep_latest_per_device);
+      showToast({
+        tone: "success",
+        title: "Auto cleanup updated",
+        message: `${settings.enabled ? "Enabled" : "Disabled"} · older than ${settings.older_than_days} days`,
+      });
+    } catch (errorResponse) {
+      showToast({ tone: "error", title: "Save cleanup settings failed", message: getErrorMessage(errorResponse, "Save cleanup settings failed") });
     } finally {
       setSaving(false);
     }
@@ -510,6 +545,10 @@ export function BackupsWorkspace({
               </div>
             ) : mode === "cleanup" ? (
               <div className={styles.formGrid}>
+                <label className={styles.checkRow}>
+                  <input checked={cleanupEnabled} onChange={(event) => setCleanupEnabled(event.target.checked)} type="checkbox" />
+                  Enable auto cleanup
+                </label>
                 <label>
                   Older than days
                   <input value={cleanupDays} onChange={(event) => setCleanupDays(event.target.value)} />
@@ -518,6 +557,10 @@ export function BackupsWorkspace({
                       Current auto cleanup setting: {cleanupSettings.older_than_days} day(s)
                     </span>
                   ) : null}
+                </label>
+                <label>
+                  Interval hours
+                  <input value={cleanupIntervalHours} onChange={(event) => setCleanupIntervalHours(event.target.value)} />
                 </label>
                 <label className={styles.checkRow}>
                   <input checked={cleanupDryRun} onChange={(event) => setCleanupDryRun(event.target.checked)} type="checkbox" />
@@ -562,6 +605,14 @@ export function BackupsWorkspace({
                   </>
                 ) : (
                   <>
+                    <label>
+                      Backup name
+                      <input
+                        value={backupName}
+                        onChange={(event) => setBackupName(event.target.value)}
+                        placeholder="เช่น ก่อนแก้ flows หรือ Daily maps backup"
+                      />
+                    </label>
                     <div className={styles.targetList}>
                       {targets.map((target) => (
                         <label key={target.key}>
@@ -689,6 +740,7 @@ export function BackupsWorkspace({
               ) : null}
               {mode === "backup" ? <button onClick={() => submitBackup()} disabled={saving}>{saving ? "Running..." : "Run backup"}</button> : null}
               {mode === "browse" ? <button onClick={browseFiles} disabled={saving}>{saving ? "Loading..." : "Load files"}</button> : null}
+              {mode === "cleanup" ? <button onClick={saveCleanupSettings} disabled={saving}>{saving ? "Saving..." : "Save settings"}</button> : null}
               {mode === "cleanup" ? <button onClick={submitCleanup} disabled={saving}>{saving ? "Cleaning..." : "Run cleanup"}</button> : null}
             </div>
           </section>
