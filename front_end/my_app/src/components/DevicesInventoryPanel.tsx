@@ -21,6 +21,7 @@ import {
 import styles from "@/styles/pages/devices/devices.module.css";
 import { Panel } from "./Panel";
 import { PaginatedDevicesTable } from "./PaginatedDevicesTable";
+import { robotGroupTone } from "./RobotGroupBadge";
 import { useToast } from "./ToastProvider";
 
 type FormState = {
@@ -313,7 +314,7 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
             <div className={styles.filters}>
               {["All", ...groupOptions.map((group) => group.group_name), "Online"].map((filter) => (
                 <button
-                  className={activeFilter === filter ? styles.active : ""}
+                  className={`${activeFilter === filter ? styles.active : ""} ${filterToneClass(filter)}`}
                   key={filter}
                   onClick={() => setActiveFilter(filter)}
                   type="button"
@@ -593,6 +594,14 @@ function buildUpdatePayload(form: FormState, original: Device): Partial<DeviceFo
   if (ipAddress && ipAddress !== original.ip) payload.ip_address = ipAddress;
 
   return payload;
+}
+
+function filterToneClass(filter: string): string {
+  const tone = robotGroupTone(filter);
+  if (tone === "amr") return styles.filterAmr;
+  if (tone === "smr") return styles.filterSmr;
+  if (tone === "smrl") return styles.filterSmrl;
+  return "";
 }
 
 function formatBytes(value?: number | null): string {

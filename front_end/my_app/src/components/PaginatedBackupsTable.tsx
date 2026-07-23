@@ -5,6 +5,7 @@ import type { Backup } from "@/lib/types";
 import styles from "@/styles/pages/backups/backups.module.css";
 import { StatusBadge } from "./StatusBadge";
 import { PaginationControls } from "./PaginationControls";
+import { DeleteIcon, DetailsIcon } from "./ActionIcons";
 
 const PAGE_SIZE = 10;
 
@@ -58,8 +59,8 @@ export function PaginatedBackupsTable({
               <td>{backup.createdAt}</td>
               <td className={styles.actionsCell}>
                 <div className={styles.actions}>
-                  <button disabled={!backup.id} onClick={() => onOpen?.(backup)} title="Details and download">▤</button>
-                  <button disabled={!backup.id} onClick={() => onDelete?.(backup)} title="Delete">×</button>
+                  <button disabled={!backup.id} onClick={() => onOpen?.(backup)} title="Details and download"><DetailsIcon /></button>
+                  <button className={styles.dangerAction} disabled={!backup.id} onClick={() => onDelete?.(backup)} title="Delete"><DeleteIcon /></button>
                 </div>
               </td>
             </tr>

@@ -6,28 +6,82 @@
 
 .tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
 .tabs button {
+  --tab-main: var(--muted);
+  --tab-soft: #ffffff;
+  --tab-line: var(--line);
   min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   padding: 0 14px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--tab-line);
   border-radius: 999px;
-  background: #ffffff;
-  color: var(--muted);
+  background: var(--tab-soft);
+  color: var(--tab-main);
   font-size: 13px;
   font-weight: 800;
 }
 
+.tabs button b {
+  min-width: 23px;
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: inherit;
+  font-size: 11px;
+  line-height: 1;
+}
+
 .tabs .active {
-  border-color: var(--primary);
-  background: #dbeafe;
-  color: var(--primary-strong);
+  border-color: var(--tab-main);
+  background: color-mix(in srgb, var(--tab-main) 12%, #ffffff);
+  color: var(--tab-main);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--tab-main) 12%, transparent);
+}
+
+.tabs .running {
+  --tab-main: #2563eb;
+  --tab-soft: #eff6ff;
+  --tab-line: #bfdbfe;
+}
+
+.tabs .pending {
+  --tab-main: #d97706;
+  --tab-soft: #fffbeb;
+  --tab-line: #fde68a;
+}
+
+.tabs .skipped {
+  --tab-main: #7c3aed;
+  --tab-soft: #f5f3ff;
+  --tab-line: #ddd6fe;
+}
+
+.tabs .failed {
+  --tab-main: #dc2626;
+  --tab-soft: #fef2f2;
+  --tab-line: #fecaca;
+}
+
+.tabs .success {
+  --tab-main: #059669;
+  --tab-soft: #ecfdf5;
+  --tab-line: #99f6e4;
 }
 
 .jobs {
   display: grid;
+  gap: 8px;
+  padding: 12px;
 }
 
 .job {
@@ -35,12 +89,12 @@
   grid-template-columns: 180px minmax(0, 1fr) 160px auto 48px;
   align-items: center;
   gap: 14px;
-  padding: 14px 20px;
-  border-bottom: 1px solid #e6edf5;
-}
-
-.job:last-child {
-  border-bottom: 0;
+  padding: 13px 14px;
+  border: 1px solid #e7edf6;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffffff, #fbfdff);
+  color: inherit;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.035);
 }
 
 .job strong {
@@ -60,10 +114,11 @@
 }
 
 .progress {
-  height: 7px;
+  height: 8px;
   overflow: hidden;
+  border: 1px solid #e2eaf4;
   border-radius: 999px;
-  background: #edf3f9;
+  background: #f1f5f9;
 }
 
 .progress span {
@@ -73,8 +128,18 @@
   background: linear-gradient(90deg, var(--primary), var(--accent));
 }
 
+.emptyJobs {
+  margin: 0;
+  padding: 28px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+
 @media (max-width: 900px) {
-  .job {
+  .job,
+  .detailGrid {
     grid-template-columns: 1fr;
   }
 }

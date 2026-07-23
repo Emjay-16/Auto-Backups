@@ -1,5 +1,4 @@
-import { Panel } from "@/components/Panel";
-import { PaginatedJobsList } from "@/components/PaginatedJobsList";
+import { JobsWorkspace } from "@/components/JobsWorkspace";
 import { getJobsForUi } from "@/lib/api";
 import { matchesQuery } from "@/lib/search";
 import styles from "@/styles/pages/jobs/jobs.module.css";
@@ -17,16 +16,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
 
   return (
     <div className={styles.page}>
-      <section className={styles.tabs}>
-        <button className={styles.active}>All</button>
-        <button>Running</button>
-        <button>Pending</button>
-        <button>Failed</button>
-      </section>
-
-      <Panel title="Job Queue">
-        <PaginatedJobsList jobs={filteredJobs} />
-      </Panel>
+      <JobsWorkspace jobs={filteredJobs} />
     </div>
   );
 }

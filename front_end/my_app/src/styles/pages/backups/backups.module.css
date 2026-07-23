@@ -48,22 +48,36 @@
 
 .table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 13px;
 }
 
 .table th,
 .table td {
-  padding: 14px 20px;
+  padding: 13px 20px;
   border-bottom: 1px solid #e6edf5;
   text-align: left;
 }
 
 .table th {
-  color: var(--muted-soft);
+  background: #f8fbff;
+  color: #8494aa;
   font-size: 11px;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.table th:first-child {
+  border-top-left-radius: 10px;
+}
+
+.table th:last-child {
+  border-top-right-radius: 10px;
+}
+
+.table tbody tr:hover {
+  background: #fbfdff;
 }
 
 .table td {
@@ -92,7 +106,7 @@
 }
 
 .actionsCell {
-  width: 128px;
+  width: 112px;
 }
 
 .actions {
@@ -102,27 +116,43 @@
 }
 
 .actions button {
-  width: 28px;
-  height: 28px;
+  width: 31px;
+  height: 31px;
   display: grid;
   place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #ffffff;
-  color: var(--muted);
+  border: 1px solid #dbe6f2;
+  border-radius: 9px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  color: #5b6b82;
   font-size: 13px;
   font-weight: 900;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.035);
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.actions button svg {
+  width: 16px;
+  height: 16px;
 }
 
 .actions button:hover {
   border-color: #93c5fd;
   background: #eff6ff;
   color: var(--primary);
+  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.11);
+  transform: translateY(-1px);
 }
 
 .actions button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+.actions .dangerAction:hover {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: var(--danger);
+  box-shadow: 0 8px 16px rgba(220, 38, 38, 0.08);
 }
 
 .type {
@@ -227,7 +257,7 @@
   width: min(660px, 100%);
   overflow: hidden;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 14px;
   background: #ffffff;
   box-shadow: var(--shadow-md);
 }
@@ -237,8 +267,9 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px;
+  padding: 20px 22px;
   border-bottom: 1px solid #e6edf5;
+  background: linear-gradient(180deg, #ffffff, #fbfdff);
 }
 
 .modalHeader p {
@@ -257,8 +288,8 @@
   width: 34px;
   height: 34px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #f8fafc;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
   color: var(--muted);
   font-size: 22px;
   line-height: 1;
@@ -284,7 +315,7 @@
   width: 100%;
   height: 38px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   background: #ffffff;
   color: var(--foreground);
   padding: 0 10px;
@@ -327,7 +358,7 @@
   width: 100%;
   height: 38px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   background: #ffffff;
   color: var(--foreground);
   padding: 0 10px;
@@ -337,7 +368,7 @@
   min-height: 38px;
   padding: 0 12px;
   border: 1px solid #bfdbfe;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #eff6ff;
   color: var(--primary);
   font-size: 12px;
@@ -358,7 +389,7 @@
   min-height: 32px;
   padding: 0 9px;
   border: 1px solid #dbeafe;
-  border-radius: 8px;
+  border-radius: 999px;
   background: #f8fbff;
   color: var(--muted);
   font-size: 12px;
@@ -386,7 +417,7 @@
   gap: 10px;
   padding: 10px;
   border: 1px solid #e6edf5;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #f8fafc;
   color: #53647a;
   font-size: 12px;
@@ -426,7 +457,7 @@
   width: 100%;
   height: 38px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   background: #ffffff;
   color: var(--foreground);
   padding: 0 10px;
@@ -438,7 +469,7 @@
   min-height: 34px;
   padding: 0 12px;
   border: 1px solid #bfdbfe;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #eff6ff;
   color: var(--primary);
   font-size: 12px;
@@ -486,7 +517,7 @@
   min-height: 28px;
   padding: 0 10px;
   border: 1px solid #bfdbfe;
-  border-radius: 7px;
+  border-radius: 8px;
   background: #eff6ff;
   color: #1d4ed8;
   font-size: 12px;

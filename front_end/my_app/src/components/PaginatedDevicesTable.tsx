@@ -5,7 +5,8 @@ import type { Device } from "@/lib/types";
 import styles from "@/styles/pages/devices/devices.module.css";
 import { StatusBadge, StatusDot } from "./StatusBadge";
 import { PaginationControls } from "./PaginationControls";
-import { BackupIcon, RestoreIcon } from "./ActionIcons";
+import { BackupIcon, DetailsIcon, EditIcon, RestoreIcon } from "./ActionIcons";
+import { RobotGroupBadge } from "./RobotGroupBadge";
 
 const PAGE_SIZE = 10;
 
@@ -52,7 +53,7 @@ export function PaginatedDevicesTable({
                 </div>
               </td>
               <td>
-                <span className={styles.group}>{device.group}</span>
+                <RobotGroupBadge group={device.group} />
               </td>
               <td className={styles.mono}>{device.ip}</td>
               <td>
@@ -61,10 +62,10 @@ export function PaginatedDevicesTable({
               <td className={styles.mono}>{device.lastSeen}</td>
               <td className={styles.actionsCell}>
                 <div className={styles.actions}>
-                  <button title="Browse files" onClick={() => onBrowse?.(device)}>▤</button>
+                  <button title="Browse files" onClick={() => onBrowse?.(device)}><DetailsIcon /></button>
                   <button title="Backup" onClick={() => onBackup?.(device)}><BackupIcon /></button>
                   <button title="Restore" onClick={() => onRestore?.(device)}><RestoreIcon /></button>
-                  <button title="Edit device" onClick={() => onEdit?.(device)}>✎</button>
+                  <button title="Edit device" onClick={() => onEdit?.(device)}><EditIcon /></button>
                 </div>
               </td>
             </tr>

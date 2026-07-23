@@ -201,8 +201,15 @@ type ApiJob = {
   backup_id?: number | null;
   checked_devices: number;
   total_devices: number;
+  online_devices: number;
+  offline_devices: number;
+  backups_created: number;
+  failed_devices: number;
+  retry_count: number;
+  max_retries: number;
   job_message?: string | null;
   started_at: string;
+  finished_at?: string | null;
   updated_at: string;
 };
 
@@ -558,13 +565,28 @@ function mapBackupStatus(backupStatus: number): JobStatus {
 }
 
 function mapJob(job: ApiJob): Job {
+  const message = job.job_message ?? "";
   return {
+    id: job.job_id,
+    deviceId: job.device_id,
+    backupId: job.backup_id,
     device: job.device_id ? `Device #${job.device_id}` : "Fleet",
     type: job.job_type.replaceAll("_", " "),
-    target: job.job_message ?? `checked ${job.checked_devices}/${job.total_devices}`,
+    target: message || `checked ${job.checked_devices}/${job.total_devices}`,
     status: mapJobStatus(job.job_status),
     time: formatTime(job.started_at ?? job.updated_at),
+    updatedAt: formatTime(job.updated_at),
+    finishedAt: job.finished_at ? formatTime(job.finished_at) : "-",
     progress: mapJobProgress(job.job_status),
+    checkedDevices: job.checked_devices,
+    totalDevices: job.total_devices,
+    onlineDevices: job.online_devices,
+    offlineDevices: job.offline_devices,
+    backupsCreated: job.backups_created,
+    failedDevices: job.failed_devices,
+    retryCount: job.retry_count,
+    maxRetries: job.max_retries,
+    message,
   };
 }
 
@@ -572,12 +594,14 @@ function mapJobStatus(jobStatus: number): JobStatus {
   if (jobStatus === 0) return "running";
   if (jobStatus === 1) return "success";
   if (jobStatus === 2) return "failed";
+  if (jobStatus === 3) return "skipped";
   return "pending";
 }
 
 function mapJobProgress(jobStatus: number): number {
   if (jobStatus === 1) return 100;
   if (jobStatus === 4) return 0;
+  if (jobStatus === 3) return 12;
   if (jobStatus === 2) return 20;
   return 55;
 }

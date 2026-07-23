@@ -10,16 +10,18 @@ const PAGE_SIZE = 10;
 
 export function PaginatedJobsList({ jobs }: { jobs: Job[] }) {
   const [page, setPage] = useState(0);
+  const pageCount = Math.max(1, Math.ceil(jobs.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
   const visibleJobs = useMemo(
-    () => jobs.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE),
-    [jobs, page],
+    () => jobs.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
+    [jobs, safePage],
   );
 
   return (
     <>
       <div className={styles.jobs}>
-        {visibleJobs.map((job) => (
-          <article className={styles.job} key={`${job.device}-${job.time}-${job.type}`}>
+        {visibleJobs.length ? visibleJobs.map((job) => (
+          <article className={styles.job} key={job.id}>
             <div>
               <strong>{job.device}</strong>
               <span>{job.type}</span>
@@ -31,10 +33,12 @@ export function PaginatedJobsList({ jobs }: { jobs: Job[] }) {
             <StatusBadge status={job.status} />
             <time>{job.time}</time>
           </article>
-        ))}
+        )) : (
+          <p className={styles.emptyJobs}>No jobs in this status</p>
+        )}
       </div>
       <PaginationControls
-        page={page}
+        page={safePage}
         pageSize={PAGE_SIZE}
         total={jobs.length}
         onPrevious={() => setPage((current) => Math.max(0, current - 1))}

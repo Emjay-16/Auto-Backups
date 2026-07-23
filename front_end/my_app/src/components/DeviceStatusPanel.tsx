@@ -16,7 +16,8 @@ import {
   type RemoteFile,
 } from "@/lib/api";
 import type { Device } from "@/lib/types";
-import { StatusBadge, StatusDot } from "./StatusBadge";
+import { ClockIcon } from "./ActionIcons";
+import { RobotGroupBadge, robotGroupTone } from "./RobotGroupBadge";
 import { useToast } from "./ToastProvider";
 import styles from "@/styles/components/DeviceStatusPanel.module.css";
 
@@ -132,22 +133,32 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
   return (
     <>
       <div className={styles.grid}>
-        {devices.map((device) => (
-          <button className={styles.card} key={device.name} onClick={() => openDevice(device)}>
+        {devices.length ? devices.map((device) => (
+          <button className={`${styles.card} ${styles[robotGroupTone(device.group)]}`} key={device.name} onClick={() => openDevice(device)}>
             <div className={styles.header}>
-              <div className={styles.avatar}>{device.group}</div>
+              <RobotGroupBadge group={device.group} variant="avatar" />
               <div>
                 <strong>{device.name}</strong>
                 <span>{device.ip}</span>
               </div>
-              <StatusDot status={device.status} />
             </div>
             <div className={styles.footer}>
-              <StatusBadge status={device.status} />
-              <span>{device.lastSeen}</span>
+              <span className={styles.onlinePill}>
+                <i aria-hidden="true" />
+                online
+              </span>
+              <span className={styles.timePill}>
+                <ClockIcon />
+                {device.lastSeen}
+              </span>
             </div>
           </button>
-        ))}
+        )) : (
+          <div className={styles.emptyState}>
+            <strong>No online devices</strong>
+            <span>Online robots will appear here when they are available.</span>
+          </div>
+        )}
       </div>
 
       {selectedDevice ? (
@@ -167,7 +178,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
             <div className={styles.detailGrid}>
               <article>
                 <span>Status</span>
-                <StatusBadge status={shownStatus ?? selectedDevice.status} />
+                <strong>{shownStatus ?? selectedDevice.status}</strong>
               </article>
               <article>
                 <span>IP Address</span>
