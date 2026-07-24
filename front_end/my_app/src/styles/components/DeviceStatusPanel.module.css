@@ -1,8 +1,8 @@
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 18px;
-  padding: 22px;
+  grid-template-columns: repeat(auto-fill, minmax(252px, 1fr));
+  gap: 16px;
+  padding: 24px;
 }
 
 .card {
@@ -12,16 +12,18 @@
   position: relative;
   overflow: hidden;
   display: grid;
-  gap: 16px;
-  min-height: 168px;
+  gap: 18px;
+  min-height: 174px;
   align-content: space-between;
-  padding: 20px;
+  padding: 21px;
   border: 2px solid var(--card-border);
-  border-radius: 18px;
-  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 82% 12%, color-mix(in srgb, var(--card-accent) 7%, transparent), transparent 9rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(249, 252, 255, 0.94) 100%);
   color: inherit;
   text-align: left;
-  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.07);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
@@ -47,27 +49,30 @@
 
 .card:hover {
   border-color: color-mix(in srgb, var(--card-accent) 56%, var(--card-border));
-  box-shadow: 0 20px 44px color-mix(in srgb, var(--card-accent) 12%, transparent);
-  transform: translateY(-1px);
+  box-shadow: 0 26px 58px color-mix(in srgb, var(--card-accent) 13%, rgba(15, 23, 42, 0.08));
+  transform: translateY(-2px);
 }
 
 .header {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 15px;
 }
 
 .header strong {
   display: block;
   color: #111827;
-  font-size: 16px;
+  font-size: 17px;
+  font-weight: 950;
   line-height: 1.2;
 }
 
 .header div span {
+  margin-top: 6px;
   display: block;
-  color: #738299;
-  font-size: 12px;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .footer {
@@ -80,11 +85,11 @@
 
 .onlinePill,
 .timePill {
-  min-height: 34px;
+  min-height: 33px;
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  padding: 0 12px;
+  padding: 0 13px;
   border: 1px solid transparent;
   border-radius: 999px;
   font-size: 12px;
@@ -94,9 +99,10 @@
 }
 
 .onlinePill {
-  border-color: #bbf7d0;
-  background: #ecfdf5;
+  border-color: rgba(134, 239, 172, 0.72);
+  background: rgba(236, 253, 245, 0.84);
   color: #059669;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
 }
 
 .onlinePill i {
@@ -108,9 +114,10 @@
 }
 
 .timePill {
-  border-color: #dbeafe;
-  background: #eff6ff;
+  border-color: rgba(191, 219, 254, 0.82);
+  background: rgba(239, 246, 255, 0.82);
   color: #315c98;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
 }
 
 .timePill svg {
@@ -155,7 +162,8 @@
   position: absolute;
   inset: 0;
   border: 0;
-  background: rgba(15, 23, 42, 0.42);
+  background: rgba(15, 23, 42, 0.46);
+  backdrop-filter: blur(3px);
 }
 
 .modal {
@@ -164,10 +172,11 @@
   width: min(860px, 100%);
   max-height: min(88vh, 820px);
   overflow: auto;
-  border: 1px solid #dbe4ee;
-  border-radius: 14px;
-  background: #ffffff;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+  border: 1px solid rgba(196, 212, 231, 0.86);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.96));
+  box-shadow: 0 34px 90px rgba(15, 23, 42, 0.28);
 }
 
 .modalHeader {
@@ -175,8 +184,11 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px 22px;
-  border-bottom: 1px solid #e6edf5;
+  padding: 22px 24px;
+  border-bottom: 1px solid rgba(220, 231, 243, 0.9);
+  background:
+    radial-gradient(circle at 8% 12%, rgba(37, 99, 235, 0.08), transparent 18rem),
+    linear-gradient(180deg, #ffffff, #f8fbff);
 }
 
 .modalHeader p {
@@ -192,11 +204,11 @@
 }
 
 .close {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border: 1px solid #dbe4ee;
-  border-radius: 10px;
-  background: #f8fafc;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
   color: #53647a;
   font-size: 22px;
   line-height: 1;
@@ -205,16 +217,17 @@
 .detailGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  padding: 18px 22px;
+  gap: 12px;
+  padding: 20px 24px;
 }
 
 .detailGrid article {
   min-width: 0;
-  padding: 12px;
-  border: 1px solid #e6edf5;
-  border-radius: 10px;
-  background: #f8fbff;
+  padding: 13px;
+  border: 1px solid rgba(220, 231, 243, 0.95);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.035);
 }
 
 .detailGrid span {
@@ -238,7 +251,7 @@
 .paths {
   display: grid;
   gap: 10px;
-  padding: 0 22px 18px;
+  padding: 0 24px 18px;
 }
 
 .paths h3 {
@@ -352,9 +365,9 @@
   gap: 10px;
   min-height: 42px;
   padding: 9px 10px;
-  border: 1px solid #e6edf5;
-  border-radius: 10px;
-  background: #f8fafc;
+  border: 1px solid rgba(220, 231, 243, 0.95);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.74);
   color: #53647a;
   font-size: 12px;
 }
@@ -402,9 +415,9 @@
   overflow: auto;
   margin-top: 4px;
   padding: 10px;
-  border: 1px solid #dbeafe;
-  border-radius: 12px;
-  background: #f8fbff;
+  border: 1px solid rgba(191, 219, 254, 0.86);
+  border-radius: 14px;
+  background: rgba(248, 251, 255, 0.82);
 }
 
 .browserHeader {
@@ -459,17 +472,18 @@
   gap: 10px;
   position: sticky;
   bottom: 0;
-  padding: 16px 22px 20px;
-  border-top: 1px solid #e6edf5;
+  padding: 16px 24px 20px;
+  border-top: 1px solid rgba(220, 231, 243, 0.9);
   background: rgba(255, 255, 255, 0.94);
   backdrop-filter: blur(12px);
+  justify-content: flex-end;
 }
 
 .actions button {
   min-height: 36px;
-  padding: 0 12px;
+  padding: 0 14px;
   border: 1px solid #dbe4ee;
-  border-radius: 10px;
+  border-radius: 11px;
   background: #ffffff;
   color: #223149;
   font-size: 13px;

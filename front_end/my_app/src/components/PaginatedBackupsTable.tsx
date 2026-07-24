@@ -26,47 +26,56 @@ export function PaginatedBackupsTable({
 
   return (
     <>
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th>Backup Name</th>
-            <th>Device</th>
-            <th>Type</th>
-            <th>Files</th>
-            <th>Size</th>
-            <th>Status</th>
-            <th>Created</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {visibleBackups.map((backup) => (
-            <tr key={backup.name}>
-              <td>
-                <button className={styles.nameButton} disabled={!backup.id} onClick={() => onOpen?.(backup)}>
-                  {backup.name}
-                </button>
-              </td>
-              <td>{backup.device}</td>
-              <td>
-                <span className={styles.type}>{backup.type}</span>
-              </td>
-              <td>{backup.files}</td>
-              <td>{backup.size}</td>
-              <td>
-                <StatusBadge status={backup.status} />
-              </td>
-              <td>{backup.createdAt}</td>
-              <td className={styles.actionsCell}>
-                <div className={styles.actions}>
-                  <button disabled={!backup.id} onClick={() => onOpen?.(backup)} title="Details and download"><DetailsIcon /></button>
-                  <button className={styles.dangerAction} disabled={!backup.id} onClick={() => onDelete?.(backup)} title="Delete"><DeleteIcon /></button>
-                </div>
-              </td>
+      <div className={styles.tableScroll}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>Backup Name</th>
+              <th>Device</th>
+              <th>Type</th>
+              <th>Files</th>
+              <th>Size</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {visibleBackups.length ? visibleBackups.map((backup) => (
+              <tr key={backup.name}>
+                <td>
+                  <button className={styles.nameButton} disabled={!backup.id} onClick={() => onOpen?.(backup)}>
+                    {backup.name}
+                  </button>
+                </td>
+                <td>{backup.device}</td>
+                <td>
+                  <span className={styles.type}>{backup.type}</span>
+                </td>
+                <td>{backup.files}</td>
+                <td>{backup.size}</td>
+                <td>
+                  <StatusBadge status={backup.status} />
+                </td>
+                <td>{backup.createdAt}</td>
+                <td className={styles.actionsCell}>
+                  <div className={styles.actions}>
+                    <button disabled={!backup.id} onClick={() => onOpen?.(backup)} title="Details and download" aria-label={`Open ${backup.name}`}><DetailsIcon /></button>
+                    <button className={styles.dangerAction} disabled={!backup.id} onClick={() => onDelete?.(backup)} title="Delete" aria-label={`Delete ${backup.name}`}><DeleteIcon /></button>
+                  </div>
+                </td>
+              </tr>
+            )) : (
+              <tr>
+                <td className={styles.emptyTableCell} colSpan={8}>
+                  <strong>No backups found</strong>
+                  <span>Create a new backup or adjust your search.</span>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
       <PaginationControls
         page={page}
         pageSize={PAGE_SIZE}

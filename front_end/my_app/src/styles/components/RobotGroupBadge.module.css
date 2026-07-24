@@ -27,13 +27,15 @@
 }
 
 .avatar {
-  width: 44px;
-  height: 44px;
+  width: 50px;
+  height: 50px;
   flex-direction: column;
   gap: 4px;
-  border-radius: 12px;
+  border-radius: 15px;
   font-size: 12px;
-  box-shadow: 0 10px 22px var(--group-shadow);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 14px 26px var(--group-shadow);
 }
 
 .badge i {
@@ -45,10 +47,10 @@
 }
 
 .avatar i {
-  width: 16px;
+  width: 18px;
   height: 3px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.72);
+  background: color-mix(in srgb, var(--group-main) 32%, #ffffff);
 }
 
 .badge b,

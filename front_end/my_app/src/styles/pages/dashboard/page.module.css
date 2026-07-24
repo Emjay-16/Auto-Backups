@@ -1,13 +1,13 @@
 .page {
   display: grid;
-  gap: 18px;
+  gap: 20px;
   padding: 0 30px 30px;
 }
 
 .metricGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: 18px;
 }
 
 @media (max-width: 980px) {

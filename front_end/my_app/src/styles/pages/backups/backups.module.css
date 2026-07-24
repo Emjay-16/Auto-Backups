@@ -4,35 +4,70 @@
   padding: 0 30px 30px;
 }
 
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+.actionGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
 }
 
-.toolbar button {
-  min-height: 38px;
-  display: inline-flex;
+.actionCard {
+  min-width: 0;
+  min-height: 98px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
-  padding: 0 14px;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: #ffffff;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(196, 212, 231, 0.78);
+  border-radius: var(--radius-panel);
+  background:
+    radial-gradient(circle at 88% 16%, rgba(37, 99, 235, 0.07), transparent 8rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.92));
   color: var(--foreground);
-  font-size: 13px;
-  font-weight: 800;
+  text-align: left;
+  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.065);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
-.toolbar button svg {
-  width: 16px;
-  height: 16px;
+.actionCard:hover {
+  border-color: #bfdbfe;
+  box-shadow: 0 24px 54px rgba(37, 99, 235, 0.11);
+  transform: translateY(-1px);
 }
 
-.toolbar .primary {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: #ffffff;
+.actionCard > span {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #bfdbfe;
+  border-radius: 13px;
+  background: #eff6ff;
+  color: var(--primary);
+}
+
+.actionCard svg {
+  width: 21px;
+  height: 21px;
+}
+
+.actionCard strong {
+  display: block;
+  color: #162235;
+  font-size: 15px;
+}
+
+.actionCard p {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.primaryAction {
+  border-width: 2px;
+  border-color: #bfdbfe;
 }
 
 .pageError,
@@ -53,15 +88,19 @@
   font-size: 13px;
 }
 
+.tableScroll {
+  overflow-x: auto;
+}
+
 .table th,
 .table td {
   padding: 13px 20px;
-  border-bottom: 1px solid #e6edf5;
+  border-bottom: 1px solid rgba(220, 231, 243, 0.9);
   text-align: left;
 }
 
 .table th {
-  background: #f8fbff;
+  background: rgba(248, 251, 255, 0.92);
   color: #8494aa;
   font-size: 11px;
   letter-spacing: 0.06em;
@@ -77,7 +116,11 @@
 }
 
 .table tbody tr:hover {
-  background: #fbfdff;
+  background: rgba(239, 246, 255, 0.44);
+}
+
+.table tbody tr {
+  transition: background 0.15s ease;
 }
 
 .table td {
@@ -143,6 +186,10 @@
   transform: translateY(-1px);
 }
 
+.actions button:active {
+  transform: translateY(0);
+}
+
 .actions button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
@@ -153,6 +200,25 @@
   background: #fef2f2;
   color: var(--danger);
   box-shadow: 0 8px 16px rgba(220, 38, 38, 0.08);
+}
+
+.emptyTableCell {
+  height: 170px;
+  text-align: center !important;
+}
+
+.emptyTableCell strong {
+  display: block;
+  color: #162235;
+  font-size: 14px;
+}
+
+.emptyTableCell span {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .type {
@@ -171,6 +237,13 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
+}
+
+@media (max-width: 980px) {
+  .actionGrid,
+  .cards {
+    grid-template-columns: 1fr;
+  }
 }
 
 .pathList,
@@ -248,18 +321,19 @@
   position: absolute;
   inset: 0;
   border: 0;
-  background: rgba(15, 23, 42, 0.42);
+  background: rgba(15, 23, 42, 0.46);
+  backdrop-filter: blur(3px);
 }
 
 .modal {
   position: relative;
   z-index: 1;
-  width: min(660px, 100%);
+  width: min(780px, 100%);
   overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #ffffff;
-  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(196, 212, 231, 0.86);
+  border-radius: 20px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  box-shadow: var(--shadow-lg);
 }
 
 .modalHeader {
@@ -268,8 +342,10 @@
   justify-content: space-between;
   gap: 16px;
   padding: 20px 22px;
-  border-bottom: 1px solid #e6edf5;
-  background: linear-gradient(180deg, #ffffff, #fbfdff);
+  border-bottom: 1px solid rgba(220, 231, 243, 0.9);
+  background:
+    radial-gradient(circle at 8% 12%, rgba(37, 99, 235, 0.08), transparent 18rem),
+    linear-gradient(180deg, #ffffff, #f8fbff);
 }
 
 .modalHeader p {
@@ -285,10 +361,10 @@
 }
 
 .closeButton {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 12px;
   background: linear-gradient(180deg, #ffffff, #f8fafc);
   color: var(--muted);
   font-size: 22px;
@@ -321,6 +397,15 @@
   padding: 0 10px;
 }
 
+.formGrid input:focus,
+.formGrid select:focus,
+.customPathRow input:focus,
+.downloadNameField input:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+  outline: 0;
+}
+
 .checkRow {
   display: flex !important;
   align-items: center;
@@ -336,6 +421,73 @@
 .fileList {
   display: grid;
   gap: 8px;
+}
+
+.targetList {
+  align-self: start;
+}
+
+.selectionPanel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(191, 219, 254, 0.78);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 92% 0%, rgba(37, 99, 235, 0.07), transparent 9rem),
+    rgba(248, 251, 255, 0.82);
+}
+
+.selectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.selectionHeader div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.selectionHeader strong {
+  color: #162235;
+  font-size: 14px;
+  font-weight: 950;
+}
+
+.selectionHeader span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.selectionActions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.selectionActions button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.selectionActions button:hover:not(:disabled) {
+  background: #eff6ff;
+}
+
+.selectionActions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .customPathRow {
@@ -376,25 +528,36 @@
 }
 
 .selectedPathList {
-  display: grid;
-  gap: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(220, 231, 243, 0.9);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
 }
 
 .selectedPathList button {
   min-width: 0;
+  max-width: 100%;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
-  min-height: 32px;
-  padding: 0 9px;
+  gap: 9px;
+  min-height: 31px;
+  padding: 0 8px 0 11px;
   border: 1px solid #dbeafe;
   border-radius: 999px;
-  background: #f8fbff;
-  color: var(--muted);
+  background: #eff6ff;
+  color: #315c98;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 850;
   text-align: left;
+}
+
+.selectedPathList button:hover {
+  border-color: #93c5fd;
+  background: #dbeafe;
 }
 
 .selectedPathList span {
@@ -404,7 +567,14 @@
 }
 
 .selectedPathList b {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #ffffff;
   color: var(--danger);
+  line-height: 1;
 }
 
 .targetList label,
@@ -412,19 +582,84 @@
 .fileRow {
   min-width: 0;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 10px;
-  padding: 10px;
-  border: 1px solid #e6edf5;
-  border-radius: 10px;
-  background: #f8fafc;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(220, 231, 243, 0.95);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.76);
   color: #53647a;
   font-size: 12px;
   font-weight: 800;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
-.targetList span,
+.targetList label:hover,
+.fileRow:hover {
+  border-color: #bfdbfe;
+  background: #f8fbff;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.06);
+}
+
+.targetList label:has(input:checked) {
+  border-color: #93c5fd;
+  background: linear-gradient(180deg, rgba(239, 246, 255, 0.92), rgba(248, 251, 255, 0.96));
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.08);
+}
+
+.targetList input,
+.fileRow input {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--primary);
+}
+
+.targetList input:focus-visible,
+.fileRow input:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.targetText {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.targetText strong {
+  overflow: hidden;
+  color: #162235;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.targetText small {
+  overflow: hidden;
+  color: #66758a;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.targetMeta {
+  min-width: 68px;
+  justify-self: end;
+  padding: 5px 8px;
+  border: 1px solid #ddd6fe;
+  border-radius: 999px;
+  background: #f5f3ff;
+  color: #5b21b6;
+  font-size: 10px;
+  font-weight: 950;
+  line-height: 1;
+  text-align: center;
+  text-transform: uppercase;
+}
+
 .fileList span,
 .fileRow span,
 .browserHeader strong {
@@ -524,6 +759,14 @@
   font-weight: 900;
 }
 
+.targetList button:hover,
+.fileRow button:hover,
+.browserHeader button:hover {
+  border-color: #93c5fd;
+  background: #dbeafe;
+  color: #1e40af;
+}
+
 .browser,
 .detailBody {
   display: grid;
@@ -612,7 +855,7 @@
   min-height: 36px;
   padding: 0 14px;
   border: 1px solid #dbe4ee;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #ffffff;
   color: #223149;
   font-size: 13px;
@@ -657,6 +900,7 @@
   inset: 0;
   border: 0;
   background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(3px);
 }
 
 .confirmDialog {
@@ -667,7 +911,7 @@
   gap: 14px;
   padding: 22px;
   border: 1px solid #fecaca;
-  border-radius: 14px;
+  border-radius: 16px;
   background: #ffffff;
   box-shadow: 0 24px 70px rgba(15, 23, 42, 0.3);
 }
@@ -684,7 +928,7 @@
   place-items: center;
   border-radius: 12px;
   background: #fef2f2;
-  color: #1d4ed8;
+  color: #dc2626;
   font-size: 20px;
   font-weight: 900;
 }
@@ -774,5 +1018,27 @@
 
   .customPathRow {
     grid-template-columns: 1fr;
+  }
+
+  .selectionHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .selectionActions {
+    justify-content: flex-start;
+  }
+
+  .targetList label,
+  .fileRow {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .targetMeta,
+  .targetList label > button,
+  .fileRow > button,
+  .fileRow > b {
+    grid-column: 2;
+    justify-self: start;
   }
 }

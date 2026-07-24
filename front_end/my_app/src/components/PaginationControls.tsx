@@ -20,17 +20,21 @@ export function PaginationControls({ page, pageSize, total, onPrevious, onNext }
       <span>
         Showing {start}-{end} of {total}
       </span>
-      <div>
-        <button onClick={onPrevious} disabled={page === 0}>
-          Previous
-        </button>
-        <strong>
-          {page + 1} / {pageCount}
-        </strong>
-        <button onClick={onNext} disabled={page >= pageCount - 1}>
-          Next
-        </button>
-      </div>
+      {pageCount > 1 ? (
+        <div>
+          <button onClick={onPrevious} disabled={page === 0} aria-label="Previous page">
+            Previous
+          </button>
+          <strong aria-current="page">
+            {page + 1} / {pageCount}
+          </strong>
+          <button onClick={onNext} disabled={page >= pageCount - 1} aria-label="Next page">
+            Next
+          </button>
+        </div>
+      ) : (
+        <span className={styles.allShown}>All rows shown</span>
+      )}
     </div>
   );
 }

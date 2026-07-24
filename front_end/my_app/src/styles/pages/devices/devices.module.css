@@ -7,7 +7,7 @@
 .overview {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 16px;
+  gap: 18px;
 }
 
 .overview article {
@@ -17,10 +17,12 @@
   justify-content: center;
   gap: 6px;
   padding: 16px 18px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: linear-gradient(180deg, #ffffff, #fbfdff);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(196, 212, 231, 0.78);
+  border-radius: var(--radius-panel);
+  background:
+    radial-gradient(circle at 88% 12%, rgba(37, 99, 235, 0.06), transparent 9rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.92));
+  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.065);
 }
 
 .overview span {
@@ -145,16 +147,20 @@
   font-size: 13px;
 }
 
+.tableScroll {
+  overflow-x: auto;
+}
+
 .table th,
 .table td {
   padding: 13px 20px;
-  border-bottom: 1px solid #e6edf5;
+  border-bottom: 1px solid rgba(220, 231, 243, 0.9);
   text-align: left;
   vertical-align: middle;
 }
 
 .table th {
-  background: #f8fbff;
+  background: rgba(248, 251, 255, 0.92);
   color: #8494aa;
   font-size: 11px;
   letter-spacing: 0.06em;
@@ -175,7 +181,11 @@
 }
 
 .table tbody tr:hover {
-  background: #fbfdff;
+  background: rgba(239, 246, 255, 0.44);
+}
+
+.table tbody tr {
+  transition: background 0.15s ease;
 }
 
 .table td {
@@ -245,10 +255,33 @@
   transform: translateY(-1px);
 }
 
+.actions button:active {
+  transform: translateY(0);
+}
+
 .actions button:last-child {
   border-color: #c7d2fe;
   background: #eef2ff;
   color: #3730a3;
+}
+
+.emptyTableCell {
+  height: 170px;
+  text-align: center !important;
+}
+
+.emptyTableCell strong {
+  display: block;
+  color: #162235;
+  font-size: 14px;
+}
+
+.emptyTableCell span {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
 }
 
 .overlay {
@@ -264,7 +297,8 @@
   position: absolute;
   inset: 0;
   border: 0;
-  background: rgba(15, 23, 42, 0.42);
+  background: rgba(15, 23, 42, 0.46);
+  backdrop-filter: blur(3px);
 }
 
 .modal {
@@ -272,10 +306,10 @@
   z-index: 1;
   width: min(760px, 100%);
   overflow: hidden;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: #ffffff;
-  box-shadow: var(--shadow-md);
+  border: 1px solid rgba(196, 212, 231, 0.86);
+  border-radius: 20px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  box-shadow: var(--shadow-lg);
 }
 
 .modalHeader {
@@ -284,8 +318,10 @@
   justify-content: space-between;
   gap: 16px;
   padding: 20px 22px;
-  border-bottom: 1px solid #e6edf5;
-  background: linear-gradient(180deg, #ffffff, #fbfdff);
+  border-bottom: 1px solid rgba(220, 231, 243, 0.9);
+  background:
+    radial-gradient(circle at 8% 12%, rgba(37, 99, 235, 0.08), transparent 18rem),
+    linear-gradient(180deg, #ffffff, #f8fbff);
 }
 
 .modalHeader p {
@@ -301,10 +337,10 @@
 }
 
 .closeButton {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 12px;
   background: linear-gradient(180deg, #ffffff, #f8fafc);
   color: var(--muted);
   font-size: 22px;
@@ -336,6 +372,16 @@
   border-radius: 10px;
   background: #ffffff;
   color: var(--foreground);
+}
+
+.formGrid input:focus,
+.formGrid select:focus,
+.actionForm input:focus,
+.actionForm textarea:focus,
+.customPathRow input:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+  outline: 0;
 }
 
 .formGrid input,
@@ -649,14 +695,16 @@
   justify-content: flex-end;
   gap: 10px;
   padding: 16px 20px 20px;
-  border-top: 1px solid #e6edf5;
+  border-top: 1px solid rgba(220, 231, 243, 0.9);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(12px);
 }
 
 .modalActions button {
   min-height: 36px;
   padding: 0 14px;
   border: 1px solid #dbe4ee;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #ffffff;
   color: #223149;
   font-size: 13px;

@@ -21,7 +21,7 @@ import {
 } from "@/lib/api";
 import type { Backup, Device } from "@/lib/types";
 import styles from "@/styles/pages/backups/backups.module.css";
-import { BackupIcon } from "./ActionIcons";
+import { BackupIcon, CleanupIcon, FolderIcon } from "./ActionIcons";
 import { PaginatedBackupsTable } from "./PaginatedBackupsTable";
 import { Panel } from "./Panel";
 import { useToast } from "./ToastProvider";
@@ -65,6 +65,7 @@ export function BackupsWorkspace({
   const [saving, setSaving] = useState(false);
   const [pendingDeleteBackup, setPendingDeleteBackup] = useState<Backup | null>(null);
   const [pendingDeletePath, setPendingDeletePath] = useState<string | null>(null);
+  const backupSelectionCount = selectedPaths.length + (includeDatabase ? 1 : 0);
 
   useEffect(() => {
     let mounted = true;
@@ -320,6 +321,18 @@ export function BackupsWorkspace({
     });
   }
 
+  function selectAllBackupTargets() {
+    setSelectedPaths(uniquePaths(targets
+      .filter((target) => target.backup_api !== "robot_db")
+      .map((target) => target.path)));
+    setIncludeDatabase(targets.some((target) => target.backup_api === "robot_db"));
+  }
+
+  function clearBackupTargets() {
+    setSelectedPaths([]);
+    setIncludeDatabase(false);
+  }
+
   async function addCustomPath() {
     const path = customPath.trim();
     if (!path) return;
@@ -431,13 +444,28 @@ export function BackupsWorkspace({
 
   return (
     <div className={styles.page}>
-      <section className={styles.toolbar}>
-        <button className={styles.primary} onClick={() => openBackupModal()}>
-          <BackupIcon />
-          New backup
+      <section className={styles.actionGrid}>
+        <button className={`${styles.actionCard} ${styles.primaryAction}`} onClick={() => openBackupModal()} type="button">
+          <span><BackupIcon /></span>
+          <div>
+            <strong>New backup</strong>
+            <p>เลือกหุ่นและ path ที่ต้องการสำรองข้อมูล</p>
+          </div>
         </button>
-        <button onClick={() => openModal("browse")}>Browse robot files</button>
-        <button onClick={() => openModal("cleanup")}>Cleanup old backups</button>
+        <button className={styles.actionCard} onClick={() => openModal("browse")} type="button">
+          <span><FolderIcon /></span>
+          <div>
+            <strong>Browse robot files</strong>
+            <p>ตรวจไฟล์/โฟลเดอร์บนหุ่นก่อนเลือก backup</p>
+          </div>
+        </button>
+        <button className={styles.actionCard} onClick={() => openModal("cleanup")} type="button">
+          <span><CleanupIcon /></span>
+          <div>
+            <strong>Cleanup old backups</strong>
+            <p>{cleanupSettings ? `${cleanupSettings.enabled ? "Auto on" : "Auto off"} · ${cleanupSettings.older_than_days} days` : "Manage retention rule"}</p>
+          </div>
+        </button>
       </section>
 
       {error ? <p className={styles.pageError}>{error}</p> : null}
@@ -613,31 +641,51 @@ export function BackupsWorkspace({
                         placeholder="เช่น ก่อนแก้ flows หรือ Daily maps backup"
                       />
                     </label>
-                    <div className={styles.targetList}>
-                      {targets.map((target) => (
-                        <label key={target.key}>
-                          <input
-                            checked={target.backup_api === "robot_db" ? includeDatabase : selectedPaths.includes(target.path)}
-                            onChange={() => {
-                              if (target.backup_api === "robot_db") setIncludeDatabase((current) => !current);
-                              else togglePath(target.path);
-                            }}
-                            type="checkbox"
-                          />
-                          <span>{target.label}</span>
-                          {target.browsable ? (
-                            <button
-                              onClick={(event) => {
-                                event.preventDefault();
-                                openTargetPath(target.path);
+                    <div className={styles.selectionPanel}>
+                      <div className={styles.selectionHeader}>
+                        <div>
+                          <strong>Backup targets</strong>
+                          <span>{backupSelectionCount} selected</span>
+                        </div>
+                        <div className={styles.selectionActions}>
+                          <button onClick={selectAllBackupTargets} type="button">Select all</button>
+                          <button disabled={!backupSelectionCount} onClick={clearBackupTargets} type="button">Clear</button>
+                        </div>
+                      </div>
+                      <div className={styles.targetList}>
+                        {targets.length ? targets.map((target) => (
+                          <label key={target.key}>
+                            <input
+                              checked={target.backup_api === "robot_db" ? includeDatabase : selectedPaths.includes(target.path)}
+                              onChange={() => {
+                                if (target.backup_api === "robot_db") setIncludeDatabase((current) => !current);
+                                else togglePath(target.path);
                               }}
-                              type="button"
-                            >
-                              Open
-                            </button>
-                          ) : null}
-                        </label>
-                      ))}
+                              type="checkbox"
+                            />
+                            <span className={styles.targetText}>
+                              <strong>{target.label}</strong>
+                              <small>{target.path}</small>
+                            </span>
+                            <b className={styles.targetMeta}>
+                              {target.backup_api === "robot_db" ? "DB JSON" : target.target_type}
+                            </b>
+                            {target.browsable ? (
+                              <button
+                                onClick={(event) => {
+                                  event.preventDefault();
+                                  openTargetPath(target.path);
+                                }}
+                                type="button"
+                              >
+                                Open
+                              </button>
+                            ) : null}
+                          </label>
+                        )) : (
+                          <p className={styles.emptyText}>No backup targets configured</p>
+                        )}
+                      </div>
                     </div>
                     <div className={styles.customPathRow}>
                       <label>
@@ -656,8 +704,14 @@ export function BackupsWorkspace({
                       </label>
                       <button onClick={() => void addCustomPath()} type="button">Add path</button>
                     </div>
-                    {selectedPaths.length ? (
-                      <div className={styles.selectedPathList}>
+                    {backupSelectionCount ? (
+                      <div className={styles.selectedPathList} aria-label="Selected backup targets">
+                        {includeDatabase ? (
+                          <button onClick={() => setIncludeDatabase(false)} type="button">
+                            <span>Robot database JSON</span>
+                            <b>×</b>
+                          </button>
+                        ) : null}
                         {selectedPaths.map((path) => (
                           <button key={path} onClick={() => togglePath(path)} type="button">
                             <span>{path}</span>
@@ -738,7 +792,11 @@ export function BackupsWorkspace({
                   Delete
                 </button>
               ) : null}
-              {mode === "backup" ? <button onClick={() => submitBackup()} disabled={saving}>{saving ? "Running..." : "Run backup"}</button> : null}
+              {mode === "backup" ? (
+                <button onClick={() => submitBackup()} disabled={saving || !Number(deviceId) || !backupSelectionCount}>
+                  {saving ? "Running..." : backupSelectionCount ? `Run backup (${backupSelectionCount})` : "Select targets first"}
+                </button>
+              ) : null}
               {mode === "browse" ? <button onClick={browseFiles} disabled={saving}>{saving ? "Loading..." : "Load files"}</button> : null}
               {mode === "cleanup" ? <button onClick={saveCleanupSettings} disabled={saving}>{saving ? "Saving..." : "Save settings"}</button> : null}
               {mode === "cleanup" ? <button onClick={submitCleanup} disabled={saving}>{saving ? "Cleaning..." : "Run cleanup"}</button> : null}

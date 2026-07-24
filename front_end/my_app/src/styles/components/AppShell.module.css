@@ -11,10 +11,11 @@
   top: 0;
   display: flex;
   flex-direction: column;
-  gap: 22px;
-  padding: 18px 12px;
+  gap: 20px;
+  padding: 18px 14px;
   background:
-    linear-gradient(180deg, rgba(17, 24, 39, 0.98) 0%, rgba(9, 15, 28, 0.99) 100%),
+    radial-gradient(circle at 18% 4%, rgba(37, 99, 235, 0.32), transparent 15rem),
+    linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(8, 13, 24, 0.99) 100%),
     #0b1220;
   color: #e7eef8;
   box-shadow: 16px 0 40px rgba(15, 23, 42, 0.1);
@@ -29,7 +30,7 @@
 
 .brand {
   min-height: 70px;
-  padding: 10px 12px 18px;
+  padding: 10px 10px 18px;
   border-bottom: 1px solid rgba(226, 232, 240, 0.1);
 }
 
@@ -61,8 +62,10 @@
 }
 
 .brandMark {
-  background: linear-gradient(135deg, var(--accent), var(--primary));
-  box-shadow: 0 16px 34px rgba(8, 145, 178, 0.24);
+  border: 1px solid rgba(191, 219, 254, 0.2);
+  background:
+    linear-gradient(135deg, rgba(8, 145, 178, 0.95), rgba(37, 99, 235, 0.95));
+  box-shadow: 0 16px 34px rgba(8, 145, 178, 0.28);
 }
 
 .avatar {
@@ -99,7 +102,7 @@
   gap: 10px;
   padding: 0 11px;
   border: 1px solid transparent;
-  border-radius: 11px;
+  border-radius: 12px;
   color: #c2cedd;
   font-size: 14px;
   font-weight: 700;
@@ -141,9 +144,10 @@
 
 .navItem.active {
   border-color: rgba(96, 165, 250, 0.32);
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.92), rgba(8, 145, 178, 0.86));
+  background:
+    linear-gradient(135deg, rgba(37, 99, 235, 0.94), rgba(8, 145, 178, 0.88));
   color: #ffffff;
-  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
+  box-shadow: 0 14px 28px rgba(37, 99, 235, 0.24);
 }
 
 .navItem:hover span,
@@ -156,8 +160,8 @@
   margin-top: auto;
   padding: 12px;
   border: 1px solid rgba(226, 232, 240, 0.1);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.06);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.075);
 }
 
 .operator > div:nth-child(2) {
@@ -204,9 +208,13 @@
   grid-template-columns: minmax(220px, 1fr) auto;
   align-items: center;
   gap: 18px;
-  margin: 0 30px 18px;
-  padding: 20px 0;
-  border-bottom: 1px solid rgba(200, 215, 232, 0.8);
+  margin: 18px 30px 20px;
+  padding: 18px 20px;
+  border: 1px solid rgba(196, 212, 231, 0.68);
+  border-radius: var(--radius-panel);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 14px 40px rgba(15, 23, 42, 0.055);
+  backdrop-filter: blur(12px);
 }
 
 .titleBlock {
@@ -222,8 +230,9 @@
 
 .topbar h1 {
   color: #0f172a;
-  font-size: 29px;
+  font-size: 28px;
   line-height: 1.08;
+  letter-spacing: 0;
 }
 
 .topActions {
@@ -237,9 +246,9 @@
 .iconButton,
 .dateBox,
 .statusBox {
-  border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(196, 212, 231, 0.78);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.045);
   backdrop-filter: blur(10px);
 }
 
@@ -250,7 +259,7 @@
   align-items: center;
   gap: 8px;
   padding: 0 14px;
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   color: var(--muted-soft);
 }
 
@@ -298,7 +307,7 @@
   height: 44px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   color: var(--muted);
 }
 
@@ -336,11 +345,13 @@
   width: min(380px, calc(100vw - 36px));
   max-height: 430px;
   overflow: auto;
-  padding: 10px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #ffffff;
-  box-shadow: var(--shadow-md);
+  padding: 12px;
+  border: 1px solid rgba(196, 212, 231, 0.78);
+  border-radius: var(--radius-panel);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.94));
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(14px);
 }
 
 .notificationHeader {
@@ -370,8 +381,8 @@
   min-height: 30px;
   padding: 0 10px;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  background: var(--surface-soft);
+  border-radius: 9px;
+  background: #f8fbff;
   color: var(--muted);
   font-size: 12px;
   font-weight: 900;
@@ -387,10 +398,10 @@
   gap: 4px;
   margin-top: 6px;
   padding: 11px;
-  border: 1px solid #edf2f8;
+  border: 1px solid #e4edf7;
   border-left: 3px solid #94a3b8;
-  border-radius: 9px;
-  background: #fbfdff;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.74);
 }
 
 .notificationItem b {
@@ -441,7 +452,7 @@
   flex-direction: column;
   justify-content: center;
   padding: 0 16px;
-  border-radius: 12px;
+  border-radius: var(--radius-control);
 }
 
 .dateBox strong,
@@ -526,7 +537,7 @@
   .topbar {
     grid-template-columns: 1fr;
     margin: 0 18px 18px;
-    padding: 18px 0;
+    padding: 16px;
   }
 
   .topActions {

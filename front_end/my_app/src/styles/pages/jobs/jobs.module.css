@@ -25,6 +25,11 @@
   color: var(--tab-main);
   font-size: 13px;
   font-weight: 800;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.tabs button:hover {
+  transform: translateY(-1px);
 }
 
 .tabs button b {
@@ -90,11 +95,18 @@
   align-items: center;
   gap: 14px;
   padding: 13px 14px;
-  border: 1px solid #e7edf6;
-  border-radius: 10px;
-  background: linear-gradient(180deg, #ffffff, #fbfdff);
+  border: 1px solid rgba(220, 231, 243, 0.92);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.78);
   color: inherit;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.035);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.job:hover {
+  border-color: #bfdbfe;
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.08);
+  transform: translateY(-1px);
 }
 
 .job strong {
@@ -130,7 +142,10 @@
 
 .emptyJobs {
   margin: 0;
-  padding: 28px;
+  padding: 34px 20px;
+  border: 1px dashed #c8d7e8;
+  border-radius: 13px;
+  background: rgba(248, 251, 255, 0.78);
   color: #64748b;
   font-size: 13px;
   font-weight: 800;

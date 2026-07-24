@@ -1,23 +1,25 @@
 .page {
   display: grid;
-  gap: 18px;
+  gap: 20px;
   padding: 0 30px 30px;
 }
 
 .summaryGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
+  gap: 18px;
 }
 
 .summaryGrid article {
   display: grid;
   gap: 8px;
   padding: 16px 18px;
-  border: 1px solid #e4ebf5;
-  border-radius: 12px;
-  background: linear-gradient(180deg, #ffffff, #fbfdff);
-  box-shadow: 0 12px 28px rgba(25, 35, 56, 0.05);
+  border: 1px solid rgba(196, 212, 231, 0.78);
+  border-radius: var(--radius-panel);
+  background:
+    radial-gradient(circle at 88% 16%, rgba(37, 99, 235, 0.06), transparent 8rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.92));
+  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.065);
 }
 
 .summaryGrid span {
@@ -49,10 +51,17 @@
   align-items: center;
   gap: 14px;
   padding: 12px 14px;
-  border: 1px solid #e7edf6;
-  border-radius: 10px;
-  background: linear-gradient(180deg, #ffffff, #fbfdff);
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.035);
+  border: 1px solid rgba(220, 231, 243, 0.92);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.log:hover {
+  border-color: #bfdbfe;
+  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.08);
+  transform: translateY(-1px);
 }
 
 .icon {
@@ -60,7 +69,7 @@
   height: 34px;
   display: grid;
   place-items: center;
-  border-radius: 8px;
+  border-radius: 11px;
   font-weight: 900;
 }
 
@@ -151,7 +160,11 @@
 }
 
 .emptyLogs {
-  padding: 28px;
+  margin: 0;
+  padding: 34px 20px;
+  border: 1px dashed #c8d7e8;
+  border-radius: 13px;
+  background: rgba(248, 251, 255, 0.78);
   color: #64748b;
   font-size: 13px;
   font-weight: 800;

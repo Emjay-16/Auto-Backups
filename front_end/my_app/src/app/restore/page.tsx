@@ -203,6 +203,30 @@ export default function RestorePage() {
 
   return (
     <div className={styles.page}>
+      <section className={styles.steps}>
+        <article className={restoreMode === "upload" ? styles.mutedStep : styles.activeStep}>
+          <b>1</b>
+          <div>
+            <strong>{restoreMode === "upload" ? "Select upload mode" : "Choose backup"}</strong>
+            <span>{restoreMode === "upload" ? "ใช้ไฟล์จากเครื่องนี้" : selectedBackup ? selectedBackup.name : "เลือกจากประวัติ backup"}</span>
+          </div>
+        </article>
+        <article className={selectedFileCount || restoreMode === "upload" ? styles.activeStep : ""}>
+          <b>2</b>
+          <div>
+            <strong>{restoreMode === "upload" ? "Choose files" : "Choose restore files"}</strong>
+            <span>{restoreMode === "upload" ? `${uploadFiles.length} upload file(s)` : `${selectedFileCount} / ${totalBackupFiles} selected`}</span>
+          </div>
+        </article>
+        <article className={selectedDeviceId ? styles.activeStep : ""}>
+          <b>3</b>
+          <div>
+            <strong>Restore target</strong>
+            <span>ส่งกลับผ่าน SSH/SFTP ไปยังหุ่นที่เลือก</span>
+          </div>
+        </article>
+      </section>
+
       <div className={styles.layout}>
         <Panel title="Restore Candidates">
           <div className={styles.snapshots}>

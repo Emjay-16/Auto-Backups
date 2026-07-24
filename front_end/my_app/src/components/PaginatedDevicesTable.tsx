@@ -31,47 +31,56 @@ export function PaginatedDevicesTable({
 
   return (
     <>
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th>Device</th>
-            <th>Group</th>
-            <th>IP Address</th>
-            <th>Status</th>
-            <th>Last Seen</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {visibleDevices.map((device) => (
-            <tr key={device.name}>
-              <td className={styles.deviceCell}>
-                <StatusDot status={device.status} />
-                <div>
-                  <strong>{device.name}</strong>
-                  <span>Robot unit</span>
-                </div>
-              </td>
-              <td>
-                <RobotGroupBadge group={device.group} />
-              </td>
-              <td className={styles.mono}>{device.ip}</td>
-              <td>
-                <StatusBadge status={device.status} />
-              </td>
-              <td className={styles.mono}>{device.lastSeen}</td>
-              <td className={styles.actionsCell}>
-                <div className={styles.actions}>
-                  <button title="Browse files" onClick={() => onBrowse?.(device)}><DetailsIcon /></button>
-                  <button title="Backup" onClick={() => onBackup?.(device)}><BackupIcon /></button>
-                  <button title="Restore" onClick={() => onRestore?.(device)}><RestoreIcon /></button>
-                  <button title="Edit device" onClick={() => onEdit?.(device)}><EditIcon /></button>
-                </div>
-              </td>
+      <div className={styles.tableScroll}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>Device</th>
+              <th>Group</th>
+              <th>IP Address</th>
+              <th>Status</th>
+              <th>Last Seen</th>
+              <th>Actions</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {visibleDevices.length ? visibleDevices.map((device) => (
+              <tr key={device.name}>
+                <td className={styles.deviceCell}>
+                  <StatusDot status={device.status} />
+                  <div>
+                    <strong>{device.name}</strong>
+                    <span>{device.code || "Robot unit"}</span>
+                  </div>
+                </td>
+                <td>
+                  <RobotGroupBadge group={device.group} />
+                </td>
+                <td className={styles.mono}>{device.ip}</td>
+                <td>
+                  <StatusBadge status={device.status} />
+                </td>
+                <td className={styles.mono}>{device.lastSeen}</td>
+                <td className={styles.actionsCell}>
+                  <div className={styles.actions}>
+                    <button title="Browse files" aria-label={`Browse files for ${device.name}`} onClick={() => onBrowse?.(device)}><DetailsIcon /></button>
+                    <button title="Backup" aria-label={`Backup ${device.name}`} onClick={() => onBackup?.(device)}><BackupIcon /></button>
+                    <button title="Restore" aria-label={`Restore ${device.name}`} onClick={() => onRestore?.(device)}><RestoreIcon /></button>
+                    <button title="Edit device" aria-label={`Edit ${device.name}`} onClick={() => onEdit?.(device)}><EditIcon /></button>
+                  </div>
+                </td>
+              </tr>
+            )) : (
+              <tr>
+                <td className={styles.emptyTableCell} colSpan={6}>
+                  <strong>No devices found</strong>
+                  <span>Try a different filter or add a new device.</span>
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
       <PaginationControls
         page={page}
         pageSize={PAGE_SIZE}
