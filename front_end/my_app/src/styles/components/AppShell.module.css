@@ -211,7 +211,7 @@
   margin: 18px 30px 20px;
   padding: 18px 20px;
   border: 1px solid rgba(196, 212, 231, 0.68);
-  border-radius: var(--radius-panel);
+  border-radius: 18px;
   background: rgba(255, 255, 255, 0.72);
   box-shadow: 0 14px 40px rgba(15, 23, 42, 0.055);
   backdrop-filter: blur(12px);
@@ -259,7 +259,7 @@
   align-items: center;
   gap: 8px;
   padding: 0 14px;
-  border-radius: var(--radius-control);
+  border-radius: 13px;
   color: var(--muted-soft);
 }
 
@@ -307,7 +307,7 @@
   height: 44px;
   display: grid;
   place-items: center;
-  border-radius: var(--radius-control);
+  border-radius: 13px;
   color: var(--muted);
 }
 
@@ -452,7 +452,7 @@
   flex-direction: column;
   justify-content: center;
   padding: 0 16px;
-  border-radius: var(--radius-control);
+  border-radius: 13px;
 }
 
 .dateBox strong,

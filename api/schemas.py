@@ -219,6 +219,20 @@ class AutoBackupResponse(BaseModel):
     items: List[AutoBackupItemResponse]
 
 
+class AutoBackupSettingsResponse(BaseModel):
+    enabled: bool
+    interval_hours: int
+    zip_output: bool
+    run_on_startup: bool
+
+
+class AutoBackupSettingsRequest(BaseModel):
+    enabled: Optional[bool] = None
+    interval_hours: Optional[int] = None
+    zip_output: Optional[bool] = None
+    run_on_startup: Optional[bool] = None
+
+
 class BackupJobResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

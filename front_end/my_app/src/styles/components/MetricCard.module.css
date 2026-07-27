@@ -1,10 +1,10 @@
 .card {
-  min-height: 150px;
+  min-height: 154px;
   position: relative;
   overflow: hidden;
   padding: 18px;
   border: 1px solid rgba(196, 212, 231, 0.78);
-  border-radius: var(--radius-panel);
+  border-radius: 18px;
   background:
     radial-gradient(circle at 14% 8%, rgba(37, 99, 235, 0.085), transparent 12rem),
     linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.92));
@@ -34,13 +34,13 @@
 }
 
 .icon {
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
   margin-bottom: 14px;
   border: 1px solid rgba(147, 197, 253, 0.54);
-  border-radius: 12px;
+  border-radius: 14px;
   background: linear-gradient(180deg, #f8fbff, #eaf3ff);
   color: var(--primary);
   font-weight: 800;

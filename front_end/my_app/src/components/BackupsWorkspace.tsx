@@ -6,12 +6,15 @@ import {
   backupDownloadUrl,
   cleanupBackups,
   deleteCustomBackupPath,
+  getAutoBackupSettings,
   getAutoCleanupSettings,
   getBackupDetail,
   listDeviceFiles,
   runCombinedBackup,
   saveCustomBackupPath,
+  updateAutoBackupSettings,
   updateAutoCleanupSettings,
+  type AutoBackupSettings,
   type AutoCleanupSettings,
   type BackupDetail,
   type BackupCleanupResult,
@@ -26,7 +29,7 @@ import { PaginatedBackupsTable } from "./PaginatedBackupsTable";
 import { Panel } from "./Panel";
 import { useToast } from "./ToastProvider";
 
-type ModalMode = "backup" | "browse" | "cleanup" | "detail" | null;
+type ModalMode = "backup" | "browse" | "cleanup" | "autoBackup" | "detail" | null;
 
 export function BackupsWorkspace({
   backups,
@@ -60,6 +63,11 @@ export function BackupsWorkspace({
   const [cleanupDryRun, setCleanupDryRun] = useState(true);
   const [cleanupKeepLatest, setCleanupKeepLatest] = useState(true);
   const [cleanupSettings, setCleanupSettings] = useState<AutoCleanupSettings | null>(null);
+  const [autoBackupSettings, setAutoBackupSettings] = useState<AutoBackupSettings | null>(null);
+  const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
+  const [autoBackupIntervalHours, setAutoBackupIntervalHours] = useState("168");
+  const [autoBackupZipOutput, setAutoBackupZipOutput] = useState(false);
+  const [autoBackupRunOnStartup, setAutoBackupRunOnStartup] = useState(false);
   const [result, setResult] = useState<BackupRunResult | BackupCleanupResult | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -69,17 +77,25 @@ export function BackupsWorkspace({
 
   useEffect(() => {
     let mounted = true;
-    getAutoCleanupSettings()
-      .then((settings) => {
+    Promise.all([
+      getAutoCleanupSettings().catch(() => null),
+      getAutoBackupSettings().catch(() => null),
+    ])
+      .then(([cleanupRule, backupRule]) => {
         if (!mounted) return;
-        setCleanupSettings(settings);
-        setCleanupDays(String(settings.older_than_days));
-        setCleanupEnabled(settings.enabled);
-        setCleanupIntervalHours(String(settings.interval_hours));
-        setCleanupKeepLatest(settings.keep_latest_per_device);
-      })
-      .catch(() => {
-        if (mounted) setCleanupSettings(null);
+        setAutoBackupSettings(backupRule);
+        if (backupRule) {
+          setAutoBackupEnabled(backupRule.enabled);
+          setAutoBackupIntervalHours(String(backupRule.interval_hours));
+          setAutoBackupZipOutput(backupRule.zip_output);
+          setAutoBackupRunOnStartup(backupRule.run_on_startup);
+        }
+        setCleanupSettings(cleanupRule);
+        if (!cleanupRule) return;
+        setCleanupDays(String(cleanupRule.older_than_days));
+        setCleanupEnabled(cleanupRule.enabled);
+        setCleanupIntervalHours(String(cleanupRule.interval_hours));
+        setCleanupKeepLatest(cleanupRule.keep_latest_per_device);
       });
 
     return () => {
@@ -256,6 +272,33 @@ export function BackupsWorkspace({
       });
     } catch (errorResponse) {
       showToast({ tone: "error", title: "Save cleanup settings failed", message: getErrorMessage(errorResponse, "Save cleanup settings failed") });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function saveAutoBackupSettings() {
+    setSaving(true);
+    setError("");
+    try {
+      const settings = await updateAutoBackupSettings({
+        enabled: autoBackupEnabled,
+        interval_hours: Number(autoBackupIntervalHours) || 168,
+        zip_output: autoBackupZipOutput,
+        run_on_startup: autoBackupRunOnStartup,
+      });
+      setAutoBackupSettings(settings);
+      setAutoBackupEnabled(settings.enabled);
+      setAutoBackupIntervalHours(String(settings.interval_hours));
+      setAutoBackupZipOutput(settings.zip_output);
+      setAutoBackupRunOnStartup(settings.run_on_startup);
+      showToast({
+        tone: "success",
+        title: "Auto backup updated",
+        message: `${settings.enabled ? "Enabled" : "Disabled"} · every ${settings.interval_hours} hour(s)`,
+      });
+    } catch (errorResponse) {
+      showToast({ tone: "error", title: "Save auto backup settings failed", message: getErrorMessage(errorResponse, "Save auto backup settings failed") });
     } finally {
       setSaving(false);
     }
@@ -466,6 +509,16 @@ export function BackupsWorkspace({
             <p>{cleanupSettings ? `${cleanupSettings.enabled ? "Auto on" : "Auto off"} · ${cleanupSettings.older_than_days} days` : "Manage retention rule"}</p>
           </div>
         </button>
+        <button className={styles.actionCard} onClick={() => openModal("autoBackup")} type="button">
+          <span><BackupIcon /></span>
+          <div>
+            <strong>Auto backup</strong>
+            <p>{autoBackupSettings ? `${autoBackupSettings.enabled ? "ON" : "OFF"} · every ${autoBackupSettings.interval_hours} hour(s)` : "Manage auto backup rule"}</p>
+          </div>
+          <b className={autoBackupSettings?.enabled ? styles.actionStatusOn : styles.actionStatusOff}>
+            {autoBackupSettings?.enabled ? "ON" : "OFF"}
+          </b>
+        </button>
       </section>
 
       {error ? <p className={styles.pageError}>{error}</p> : null}
@@ -497,12 +550,6 @@ export function BackupsWorkspace({
             )}
           </div>
         </Panel>
-        <Panel title="Auto Backup Rule">
-          <div className={styles.rule}>
-            <strong>Weekly + changed only</strong>
-            <span>Compare remote mtime and SHA-256 hash. Offline devices become pending jobs.</span>
-          </div>
-        </Panel>
         <Panel title="Auto Cleanup Rule">
           <div className={styles.rule}>
             <strong>
@@ -526,7 +573,7 @@ export function BackupsWorkspace({
             <div className={styles.modalHeader}>
               <div>
                 <p>Backups API</p>
-                <h2>{mode === "cleanup" ? "Cleanup old backups" : mode === "browse" ? "Browse robot files" : mode === "detail" ? "Backup detail" : "Run backup"}</h2>
+                <h2>{mode === "autoBackup" ? "Auto backup settings" : mode === "cleanup" ? "Cleanup old backups" : mode === "browse" ? "Browse robot files" : mode === "detail" ? "Backup detail" : "Run backup"}</h2>
               </div>
               <button className={styles.closeButton} onClick={closeModal}>×</button>
             </div>
@@ -536,8 +583,15 @@ export function BackupsWorkspace({
                 {backupDetail ? (
                   <>
                     <div className={styles.detailSummary}>
-                      <strong>{backupDetail.backup_name}</strong>
-                      <span>{backupDetail.device_name ?? `Device #${backupDetail.device_id}`} · {backupDetail.total_file} file(s) · {Number(backupDetail.total_size_mb).toFixed(2)} MB</span>
+                      <div>
+                        <span>Backup package</span>
+                        <strong>{backupDetail.backup_name}</strong>
+                      </div>
+                      <div className={styles.detailMeta}>
+                        <b>{backupDetail.device_name ?? `Device #${backupDetail.device_id}`}</b>
+                        <b>{backupDetail.total_file} file(s)</b>
+                        <b>{Number(backupDetail.total_size_mb).toFixed(2)} MB</b>
+                      </div>
                     </div>
                     <div className={styles.fileToolbar}>
                       <button onClick={toggleAllDownloadFiles} type="button">
@@ -571,6 +625,30 @@ export function BackupsWorkspace({
                   <p className={styles.emptyText}>{saving ? "Loading backup detail..." : "No detail loaded"}</p>
                 )}
               </div>
+            ) : mode === "autoBackup" ? (
+              <div className={styles.formGrid}>
+                <label className={styles.checkRow}>
+                  <input checked={autoBackupEnabled} onChange={(event) => setAutoBackupEnabled(event.target.checked)} type="checkbox" />
+                  Enable auto backup
+                </label>
+                <label>
+                  Interval hours
+                  <input value={autoBackupIntervalHours} onChange={(event) => setAutoBackupIntervalHours(event.target.value)} inputMode="numeric" />
+                  {autoBackupSettings ? (
+                    <span className={styles.fieldHint}>
+                      Current auto backup setting: every {autoBackupSettings.interval_hours} hour(s)
+                    </span>
+                  ) : null}
+                </label>
+                <label className={styles.checkRow}>
+                  <input checked={autoBackupZipOutput} onChange={(event) => setAutoBackupZipOutput(event.target.checked)} type="checkbox" />
+                  Zip output
+                </label>
+                <label className={styles.checkRow}>
+                  <input checked={autoBackupRunOnStartup} onChange={(event) => setAutoBackupRunOnStartup(event.target.checked)} type="checkbox" />
+                  Run on startup
+                </label>
+              </div>
             ) : mode === "cleanup" ? (
               <div className={styles.formGrid}>
                 <label className={styles.checkRow}>
@@ -600,7 +678,7 @@ export function BackupsWorkspace({
                 </label>
               </div>
             ) : (
-              <div className={styles.formGrid}>
+              <div className={mode === "backup" ? `${styles.formGrid} ${styles.backupForm}` : styles.formGrid}>
                 <label>
                   Device
                   <select value={deviceId} onChange={(event) => setDeviceId(event.target.value)}>
@@ -667,9 +745,9 @@ export function BackupsWorkspace({
                               <strong>{target.label}</strong>
                               <small>{target.path}</small>
                             </span>
-                            <b className={styles.targetMeta}>
-                              {target.backup_api === "robot_db" ? "DB JSON" : target.target_type}
-                            </b>
+                          <b className={`${styles.targetMeta} ${targetToneClass(target)}`}>
+                            {target.backup_api === "robot_db" ? "DB JSON" : target.target_type}
+                          </b>
                             {target.browsable ? (
                               <button
                                 onClick={(event) => {
@@ -798,6 +876,7 @@ export function BackupsWorkspace({
                 </button>
               ) : null}
               {mode === "browse" ? <button onClick={browseFiles} disabled={saving}>{saving ? "Loading..." : "Load files"}</button> : null}
+              {mode === "autoBackup" ? <button onClick={saveAutoBackupSettings} disabled={saving}>{saving ? "Saving..." : "Save settings"}</button> : null}
               {mode === "cleanup" ? <button onClick={saveCleanupSettings} disabled={saving}>{saving ? "Saving..." : "Save settings"}</button> : null}
               {mode === "cleanup" ? <button onClick={submitCleanup} disabled={saving}>{saving ? "Cleaning..." : "Run cleanup"}</button> : null}
             </div>
@@ -928,6 +1007,12 @@ function findParentFolder(path: string, selectedPaths: string[], targets: Backup
     .map((target) => target.path.replace(/\/$/, ""))
     .filter((targetPath) => selectedPaths.includes(targetPath))
     .find((targetPath) => path !== targetPath && path.startsWith(`${targetPath}/`)) ?? null;
+}
+
+function targetToneClass(target: BackupTarget): string {
+  if (target.backup_api === "robot_db") return styles.dbMeta;
+  if (target.target_type === "directory") return styles.directoryMeta;
+  return styles.fileMeta;
 }
 
 function findOpenedParentFolder(path: string, openedPath: string): string | null {

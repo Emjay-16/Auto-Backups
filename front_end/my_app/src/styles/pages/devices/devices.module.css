@@ -304,11 +304,14 @@
 .modal {
   position: relative;
   z-index: 1;
-  width: min(760px, 100%);
+  width: min(820px, 100%);
+  max-height: min(88vh, 840px);
   overflow: hidden;
   border: 1px solid rgba(196, 212, 231, 0.86);
-  border-radius: 20px;
-  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 92% 0%, rgba(8, 145, 178, 0.055), transparent 16rem),
+    linear-gradient(180deg, #ffffff, #f8fbff);
   box-shadow: var(--shadow-lg);
 }
 
@@ -317,7 +320,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px 22px;
+  padding: 22px 24px;
   border-bottom: 1px solid rgba(220, 231, 243, 0.9);
   background:
     radial-gradient(circle at 8% 12%, rgba(37, 99, 235, 0.08), transparent 18rem),
@@ -326,14 +329,17 @@
 
 .modalHeader p {
   color: var(--muted);
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .modalHeader h2 {
   margin-top: 2px;
   color: #0f172a;
-  font-size: 24px;
+  font-size: 25px;
+  line-height: 1.12;
 }
 
 .closeButton {
@@ -350,8 +356,10 @@
 .formGrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  padding: 18px 20px;
+  gap: 16px;
+  max-height: calc(88vh - 156px);
+  overflow: auto;
+  padding: 20px 24px;
 }
 
 .formGrid label {
@@ -368,9 +376,9 @@
 .actionForm textarea {
   min-width: 0;
   width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #ffffff;
+  border: 1px solid rgba(196, 212, 231, 0.86);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
   color: var(--foreground);
 }
 
@@ -387,8 +395,8 @@
 .formGrid input,
 .formGrid select,
 .actionForm input {
-  height: 38px;
-  padding: 0 10px;
+  height: 40px;
+  padding: 0 11px;
 }
 
 .actionForm textarea {
@@ -402,7 +410,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
-  padding: 18px 20px;
+  padding: 20px 24px;
 }
 
 .actionForm label {
@@ -415,14 +423,15 @@
 
 .actionForm button {
   align-self: end;
-  min-height: 38px;
-  padding: 0 14px;
+  min-height: 40px;
+  padding: 0 15px;
   border: 1px solid var(--primary);
-  border-radius: 10px;
-  background: var(--primary);
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2563eb, #0891b2);
   color: #ffffff;
   font-size: 13px;
   font-weight: 800;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
 }
 
 .actionForm button:disabled {
@@ -434,12 +443,14 @@
   display: grid;
   align-self: end;
   min-width: 132px;
-  min-height: 38px;
+  min-height: 40px;
   justify-content: center;
   padding: 6px 12px;
   border: 1px solid #dbeafe;
-  border-radius: 10px;
-  background: #f8fbff;
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at 92% 0%, rgba(37, 99, 235, 0.08), transparent 7rem),
+    #f8fbff;
 }
 
 .backupSelectionSummary strong {
@@ -459,7 +470,13 @@
   display: flex !important;
   grid-template-columns: auto 1fr;
   align-items: center;
-  gap: 8px !important;
+  gap: 10px !important;
+  width: fit-content;
+  min-height: 36px;
+  padding: 0 12px;
+  border: 1px solid rgba(220, 231, 243, 0.95);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.75);
 }
 
 .checkboxField input {
@@ -479,7 +496,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
-  gap: 10px;
+  gap: 12px;
 }
 
 .customPathRow label {
@@ -493,20 +510,20 @@
 .customPathRow input {
   min-width: 0;
   width: 100%;
-  height: 38px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #ffffff;
+  height: 40px;
+  border: 1px solid rgba(196, 212, 231, 0.86);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
   color: var(--foreground);
   padding: 0 10px;
 }
 
 .customPathRow button {
-  min-height: 38px;
-  padding: 0 12px;
+  min-height: 40px;
+  padding: 0 14px;
   border: 1px solid #bfdbfe;
-  border-radius: 10px;
-  background: #eff6ff;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #eff6ff, #dbeafe);
   color: var(--primary);
   font-size: 12px;
   font-weight: 900;
@@ -514,8 +531,13 @@
 
 .selectedPathList {
   grid-column: 1 / -1;
-  display: grid;
-  gap: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(220, 231, 243, 0.9);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
 }
 
 .selectedPathList button {
@@ -524,12 +546,13 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
+  max-width: 100%;
   min-height: 32px;
-  padding: 0 9px;
+  padding: 0 8px 0 12px;
   border: 1px solid #dbeafe;
   border-radius: 999px;
-  background: #f8fbff;
-  color: var(--muted);
+  background: linear-gradient(180deg, #eff6ff, #f8fbff);
+  color: #315c98;
   font-size: 12px;
   font-weight: 800;
   text-align: left;
@@ -542,7 +565,14 @@
 }
 
 .selectedPathList b {
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #ffffff;
   color: var(--danger);
+  line-height: 1;
 }
 
 .targetList label,
@@ -551,20 +581,65 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 10px;
-  padding: 10px;
-  border: 1px solid #e6edf5;
-  border-radius: 10px;
-  background: #fbfdff;
+  gap: 13px;
+  padding: 13px;
+  border: 1px solid rgba(220, 231, 243, 0.95);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.82);
   color: var(--muted);
   font-size: 12px;
   font-weight: 800;
 }
 
+.targetList label:hover,
+.fileRow:hover {
+  border-color: #bfdbfe;
+  background: #f8fbff;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.06);
+}
+
+.targetList label:has(input:checked),
+.fileRow:has(input:checked) {
+  border-color: #93c5fd;
+  background:
+    radial-gradient(circle at 94% 18%, rgba(37, 99, 235, 0.08), transparent 8rem),
+    linear-gradient(180deg, rgba(239, 246, 255, 0.94), rgba(248, 251, 255, 0.98));
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.08);
+}
+
 .targetList input,
 .fileRow input {
-  width: 16px;
-  height: 16px;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid #bfd0e5;
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.targetList input::before,
+.fileRow input::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 3px;
+  background: transparent;
+  transform: scale(0.5);
+  transition: transform 0.12s ease, background 0.12s ease;
+}
+
+.targetList input:checked,
+.fileRow input:checked {
+  border-color: var(--primary);
+  background: var(--primary);
+}
+
+.targetList input:checked::before,
+.fileRow input:checked::before {
+  background: #ffffff;
+  transform: scale(1);
 }
 
 .targetList span,
@@ -600,10 +675,10 @@
 .browser {
   max-height: 260px;
   overflow: auto;
-  padding: 10px;
-  border: 1px solid #dbeafe;
-  border-radius: 12px;
-  background: #f8fbff;
+  padding: 12px;
+  border: 1px solid rgba(191, 219, 254, 0.82);
+  border-radius: 16px;
+  background: rgba(248, 251, 255, 0.84);
 }
 
 .browserHeader {
@@ -625,7 +700,7 @@
   display: grid;
   max-height: 320px;
   overflow: auto;
-  padding: 0 20px 18px;
+  padding: 0 24px 20px;
 }
 
 .fileList article {
@@ -633,8 +708,10 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  padding: 11px 0;
-  border-bottom: 1px solid #e6edf5;
+  padding: 12px;
+  border: 1px solid rgba(220, 231, 243, 0.95);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.82);
 }
 
 .fileList strong,
@@ -673,15 +750,15 @@
 }
 
 .resultBox {
-  margin: 0 20px 16px;
-  padding: 12px;
+  margin: 0 24px 16px;
+  padding: 13px 14px;
   border: 1px solid #bbf7d0;
-  border-radius: 8px;
-  background: #f0fdf4;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f0fdf4, #ffffff);
 }
 
 .formError {
-  margin: 0 20px 16px;
+  margin: 0 24px 16px;
   padding: 10px 12px;
   border-radius: 8px;
   background: #fee2e2;
@@ -694,17 +771,17 @@
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  padding: 16px 20px 20px;
+  padding: 16px 24px 20px;
   border-top: 1px solid rgba(220, 231, 243, 0.9);
   background: rgba(255, 255, 255, 0.78);
   backdrop-filter: blur(12px);
 }
 
 .modalActions button {
-  min-height: 36px;
-  padding: 0 14px;
+  min-height: 38px;
+  padding: 0 15px;
   border: 1px solid #dbe4ee;
-  border-radius: 10px;
+  border-radius: 12px;
   background: #ffffff;
   color: #223149;
   font-size: 13px;
@@ -713,8 +790,9 @@
 
 .modalActions button:last-child {
   border-color: var(--primary);
-  background: var(--primary);
+  background: linear-gradient(135deg, #2563eb, #0891b2);
   color: #ffffff;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
 }
 
 .modalActions button:disabled {

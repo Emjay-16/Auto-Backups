@@ -133,8 +133,10 @@
   align-content: center;
   gap: 6px;
   border: 1px dashed #c8d7e8;
-  border-radius: 12px;
-  background: #f8fbff;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 92% 0%, rgba(37, 99, 235, 0.06), transparent 10rem),
+    #f8fbff;
   text-align: center;
 }
 
@@ -173,7 +175,7 @@
   max-height: min(88vh, 820px);
   overflow: auto;
   border: 1px solid rgba(196, 212, 231, 0.86);
-  border-radius: 20px;
+  border-radius: 22px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.96));
   box-shadow: 0 34px 90px rgba(15, 23, 42, 0.28);
@@ -193,14 +195,17 @@
 
 .modalHeader p {
   color: #66758a;
-  font-size: 13px;
-  font-weight: 800;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .modalHeader h2 {
   margin-top: 2px;
   color: #162235;
-  font-size: 24px;
+  font-size: 25px;
+  line-height: 1.12;
 }
 
 .close {

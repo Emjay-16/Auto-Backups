@@ -7,20 +7,26 @@
 .tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 9px;
+  padding: 4px;
+  border: 1px solid rgba(220, 231, 243, 0.82);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.62);
+  width: fit-content;
+  max-width: 100%;
 }
 
 .tabs button {
   --tab-main: var(--muted);
   --tab-soft: #ffffff;
   --tab-line: var(--line);
-  min-height: 34px;
+  min-height: 36px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 0 14px;
   border: 1px solid var(--tab-line);
-  border-radius: 999px;
+  border-radius: 13px;
   background: var(--tab-soft);
   color: var(--tab-main);
   font-size: 13px;
@@ -85,19 +91,21 @@
 
 .jobs {
   display: grid;
-  gap: 8px;
-  padding: 12px;
+  gap: 10px;
+  padding: 14px;
 }
 
 .job {
   display: grid;
   grid-template-columns: 180px minmax(0, 1fr) 160px auto 48px;
   align-items: center;
-  gap: 14px;
-  padding: 13px 14px;
+  gap: 15px;
+  padding: 14px 15px;
   border: 1px solid rgba(220, 231, 243, 0.92);
-  border-radius: 13px;
-  background: rgba(255, 255, 255, 0.78);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 94% 18%, rgba(37, 99, 235, 0.045), transparent 8rem),
+    rgba(255, 255, 255, 0.82);
   color: inherit;
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
@@ -112,7 +120,7 @@
 .job strong {
   display: block;
   color: var(--foreground);
-  font-size: 14px;
+  font-size: 14.5px;
 }
 
 .job span,
@@ -126,11 +134,11 @@
 }
 
 .progress {
-  height: 8px;
+  height: 9px;
   overflow: hidden;
   border: 1px solid #e2eaf4;
   border-radius: 999px;
-  background: #f1f5f9;
+  background: #edf4fb;
 }
 
 .progress span {
@@ -144,7 +152,7 @@
   margin: 0;
   padding: 34px 20px;
   border: 1px dashed #c8d7e8;
-  border-radius: 13px;
+  border-radius: 16px;
   background: rgba(248, 251, 255, 0.78);
   color: #64748b;
   font-size: 13px;

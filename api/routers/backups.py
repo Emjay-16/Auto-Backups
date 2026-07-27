@@ -11,6 +11,7 @@ from api.services.cleanup_state import (
     get_auto_cleanup_settings,
     update_auto_cleanup_settings,
 )
+from api.services.auto_backup_state import get_auto_backup_settings, update_auto_backup_settings
 from api.services.backup_targets import add_custom_auto_backup_path, delete_custom_auto_backup_path
 from api.services.backup_service import (
     cleanup_old_backups,
@@ -79,6 +80,23 @@ def auto_backup(
     db: Session = Depends(get_db),
 ):
     return run_auto_backups(data, db)
+
+
+@router.get("/auto/settings", response_model=schemas.AutoBackupSettingsResponse)
+def get_auto_backup_rule_settings():
+    return get_auto_backup_settings()
+
+
+@router.put("/auto/settings", response_model=schemas.AutoBackupSettingsResponse)
+def update_auto_backup_rule_settings(
+    data: schemas.AutoBackupSettingsRequest,
+):
+    return update_auto_backup_settings(
+        enabled=data.enabled,
+        interval_hours=data.interval_hours,
+        zip_output=data.zip_output,
+        run_on_startup=data.run_on_startup,
+    )
 
 
 @router.post("/robot-db", response_model=schemas.BackupRunResponse)

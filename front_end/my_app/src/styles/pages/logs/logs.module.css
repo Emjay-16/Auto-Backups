@@ -13,7 +13,7 @@
 .summaryGrid article {
   display: grid;
   gap: 8px;
-  padding: 16px 18px;
+  padding: 17px 18px;
   border: 1px solid rgba(196, 212, 231, 0.78);
   border-radius: var(--radius-panel);
   background:
@@ -40,8 +40,8 @@
 
 .logs {
   display: grid;
-  gap: 8px;
-  padding: 12px;
+  gap: 10px;
+  padding: 14px;
 }
 
 .log {
@@ -49,11 +49,13 @@
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 14px;
-  padding: 12px 14px;
+  gap: 15px;
+  padding: 14px 15px;
   border: 1px solid rgba(220, 231, 243, 0.92);
-  border-radius: 13px;
-  background: rgba(255, 255, 255, 0.78);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 94% 18%, rgba(37, 99, 235, 0.045), transparent 8rem),
+    rgba(255, 255, 255, 0.82);
   box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
@@ -65,8 +67,8 @@
 }
 
 .icon {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
   border-radius: 11px;
@@ -131,7 +133,7 @@
 }
 
 .statusPill {
-  min-height: 24px;
+  min-height: 25px;
   display: inline-flex;
   align-items: center;
   padding: 0 10px;
@@ -153,9 +155,9 @@
 
 .logMeta span,
 .logMeta time {
-  padding: 4px 8px;
+  padding: 5px 9px;
   border-radius: 999px;
-  background: #f1f5f9;
+  background: #f1f6fb;
   white-space: nowrap;
 }
 
@@ -163,7 +165,7 @@
   margin: 0;
   padding: 34px 20px;
   border: 1px dashed #c8d7e8;
-  border-radius: 13px;
+  border-radius: 16px;
   background: rgba(248, 251, 255, 0.78);
   color: #64748b;
   font-size: 13px;

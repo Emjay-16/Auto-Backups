@@ -136,6 +136,15 @@ export type AutoCleanupSettings = {
 
 export type AutoCleanupSettingsPayload = Partial<AutoCleanupSettings>;
 
+export type AutoBackupSettings = {
+  enabled: boolean;
+  interval_hours: number;
+  zip_output: boolean;
+  run_on_startup: boolean;
+};
+
+export type AutoBackupSettingsPayload = Partial<AutoBackupSettings>;
+
 export type BackupFileDetail = {
   backup_file_id: number;
   backup_id: number;
@@ -395,6 +404,14 @@ export async function getAutoCleanupSettings(): Promise<AutoCleanupSettings> {
 
 export async function updateAutoCleanupSettings(payload: AutoCleanupSettingsPayload): Promise<AutoCleanupSettings> {
   return sendJson<AutoCleanupSettings>("/backups/cleanup/settings", "PUT", payload);
+}
+
+export async function getAutoBackupSettings(): Promise<AutoBackupSettings> {
+  return getJson<AutoBackupSettings>("/backups/auto/settings", 5000);
+}
+
+export async function updateAutoBackupSettings(payload: AutoBackupSettingsPayload): Promise<AutoBackupSettings> {
+  return sendJson<AutoBackupSettings>("/backups/auto/settings", "PUT", payload);
 }
 
 export async function getBackupDetail(backupId: number): Promise<BackupDetail> {

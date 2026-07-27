@@ -108,6 +108,9 @@ export default function RestorePage() {
   const selectedFileCount = selectedFileIds.length;
   const totalBackupFiles = backupDetail?.files.length ?? 0;
   const allFilesSelected = totalBackupFiles > 0 && selectedFileCount === totalBackupFiles;
+  const sourceReady = restoreMode === "upload" ? uploadFiles.length > 0 : Boolean(selectedBackup);
+  const filesReady = restoreMode === "upload" ? uploadFiles.length > 0 : selectedFileCount > 0;
+  const targetReady = restoreMode === "upload" ? Boolean(selectedDeviceId && fallbackTargetPath.trim()) : Boolean(selectedBackup);
 
   async function submitRestore() {
     const backupId = Number(selectedBackupId);
@@ -203,149 +206,140 @@ export default function RestorePage() {
 
   return (
     <div className={styles.page}>
-      <section className={styles.steps}>
-        <article className={restoreMode === "upload" ? styles.mutedStep : styles.activeStep}>
-          <b>1</b>
-          <div>
-            <strong>{restoreMode === "upload" ? "Select upload mode" : "Choose backup"}</strong>
-            <span>{restoreMode === "upload" ? "ใช้ไฟล์จากเครื่องนี้" : selectedBackup ? selectedBackup.name : "เลือกจากประวัติ backup"}</span>
-          </div>
-        </article>
-        <article className={selectedFileCount || restoreMode === "upload" ? styles.activeStep : ""}>
-          <b>2</b>
-          <div>
-            <strong>{restoreMode === "upload" ? "Choose files" : "Choose restore files"}</strong>
-            <span>{restoreMode === "upload" ? `${uploadFiles.length} upload file(s)` : `${selectedFileCount} / ${totalBackupFiles} selected`}</span>
-          </div>
-        </article>
-        <article className={selectedDeviceId ? styles.activeStep : ""}>
-          <b>3</b>
-          <div>
-            <strong>Restore target</strong>
-            <span>ส่งกลับผ่าน SSH/SFTP ไปยังหุ่นที่เลือก</span>
-          </div>
-        </article>
-      </section>
-
-      <div className={styles.layout}>
-        <Panel title="Restore Candidates">
-          <div className={styles.snapshots}>
-            {visibleBackups.map((backup) => (
-              <button
-                className={`${styles.snapshot} ${String(backup.id) === selectedBackupId ? styles.selected : ""}`}
-                disabled={restoreMode === "upload"}
-                key={backup.id ?? backup.name}
-                onClick={() => {
-                  setSelectedBackupId(String(backup.id ?? ""));
-                  setFilesDialogOpen(false);
-                }}
-              >
-                <span className={styles.radio} />
-                <div>
-                  <strong>{backup.name}</strong>
-                  <p>{backup.device} · {backup.files} file(s) · {backup.size}</p>
-                </div>
-                <b>{backup.type}</b>
+      <div className={styles.restoreBoard}>
+        <main className={styles.restoreWorkspace}>
+          <section className={styles.restoreHeader}>
+            <div>
+              <p>Restore Operation</p>
+              <h2>{restoreMode === "upload" ? "Upload files to a robot" : "Restore files from backup history"}</h2>
+            </div>
+            <div className={styles.modeSwitch} aria-label="Restore mode">
+              <button className={restoreMode !== "upload" ? styles.activeMode : ""} onClick={() => setRestoreMode("overwrite")} type="button">
+                From backup
               </button>
-            ))}
-          </div>
-          <PaginationControls
-            page={backupPage}
-            pageSize={BACKUP_PAGE_SIZE}
-            total={backups.length}
-            onPrevious={() => setBackupPage((current) => Math.max(0, current - 1))}
-            onNext={() => setBackupPage((current) => Math.min(Math.ceil(backups.length / BACKUP_PAGE_SIZE) - 1, current + 1))}
-          />
-        </Panel>
+              <button className={restoreMode === "upload" ? styles.activeMode : ""} onClick={() => setRestoreMode("upload")} type="button">
+                Upload
+              </button>
+            </div>
+          </section>
 
-        <Panel title="Restore Target">
-          <div className={styles.target}>
-            <label>
-              Restore mode
-              <select value={restoreMode} onChange={(event) => setRestoreMode(event.target.value)}>
-                <option value="overwrite">Restore from backup</option>
-                <option value="upload">Upload file</option>
-              </select>
-            </label>
-
-            {restoreMode === "upload" ? (
-              <>
-                <label>
-                  Device
-                  <select value={selectedDeviceId} onChange={(event) => setSelectedDeviceId(event.target.value)}>
-                    {devices.filter((device) => device.id).map((device) => (
-                      <option key={`${device.id}-${device.name}`} value={device.id}>
-                        {device.name} · {device.ip}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Target path
-                  <input value={fallbackTargetPath} onChange={(event) => setFallbackTargetPath(event.target.value)} placeholder="/remote/path/on/robot" />
-                </label>
-                <label className={styles.uploadField}>
-                  Upload file
-                  <input multiple type="file" onChange={(event) => setUploadFiles(Array.from(event.target.files ?? []))} />
-                  <span>ไฟล์นี้จะถูกอัพโหลดไปยัง target path ที่เลือกไว้</span>
-                </label>
-              </>
-            ) : (
-              <>
-                <label>
-                  Selected backup
-                  <select value={selectedBackupId} onChange={(event) => setSelectedBackupId(event.target.value)}>
-                    {backups.map((backup) => (
-                      <option key={backup.id ?? backup.name} value={backup.id}>
-                        {backup.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Fallback target path
-                  <input value={fallbackTargetPath} onChange={(event) => setFallbackTargetPath(event.target.value)} placeholder="ใช้เฉพาะไฟล์ที่ไม่มี target path แยก" />
-                  <span className={styles.hint}>ไฟล์ที่เลือกใน popup จะใช้ target path ของตัวเองก่อน ช่องนี้เป็นค่าสำรองเท่านั้น</span>
-                </label>
-                <div className={styles.filePickerSummary}>
-                  <div>
-                    <strong>{selectedFileCount} / {totalBackupFiles}</strong>
-                    <span>files selected</span>
-                  </div>
-                  <button type="button" disabled={!backupDetail || saving} onClick={() => setFilesDialogOpen(true)}>
-                    Choose files
-                  </button>
+          <section className={styles.restoreGrid}>
+            <Panel title={restoreMode === "upload" ? "Upload Source" : "Backup Library"}>
+              {restoreMode === "upload" ? (
+                <div className={styles.uploadSource}>
+                  <label className={styles.uploadDropzone}>
+                    <strong>Choose local files</strong>
+                    <span>{uploadFiles.length ? `${uploadFiles.length} file(s) ready` : "Select files from this computer"}</span>
+                    <input multiple type="file" onChange={(event) => setUploadFiles(Array.from(event.target.files ?? []))} />
+                  </label>
+                  {uploadFiles.length ? (
+                    <div className={styles.uploadList}>
+                      {uploadFiles.map((file) => (
+                        <span key={`${file.name}-${file.size}`}>{file.name}</span>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-              </>
-            )}
+              ) : (
+                <>
+                  <div className={styles.libraryHeader}>
+                    <div>
+                      <strong>{backups.length}</strong>
+                      <span>available restore point(s)</span>
+                    </div>
+                    <b>{selectedBackup ? selectedBackup.device : "Select one"}</b>
+                  </div>
+                  <div className={styles.snapshots}>
+                    {visibleBackups.length ? visibleBackups.map((backup) => (
+                      <button
+                        className={`${styles.snapshot} ${String(backup.id) === selectedBackupId ? styles.selected : ""}`}
+                        key={backup.id ?? backup.name}
+                        onClick={() => {
+                          setSelectedBackupId(String(backup.id ?? ""));
+                          setFilesDialogOpen(false);
+                        }}
+                        type="button"
+                      >
+                        <span className={styles.radio} />
+                        <div>
+                          <strong>{backup.name}</strong>
+                          <p>{backup.device} · {backup.files} file(s) · {backup.size}</p>
+                        </div>
+                        <b>{backup.type}</b>
+                      </button>
+                    )) : (
+                      <p className={styles.empty}>No backups available.</p>
+                    )}
+                  </div>
+                  <PaginationControls
+                    page={backupPage}
+                    pageSize={BACKUP_PAGE_SIZE}
+                    total={backups.length}
+                    onPrevious={() => setBackupPage((current) => Math.max(0, current - 1))}
+                    onNext={() => setBackupPage((current) => Math.min(Math.ceil(backups.length / BACKUP_PAGE_SIZE) - 1, current + 1))}
+                  />
+                </>
+              )}
+            </Panel>
 
-            {error ? <p className={styles.error}>{error}</p> : null}
-            {result ? (
-              <p className={styles.success}>
-                {result.message} · {"total_file" in result ? result.total_file : 0} file(s)
-              </p>
-            ) : null}
-            <button onClick={restoreMode === "upload" ? submitUpload : submitRestore} disabled={saving}>
-              {restoreMode === "upload" ? (saving ? "Uploading..." : "Upload to robot") : (saving ? "Restoring..." : "Restore selected")}
-            </button>
-          </div>
-        </Panel>
+            <Panel title="Restore Setup">
+              <div className={styles.target}>
+                {restoreMode === "upload" ? (
+                  <>
+                    <label>
+                      Device
+                      <select value={selectedDeviceId} onChange={(event) => setSelectedDeviceId(event.target.value)}>
+                        {devices.filter((device) => device.id).map((device) => (
+                          <option key={`${device.id}-${device.name}`} value={device.id}>
+                            {device.name} · {device.ip}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      Target path
+                      <input value={fallbackTargetPath} onChange={(event) => setFallbackTargetPath(event.target.value)} placeholder="/remote/path/on/robot" />
+                    </label>
+                  </>
+                ) : (
+                  <>
+                    <div className={styles.selectedBackupCard}>
+                      <span>Selected backup</span>
+                      <strong>{selectedBackup?.name ?? "Choose a backup"}</strong>
+                      <small>{selectedBackup ? `${selectedBackup.device} · ${selectedBackup.files} file(s) · ${selectedBackup.size}` : "Select from Backup Library"}</small>
+                    </div>
+                    <label>
+                      Fallback target path
+                      <input value={fallbackTargetPath} onChange={(event) => setFallbackTargetPath(event.target.value)} placeholder="ใช้เฉพาะไฟล์ที่ไม่มี target path แยก" />
+                      <span className={styles.hint}>ไฟล์ที่เลือกใน popup จะใช้ target path ของตัวเองก่อน ช่องนี้เป็นค่าสำรองเท่านั้น</span>
+                    </label>
+                    <div className={styles.filePickerSummary}>
+                      <div>
+                        <strong>{selectedFileCount} / {totalBackupFiles}</strong>
+                        <span>files selected</span>
+                      </div>
+                      <button type="button" disabled={!backupDetail || saving} onClick={() => setFilesDialogOpen(true)}>
+                        Manage files
+                      </button>
+                    </div>
+                  </>
+                )}
+
+                {error ? <p className={styles.error}>{error}</p> : null}
+                {result ? (
+                  <p className={styles.success}>
+                    {result.message} · {"total_file" in result ? result.total_file : 0} file(s)
+                  </p>
+                ) : null}
+                <button className={styles.primaryAction} onClick={restoreMode === "upload" ? submitUpload : submitRestore} disabled={saving || !sourceReady || !targetReady || !filesReady}>
+                  {restoreMode === "upload" ? (saving ? "Uploading..." : "Upload to robot") : (saving ? "Restoring..." : "Restore selected")}
+                </button>
+              </div>
+            </Panel>
+          </section>
+
+        </main>
       </div>
-
-      <Panel title="Restore Preview">
-        <div className={styles.preview}>
-          <p><span className={styles.ok}>✓</span>{selectedBackup ? `${selectedBackup.name} selected.` : "Choose a backup from real backup history."}</p>
-          <p>
-            <span className={allFilesSelected ? styles.ok : styles.warn}>{allFilesSelected ? "✓" : "!"}</span>
-            {restoreMode === "upload" ? "Upload mode uses local files." : `${selectedFileCount} of ${totalBackupFiles} backup files selected.`}
-          </p>
-          <p><span className={styles.warn}>◷</span> Target robot will be reached through SSH/SFTP during restore.</p>
-          <p>
-            <span className={styles.warn}>!</span>
-            {restoreMode === "upload" ? "Uploaded files will be sent to the selected target path." : "Each selected file restores to its own target path from the file picker."}
-          </p>
-        </div>
-      </Panel>
 
       {filesDialogOpen && restoreMode !== "upload" ? (
         <div className={styles.dialogBackdrop} role="presentation" onMouseDown={() => setFilesDialogOpen(false)}>
@@ -359,23 +353,25 @@ export default function RestorePage() {
             </header>
 
             <div className={styles.dialogActions}>
-              <button type="button" onClick={selectAllFiles} disabled={!backupDetail || allFilesSelected}>
-                Select all
-              </button>
-              <button type="button" onClick={clearFileSelection} disabled={!selectedFileCount}>
-                Clear
-              </button>
+              <div>
+                <button type="button" onClick={selectAllFiles} disabled={!backupDetail || allFilesSelected}>
+                  Select all
+                </button>
+                <button type="button" onClick={clearFileSelection} disabled={!selectedFileCount}>
+                  Clear
+                </button>
+              </div>
+              <span>{selectedFileCount} selected</span>
             </div>
 
             <div className={styles.files}>
               {backupDetail ? (
                 <>
-                  <div className={styles.fileHeader}>
-                    <span>Backup file</span>
-                    <span>Target path on robot</span>
-                  </div>
                   {backupDetail.files.map((file) => (
-                    <article className={styles.fileRow} key={file.backup_file_id}>
+                    <article
+                      className={`${styles.fileRow} ${selectedFileIds.includes(file.backup_file_id) ? styles.selectedFile : ""}`}
+                      key={file.backup_file_id}
+                    >
                       <label>
                         <input
                           checked={selectedFileIds.includes(file.backup_file_id)}
@@ -387,11 +383,14 @@ export default function RestorePage() {
                           <small>{Number(file.file_size_mb).toFixed(2)} MB · {file.file_type}</small>
                         </span>
                       </label>
-                      <input
-                        value={targetPaths[file.backup_file_id] ?? fallbackTargetPath}
-                        onChange={(event) => setTargetPaths({ ...targetPaths, [file.backup_file_id]: event.target.value })}
-                        placeholder="Target path for this file"
-                      />
+                      <div className={styles.targetPathField}>
+                        <span>Restore to</span>
+                        <input
+                          value={targetPaths[file.backup_file_id] ?? fallbackTargetPath}
+                          onChange={(event) => setTargetPaths({ ...targetPaths, [file.backup_file_id]: event.target.value })}
+                          placeholder="Target path for this file"
+                        />
+                      </div>
                     </article>
                   ))}
                 </>
