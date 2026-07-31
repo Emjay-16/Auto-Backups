@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   backupDownloadUrl,
   cleanupBackups,
@@ -27,6 +27,7 @@ import styles from "@/styles/pages/backups/backups.module.css";
 import { BackupIcon, CleanupIcon, FolderIcon } from "./ActionIcons";
 import { PaginatedBackupsTable } from "./PaginatedBackupsTable";
 import { Panel } from "./Panel";
+import { StatusBadge } from "./StatusBadge";
 import { useToast } from "./ToastProvider";
 
 type ModalMode = "backup" | "browse" | "cleanup" | "autoBackup" | "detail" | null;
@@ -73,7 +74,13 @@ export function BackupsWorkspace({
   const [saving, setSaving] = useState(false);
   const [pendingDeleteBackup, setPendingDeleteBackup] = useState<Backup | null>(null);
   const [pendingDeletePath, setPendingDeletePath] = useState<string | null>(null);
+  const [selectedDeviceBackups, setSelectedDeviceBackups] = useState("");
   const backupSelectionCount = selectedPaths.length + (includeDatabase ? 1 : 0);
+  const backupStats = useMemo(() => buildBackupStats(backups, usableDevices), [backups, usableDevices]);
+  const selectedDeviceBackupSummary = useMemo(
+    () => backupStats.deviceSummaries.find((summary) => summary.device.name === selectedDeviceBackups),
+    [backupStats.deviceSummaries, selectedDeviceBackups],
+  );
 
   useEffect(() => {
     let mounted = true;
@@ -487,41 +494,150 @@ export function BackupsWorkspace({
 
   return (
     <div className={styles.page}>
-      <section className={styles.actionGrid}>
-        <button className={`${styles.actionCard} ${styles.primaryAction}`} onClick={() => openBackupModal()} type="button">
-          <span><BackupIcon /></span>
-          <div>
-            <strong>New backup</strong>
-            <p>เลือกหุ่นและ path ที่ต้องการสำรองข้อมูล</p>
+      <div className={styles.leftColumn}>
+        <section className={styles.overviewPanel}>
+          <div className={styles.sectionIntro}>
+            <span>Backup Control</span>
+            <h2>Fleet backup inventory</h2>
           </div>
-        </button>
-        <button className={styles.actionCard} onClick={() => openModal("browse")} type="button">
-          <span><FolderIcon /></span>
-          <div>
-            <strong>Browse robot files</strong>
-            <p>ตรวจไฟล์/โฟลเดอร์บนหุ่นก่อนเลือก backup</p>
+          <div className={styles.summaryGrid} aria-label="Backup summary">
+            <div className={`${styles.summaryCard} ${styles.summaryTotal}`}>
+              <span>Total backups</span>
+              <strong>{backups.length}</strong>
+              <p>{backupStats.successCount} success · {backupStats.failedCount} failed</p>
+            </div>
+            <div className={`${styles.summaryCard} ${styles.summaryDevices}`}>
+              <span>Devices covered</span>
+              <strong>{backupStats.coveredDevices} / {usableDevices.length}</strong>
+              <p>{backupStats.missingDevices} device(s) without backup</p>
+            </div>
+            <div className={`${styles.summaryCard} ${styles.summaryStorage}`}>
+              <span>Total storage</span>
+              <strong>{formatSizeMb(backupStats.totalSizeMb)}</strong>
+              <p>Across {backupStats.totalFiles} file(s)</p>
+            </div>
+            <div className={`${styles.summaryCard} ${styles.summaryLatest}`}>
+              <span>Latest backup</span>
+              <strong>{backupStats.latestBackup?.device ?? "-"}</strong>
+              <p>{backupStats.latestBackup?.createdAt ?? "No backup yet"}</p>
+            </div>
           </div>
-        </button>
-        <button className={styles.actionCard} onClick={() => openModal("cleanup")} type="button">
-          <span><CleanupIcon /></span>
-          <div>
-            <strong>Cleanup old backups</strong>
-            <p>{cleanupSettings ? `${cleanupSettings.enabled ? "Auto on" : "Auto off"} · ${cleanupSettings.older_than_days} days` : "Manage retention rule"}</p>
-          </div>
-        </button>
-        <button className={styles.actionCard} onClick={() => openModal("autoBackup")} type="button">
-          <span><BackupIcon /></span>
-          <div>
-            <strong>Auto backup</strong>
-            <p>{autoBackupSettings ? `${autoBackupSettings.enabled ? "ON" : "OFF"} · every ${autoBackupSettings.interval_hours} hour(s)` : "Manage auto backup rule"}</p>
-          </div>
-          <b className={autoBackupSettings?.enabled ? styles.actionStatusOn : styles.actionStatusOff}>
-            {autoBackupSettings?.enabled ? "ON" : "OFF"}
-          </b>
-        </button>
-      </section>
+        </section>
 
       {error ? <p className={styles.pageError}>{error}</p> : null}
+
+        <div className={styles.mainStack}>
+      <Panel title="Backup by Device">
+        <div className={styles.deviceBackupGrid}>
+          {backupStats.deviceSummaries.length ? backupStats.deviceSummaries.map((summary) => (
+            <article className={`${styles.deviceBackupCard} ${summary.total ? styles.hasBackup : styles.noBackup}`} key={summary.device.name}>
+              <div className={styles.deviceBackupHeader}>
+                <span className={styles.groupPill}>{summary.device.group}</span>
+                <div>
+                  <strong>{summary.device.name}</strong>
+                  <p>{summary.device.ip}</p>
+                </div>
+              </div>
+              <div className={styles.deviceBackupMetrics}>
+                <span>
+                  <b>{summary.total}</b>
+                  backups
+                </span>
+                <span>
+                  <b>{formatSizeMb(summary.totalSizeMb)}</b>
+                  used
+                </span>
+                <span>
+                  <b>{summary.latest?.createdAt ?? "-"}</b>
+                  latest
+                </span>
+              </div>
+              <div className={styles.deviceBackupFooter}>
+                <span className={summary.total ? styles.covered : styles.missing}>
+                  {summary.total ? `${summary.success} success · ${summary.failed} failed` : "No backup yet"}
+                </span>
+                <button
+                  disabled={!summary.latest}
+                  onClick={() => setSelectedDeviceBackups(summary.device.name)}
+                  type="button"
+                >
+                  View backups
+                </button>
+              </div>
+            </article>
+          )) : (
+            <p className={styles.emptyDeviceBackups}>No devices available.</p>
+          )}
+        </div>
+      </Panel>
+
+      {selectedDeviceBackupSummary ? (
+        <div className={styles.overlay} role="dialog" aria-modal="true" aria-label={`Backups for ${selectedDeviceBackupSummary.device.name}`}>
+          <button className={styles.backdrop} onClick={() => setSelectedDeviceBackups("")} aria-label="Close backups by device" />
+          <section className={`${styles.modal} ${styles.deviceHistoryModal}`}>
+            <div className={styles.modalHeader}>
+              <div>
+                <p>{selectedDeviceBackupSummary.device.ip}</p>
+                <h2>{selectedDeviceBackupSummary.device.name} backups</h2>
+              </div>
+              <button className={styles.closeButton} onClick={() => setSelectedDeviceBackups("")}>×</button>
+            </div>
+            <div className={styles.deviceHistoryBody}>
+              <div className={styles.deviceHistorySummary}>
+                <span>
+                  <b>{selectedDeviceBackupSummary.total}</b>
+                  backup round(s)
+                </span>
+                <span>
+                  <b>{formatSizeMb(selectedDeviceBackupSummary.totalSizeMb)}</b>
+                  total size
+                </span>
+                <span>
+                  <b>{selectedDeviceBackupSummary.latest?.createdAt ?? "-"}</b>
+                  latest
+                </span>
+              </div>
+              <div className={styles.backupGroupList}>
+                {groupBackupsByName(selectedDeviceBackupSummary.backups).map((group) => (
+                  <article className={styles.backupGroup} key={group.name}>
+                    <div className={styles.backupGroupHeader}>
+                      <span className={styles.folderIcon}><FolderIcon /></span>
+                      <div>
+                        <strong>{group.name}</strong>
+                        <p>{group.backups.length} round(s)</p>
+                      </div>
+                    </div>
+                    <div className={styles.backupRoundList}>
+                      {group.backups.map((backup) => (
+                        <button
+                          className={styles.backupRound}
+                          disabled={!backup.id}
+                          key={`${backup.id ?? backup.name}-${backup.createdAt}`}
+                          onClick={() => {
+                            setSelectedDeviceBackups("");
+                            void openBackupDetail(backup);
+                          }}
+                          type="button"
+                        >
+                          <span>
+                            <b>{formatBackupDateTime(backup.createdAt).date}</b>
+                            <small>{formatBackupDateTime(backup.createdAt).time}</small>
+                          </span>
+                          <span>
+                            <b>{backup.files} file(s)</b>
+                            <small>{backup.size}</small>
+                          </span>
+                          <StatusBadge status={backup.status} />
+                        </button>
+                      ))}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          </section>
+        </div>
+      ) : null}
 
       <Panel title="Backup History">
         <PaginatedBackupsTable
@@ -531,7 +647,51 @@ export function BackupsWorkspace({
         />
       </Panel>
 
-      <section className={styles.cards}>
+        </div>
+      </div>
+
+      <aside className={styles.rightColumn}>
+        <section className={styles.commandPanel} aria-label="Backup actions">
+          <div className={styles.commandHeader}>
+            <span>Actions</span>
+            <strong>Backup tasks</strong>
+          </div>
+          <div className={styles.actionGrid}>
+            <button className={`${styles.actionCard} ${styles.primaryAction}`} onClick={() => openBackupModal()} type="button">
+              <span><BackupIcon /></span>
+              <div>
+                <strong>New backup</strong>
+                <p>เลือกหุ่นและ path ที่ต้องการสำรองข้อมูล</p>
+              </div>
+            </button>
+            <button className={styles.actionCard} onClick={() => openModal("browse")} type="button">
+              <span><FolderIcon /></span>
+              <div>
+                <strong>Browse files</strong>
+                <p>ตรวจไฟล์บนหุ่นก่อนเลือก backup</p>
+              </div>
+            </button>
+            <button className={styles.actionCard} onClick={() => openModal("autoBackup")} type="button">
+              <span><BackupIcon /></span>
+              <div>
+                <strong>Auto backup</strong>
+                <p>{autoBackupSettings ? `${autoBackupSettings.enabled ? "ON" : "OFF"} · every ${autoBackupSettings.interval_hours} hour(s)` : "Manage auto backup rule"}</p>
+              </div>
+              <b className={autoBackupSettings?.enabled ? styles.actionStatusOn : styles.actionStatusOff}>
+                {autoBackupSettings?.enabled ? "ON" : "OFF"}
+              </b>
+            </button>
+            <button className={styles.actionCard} onClick={() => openModal("cleanup")} type="button">
+              <span><CleanupIcon /></span>
+              <div>
+                <strong>Cleanup</strong>
+                <p>{cleanupSettings ? `${cleanupSettings.enabled ? "Auto on" : "Auto off"} · ${cleanupSettings.older_than_days} days` : "Manage retention rule"}</p>
+              </div>
+            </button>
+          </div>
+        </section>
+
+        <div className={styles.sideStack}>
         <Panel title="Backup Paths">
           <div className={styles.pathList}>
             {targets.length ? (
@@ -550,21 +710,8 @@ export function BackupsWorkspace({
             )}
           </div>
         </Panel>
-        <Panel title="Auto Cleanup Rule">
-          <div className={styles.rule}>
-            <strong>
-              {cleanupSettings
-                ? `${cleanupSettings.enabled ? "Enabled" : "Disabled"} · older than ${cleanupSettings.older_than_days} days`
-                : "Loading cleanup settings"}
-            </strong>
-            <span>
-              {cleanupSettings
-                ? `Runs every ${cleanupSettings.interval_hours} hour(s). ${cleanupSettings.keep_latest_per_device ? "Keeps latest backup per device." : "Latest backups can be removed."}`
-                : "Reading /backups/cleanup/settings from API."}
-            </span>
-          </div>
-        </Panel>
-      </section>
+        </div>
+      </aside>
 
       {mode ? (
         <div className={styles.overlay} role="dialog" aria-modal="true">
@@ -985,6 +1132,108 @@ function ResultBox({ result }: { result: BackupRunResult | BackupCleanupResult }
 
 function getErrorMessage(errorResponse: unknown, fallback: string): string {
   return errorResponse instanceof Error ? errorResponse.message : fallback;
+}
+
+function buildBackupStats(backups: Backup[], devices: Device[]) {
+  const backupsByDevice = new Map<string, Backup[]>();
+  backups.forEach((backup) => {
+    const key = backup.device;
+    backupsByDevice.set(key, [...(backupsByDevice.get(key) ?? []), backup]);
+  });
+
+  const latestBackup = [...backups]
+    .sort((a, b) => backupTimeValue(b) - backupTimeValue(a))[0];
+  const successCount = backups.filter((backup) => backup.status === "success").length;
+  const failedCount = backups.filter((backup) => backup.status === "failed").length;
+  const totalFiles = backups.reduce((sum, backup) => sum + (Number(backup.files) || 0), 0);
+  const totalSizeMb = backups.reduce((sum, backup) => sum + parseSizeToMb(backup.size), 0);
+
+  const deviceSummaries = devices
+    .map((device) => {
+      const deviceBackups = backupsByDevice.get(device.name) ?? [];
+      const sortedBackups = [...deviceBackups].sort((a, b) => backupTimeValue(b) - backupTimeValue(a));
+      return {
+        device,
+        backups: sortedBackups,
+        latest: sortedBackups[0],
+        total: deviceBackups.length,
+        success: deviceBackups.filter((backup) => backup.status === "success").length,
+        failed: deviceBackups.filter((backup) => backup.status === "failed").length,
+        totalSizeMb: deviceBackups.reduce((sum, backup) => sum + parseSizeToMb(backup.size), 0),
+      };
+    })
+    .sort((a, b) => {
+      if (a.total !== b.total) return b.total - a.total;
+      return a.device.name.localeCompare(b.device.name);
+    });
+
+  const coveredDevices = deviceSummaries.filter((summary) => summary.total > 0).length;
+
+  return {
+    coveredDevices,
+    deviceSummaries,
+    failedCount,
+    latestBackup,
+    missingDevices: Math.max(0, devices.length - coveredDevices),
+    successCount,
+    totalFiles,
+    totalSizeMb,
+  };
+}
+
+function backupTimeValue(backup: Backup): number {
+  const parsed = Date.parse(backup.createdAt);
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function parseSizeToMb(size: string): number {
+  const match = size.match(/([\d.]+)\s*(B|KB|MB|GB|TB)?/i);
+  if (!match) return 0;
+  const value = Number(match[1]);
+  if (!Number.isFinite(value)) return 0;
+  const unit = (match[2] ?? "MB").toUpperCase();
+  if (unit === "B") return value / (1024 * 1024);
+  if (unit === "KB") return value / 1024;
+  if (unit === "GB") return value * 1024;
+  if (unit === "TB") return value * 1024 * 1024;
+  return value;
+}
+
+function formatSizeMb(value: number): string {
+  if (!value) return "0 MB";
+  if (value >= 1024) return `${(value / 1024).toFixed(1)} GB`;
+  return `${value.toFixed(value >= 10 ? 1 : 2)} MB`;
+}
+
+function groupBackupsByName(backups: Backup[]) {
+  const groups = new Map<string, Backup[]>();
+  backups.forEach((backup) => {
+    const groupName = backupGroupName(backup.name);
+    groups.set(groupName, [...(groups.get(groupName) ?? []), backup]);
+  });
+
+  return Array.from(groups.entries()).map(([name, groupBackups]) => ({
+    name,
+    backups: [...groupBackups].sort((a, b) => backupTimeValue(b) - backupTimeValue(a)),
+  }));
+}
+
+function backupGroupName(name: string): string {
+  return name
+    .replace(/[_-]\d{8}[_-]\d{6}$/u, "")
+    .replace(/[_-]\d{8}$/u, "")
+    .replace(/[_-]\d{4}-\d{2}-\d{2}[_-]\d{2}-\d{2}-\d{2}$/u, "")
+    .trim() || name;
+}
+
+function formatBackupDateTime(value: string): { date: string; time: string } {
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) return { date: value || "-", time: "-" };
+  const date = new Date(parsed);
+  return {
+    date: date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+    time: date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }),
+  };
 }
 
 function formatBytes(value?: number | null): string {

@@ -291,148 +291,60 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
               </button>
             </div>
 
-            <div className={styles.detailGrid}>
-              <article>
-                <span>Status</span>
-                <strong>{shownStatus ?? selectedDevice.status}</strong>
-              </article>
-              <article>
-                <span>IP Address</span>
-                <strong>{liveStatus?.ip_address ?? selectedDevice.ip}</strong>
-              </article>
-              <article>
-                <span>Last seen</span>
-                <strong>{shownLastSeen}</strong>
-              </article>
-              <article>
-                <span>Live check</span>
-                <strong>
-                  {loading === "status" ? (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                      <span className={styles.spinner} aria-hidden="true" />
-                      Checking...
-                    </span>
-                  ) : (
-                    liveStatus?.message ?? "Loaded from list"
-                  )}
-                </strong>
-              </article>
-            </div>
+            <div className={styles.modalBody}>
+              <div className={styles.detailGrid}>
+                <article>
+                  <span>Status</span>
+                  <strong>{shownStatus ?? selectedDevice.status}</strong>
+                </article>
+                <article>
+                  <span>IP Address</span>
+                  <strong>{liveStatus?.ip_address ?? selectedDevice.ip}</strong>
+                </article>
+                <article>
+                  <span>Last seen</span>
+                  <strong>{shownLastSeen}</strong>
+                </article>
+                <article>
+                  <span>Live check</span>
+                  <strong>
+                    {loading === "status" ? (
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <span className={styles.spinner} aria-hidden="true" />
+                        Checking...
+                      </span>
+                    ) : (
+                      liveStatus?.message ?? "Loaded from list"
+                    )}
+                  </strong>
+                </article>
+              </div>
 
-            <div className={styles.paths}>
-              <div className={styles.pathHeader}>
-                <h3>Backup targets</h3>
-                <span>{selectedPaths.length} selected</span>
-              </div>
-              <div className={styles.targetList}>
-                {backupTargets.length ? backupTargets.map((target) => (
-                  target.backup_api === "file" ? (
-                    <label className={styles.targetRow} key={target.key}>
-                      <input
-                        checked={selectedPaths.includes(target.path)}
-                        onChange={() => togglePath(target.path)}
-                        type="checkbox"
-                      />
-                      <span>{target.label}: {target.path}</span>
-                      {target.browsable ? (
-                        <button
-                          onClick={(event) => {
-                            event.preventDefault();
-                            void openRemotePath(target.path);
-                          }}
-                          type="button"
-                          disabled={openingPath === target.path}
-                        >
-                          {openingPath === target.path ? (
-                            <>
-                              <span className={styles.spinner} aria-hidden="true" />
-                              Opening
-                            </>
-                          ) : (
-                            "Open"
-                          )}
-                        </button>
-                      ) : (
-                        <b>{target.target_type}</b>
-                      )}
-                    </label>
-                  ) : (
-                    <label className={styles.targetRow} key={target.key}>
-                      <input
-                        checked={selectedPaths.includes(target.path)}
-                        onChange={() => togglePath(target.path)}
-                        type="checkbox"
-                      />
-                      <span>{target.label}</span>
-                      <b>DB</b>
-                    </label>
-                  )
-                )) : <p>No backup targets loaded</p>}
-              </div>
-              <div className={styles.customPathRow}>
-                <label>
-                  Add custom path
-                  <input
-                    value={customPath}
-                    onChange={(event) => setCustomPath(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        void addCustomPath();
-                      }
-                    }}
-                    placeholder="/home/matrix/path/to/file-or-folder"
-                  />
-                </label>
-                <button onClick={() => void addCustomPath()} type="button" disabled={loading === "addPath"}>
-                  {loading === "addPath" ? (
-                    <>
-                      <span className={styles.spinner} aria-hidden="true" />
-                      Adding
-                    </>
-                  ) : (
-                    "Add path"
-                  )}
-                </button>
-              </div>
-              {selectedPaths.length ? (
-                <div className={styles.selectedPathList}>
-                  {selectedPaths
-                    .filter((path) => path.startsWith("/"))
-                    .map((path) => (
-                      <button key={path} onClick={() => togglePath(path)} type="button">
-                        <span>{path}</span>
-                        <b>×</b>
-                      </button>
-                    ))}
+              <div className={styles.paths}>
+                <div className={styles.pathHeader}>
+                  <h3>Backup targets</h3>
+                  <span>{selectedPaths.length} selected</span>
                 </div>
-              ) : null}
-
-              {browserPath ? (
-                <div className={styles.browser}>
-                  <div className={styles.browserHeader}>
-                    <strong>{browserPath}</strong>
-                    <button onClick={() => setBrowserPath("")}>Close</button>
-                  </div>
-                  {remoteFiles.length ? (
-                    remoteFiles.map((file) => (
-                      <label className={styles.fileRow} key={file.path}>
+                <div className={styles.targetList}>
+                  {backupTargets.length ? backupTargets.map((target) => (
+                    target.backup_api === "file" ? (
+                      <label className={styles.targetRow} key={target.key}>
                         <input
-                          checked={selectedPaths.includes(file.path)}
-                          onChange={() => togglePath(file.path)}
+                          checked={selectedPaths.includes(target.path)}
+                          onChange={() => togglePath(target.path)}
                           type="checkbox"
                         />
-                        <span>{file.name}</span>
-                        {file.file_type === "directory" ? (
+                        <span>{target.label}: {target.path}</span>
+                        {target.browsable ? (
                           <button
                             onClick={(event) => {
                               event.preventDefault();
-                              void openRemotePath(file.path);
+                              void openRemotePath(target.path);
                             }}
                             type="button"
-                            disabled={openingPath === file.path}
+                            disabled={openingPath === target.path}
                           >
-                            {openingPath === file.path ? (
+                            {openingPath === target.path ? (
                               <>
                                 <span className={styles.spinner} aria-hidden="true" />
                                 Opening
@@ -442,28 +354,118 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
                             )}
                           </button>
                         ) : (
-                          <b>{formatBytes(file.size_bytes)}</b>
+                          <b>{target.target_type}</b>
                         )}
                       </label>
-                    ))
-                  ) : (
-                    <p className={styles.emptyFiles}>{loading === "files" ? "Loading files..." : "No files found"}</p>
-                  )}
+                    ) : (
+                      <label className={styles.targetRow} key={target.key}>
+                        <input
+                          checked={selectedPaths.includes(target.path)}
+                          onChange={() => togglePath(target.path)}
+                          type="checkbox"
+                        />
+                        <span>{target.label}</span>
+                        <b>DB</b>
+                      </label>
+                    )
+                  )) : <p>No backup targets loaded</p>}
+                </div>
+                <div className={styles.customPathRow}>
+                  <label>
+                    Add custom path
+                    <input
+                      value={customPath}
+                      onChange={(event) => setCustomPath(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          void addCustomPath();
+                        }
+                      }}
+                      placeholder="/home/matrix/path/to/file-or-folder"
+                    />
+                  </label>
+                  <button onClick={() => void addCustomPath()} type="button" disabled={loading === "addPath"}>
+                    {loading === "addPath" ? (
+                      <>
+                        <span className={styles.spinner} aria-hidden="true" />
+                        Adding
+                      </>
+                    ) : (
+                      "Add path"
+                    )}
+                  </button>
+                </div>
+                {selectedPaths.length ? (
+                  <div className={styles.selectedPathList}>
+                    {selectedPaths
+                      .filter((path) => path.startsWith("/"))
+                      .map((path) => (
+                        <button key={path} onClick={() => togglePath(path)} type="button">
+                          <span>{path}</span>
+                          <b>×</b>
+                        </button>
+                      ))}
+                  </div>
+                ) : null}
+
+                {browserPath ? (
+                  <div className={styles.browser}>
+                    <div className={styles.browserHeader}>
+                      <strong>{browserPath}</strong>
+                      <button onClick={() => setBrowserPath("")}>Close</button>
+                    </div>
+                    {remoteFiles.length ? (
+                      remoteFiles.map((file) => (
+                        <label className={styles.fileRow} key={file.path}>
+                          <input
+                            checked={selectedPaths.includes(file.path)}
+                            onChange={() => togglePath(file.path)}
+                            type="checkbox"
+                          />
+                          <span>{file.name}</span>
+                          {file.file_type === "directory" ? (
+                            <button
+                              onClick={(event) => {
+                                event.preventDefault();
+                                void openRemotePath(file.path);
+                              }}
+                              type="button"
+                              disabled={openingPath === file.path}
+                            >
+                              {openingPath === file.path ? (
+                                <>
+                                  <span className={styles.spinner} aria-hidden="true" />
+                                  Opening
+                                </>
+                              ) : (
+                                "Open"
+                              )}
+                            </button>
+                          ) : (
+                            <b>{formatBytes(file.size_bytes)}</b>
+                          )}
+                        </label>
+                      ))
+                    ) : (
+                      <p className={styles.emptyFiles}>{loading === "files" ? "Loading files..." : "No files found"}</p>
+                    )}
+                  </div>
+                ) : null}
+              </div>
+
+              {backupResult ? (
+                <div className={styles.result} role="status" aria-live="polite">
+                  <strong>{backupResult.message}</strong>
+                  <span>{backupResult.local_path}</span>
                 </div>
               ) : null}
+              {error ? (
+                <p className={styles.error} role="alert">
+                  {error}
+                </p>
+              ) : null}
             </div>
-
-            {backupResult ? (
-              <div className={styles.result} role="status" aria-live="polite">
-                <strong>{backupResult.message}</strong>
-                <span>{backupResult.local_path}</span>
-              </div>
-            ) : null}
-            {error ? (
-              <p className={styles.error} role="alert">
-                {error}
-              </p>
-            ) : null}
 
             <div className={styles.actions}>
               <button onClick={() => void backupNow()} disabled={loading === "backup"}>
