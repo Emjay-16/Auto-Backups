@@ -1,6 +1,0 @@
-{
-  "enabled": true,
-  "interval_hours": 168,
-  "zip_output": true,
-  "run_on_startup": false
-}
