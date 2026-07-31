@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import {
   checkDeviceStatus,
   backupTargetLabelFromPath,
@@ -272,7 +273,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
         )}
       </div>
 
-      {selectedDevice ? (
+      {selectedDevice && typeof document !== "undefined" ? createPortal((
         <div
           className={`${styles.overlay} ${isClosing ? styles.closing : ""}`}
           role="dialog"
@@ -396,19 +397,6 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
                     )}
                   </button>
                 </div>
-                {selectedPaths.length ? (
-                  <div className={styles.selectedPathList}>
-                    {selectedPaths
-                      .filter((path) => path.startsWith("/"))
-                      .map((path) => (
-                        <button key={path} onClick={() => togglePath(path)} type="button">
-                          <span>{path}</span>
-                          <b>×</b>
-                        </button>
-                      ))}
-                  </div>
-                ) : null}
-
                 {browserPath ? (
                   <div className={styles.browser}>
                     <div className={styles.browserHeader}>
@@ -482,7 +470,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
             </div>
           </section>
         </div>
-      ) : null}
+      ), document.body) : null}
     </>
   );
 

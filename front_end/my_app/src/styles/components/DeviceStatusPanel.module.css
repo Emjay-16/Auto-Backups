@@ -222,7 +222,7 @@
   z-index: 60;
   display: grid;
   place-items: center;
-  padding: 72px 24px 32px;
+  padding: 52px 24px 28px;
 }
 
 .overlay .backdrop {
@@ -252,8 +252,8 @@
 .modal {
   position: relative;
   z-index: 1;
-  width: min(840px, 100%);
-  max-height: min(76vh, 760px);
+  width: min(1080px, 100%);
+  max-height: min(84vh, 820px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -327,7 +327,7 @@
 .detailGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
   padding: 14px 24px 12px;
 }
 
@@ -390,14 +390,14 @@
 }
 
 .targetList {
-  max-height: 185px;
+  max-height: 240px;
   overflow: auto;
   padding: 2px;
 }
 
 .customPathRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) 116px;
   align-items: end;
   gap: 12px;
   padding: 12px;
@@ -451,7 +451,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  max-height: 68px;
+  max-height: 92px;
   overflow: auto;
   padding: 10px;
   border: 1px solid rgba(220, 231, 243, 0.9);
@@ -494,7 +494,7 @@
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 13px;
+  gap: 14px;
   min-height: 46px;
   padding: 12px;
   border: 1px solid rgba(220, 231, 243, 0.95);
@@ -654,7 +654,7 @@
 }
 
 .browser {
-  max-height: 185px;
+  max-height: 250px;
   overflow: auto;
   margin-top: 4px;
   padding: 10px;
