@@ -5,3 +5,5 @@ __pycache__/
 .env
 api/.env
 storage/backups/
+front_end/my_app/.next/
+front_end/my_app/node_modules/

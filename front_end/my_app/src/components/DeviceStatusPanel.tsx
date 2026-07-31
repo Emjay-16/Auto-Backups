@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   checkDeviceStatus,
@@ -25,6 +25,8 @@ type DeviceStatusPanelProps = {
   devices: Device[];
 };
 
+const CLOSE_ANIMATION_MS = 150;
+
 export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
   const router = useRouter();
   const { showToast } = useToast();
@@ -38,8 +40,40 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
   const [customPath, setCustomPath] = useState("");
   const [loading, setLoading] = useState("");
   const [error, setError] = useState("");
+  const [openingDeviceId, setOpeningDeviceId] = useState<string | null>(null);
+  const [openingPath, setOpeningPath] = useState<string | null>(null);
+  const [isClosing, setIsClosing] = useState(false);
 
-  async function openDevice(device: Device) {
+  const modalRef = useRef<HTMLElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const lastFocusedElementRef = useRef<HTMLElement | null>(null);
+  const closeTimeoutRef = useRef<number | null>(null);
+  const deviceRequestIdRef = useRef(0);
+  const browseRequestIdRef = useRef(0);
+
+  // Focus the close button when a device opens, and restore focus to whatever
+  // triggered it once the modal is gone (keyboard users land back where they started).
+  useEffect(() => {
+    if (selectedDevice) {
+      closeButtonRef.current?.focus();
+    }
+  }, [selectedDevice]);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current !== null) {
+        window.clearTimeout(closeTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  async function openDevice(device: Device, triggerElement?: HTMLElement | null) {
+    clearPendingClose();
+    lastFocusedElementRef.current = triggerElement ?? null;
+
+    const deviceKey = String(device.id ?? device.name);
+    const requestId = ++deviceRequestIdRef.current;
+
     setSelectedDevice(device);
     setLiveStatus(null);
     setRemoteFiles([]);
@@ -48,6 +82,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
     setSelectedPaths([]);
     setCustomPath("");
     setError("");
+    setOpeningDeviceId(deviceKey);
 
     setLoading("status");
     try {
@@ -55,40 +90,101 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
         checkDeviceStatus(device.id),
         getBackupTargets(),
       ]);
+      if (deviceRequestIdRef.current !== requestId) return;
       setLiveStatus(status);
       setBackupTargets(targets);
       setSelectedPaths([]);
     } catch (errorResponse) {
+      if (deviceRequestIdRef.current !== requestId) return;
       showToast({ tone: "error", title: "Load device status failed", message: getErrorMessage(errorResponse, "Load device status failed") });
     } finally {
-      setLoading("");
+      if (deviceRequestIdRef.current === requestId) {
+        setLoading("");
+      }
+      setOpeningDeviceId((current) => (current === deviceKey ? null : current));
     }
   }
 
-  function closeModal() {
-    setSelectedDevice(null);
-    setLiveStatus(null);
-    setRemoteFiles([]);
-    setBackupResult(null);
-    setBrowserPath("");
-    setSelectedPaths([]);
-    setCustomPath("");
-    setError("");
+  function clearPendingClose() {
+    if (closeTimeoutRef.current !== null) {
+      window.clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+    setIsClosing(false);
   }
+
+  function closeModal() {
+    setIsClosing(true);
+    const prefersReducedMotion =
+      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    closeTimeoutRef.current = window.setTimeout(() => {
+      setIsClosing(false);
+      setSelectedDevice(null);
+      setLiveStatus(null);
+      setRemoteFiles([]);
+      setBackupResult(null);
+      setBrowserPath("");
+      setSelectedPaths([]);
+      setCustomPath("");
+      setError("");
+      setOpeningPath(null);
+      closeTimeoutRef.current = null;
+      lastFocusedElementRef.current?.focus();
+    }, prefersReducedMotion ? 0 : CLOSE_ANIMATION_MS);
+  }
+
+  // Escape closes the modal; Tab is trapped inside it while it's open.
+  useEffect(() => {
+    if (!selectedDevice) return;
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeModal();
+        return;
+      }
+
+      if (event.key === "Tab" && modalRef.current) {
+        const focusable = getFocusableElements(modalRef.current);
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [selectedDevice]);
 
   async function openRemotePath(path: string) {
     if (!selectedDevice?.id) return;
+    const requestId = ++browseRequestIdRef.current;
+
+    setOpeningPath(path);
     setLoading("files");
     setError("");
     try {
       const files = await listDeviceFiles(selectedDevice.id, path);
+      if (browseRequestIdRef.current !== requestId) return; // a newer folder was opened meanwhile
       setRemoteFiles(files);
       setBrowserPath(path);
-      router.refresh();
     } catch (errorResponse) {
+      if (browseRequestIdRef.current !== requestId) return;
       showToast({ tone: "error", title: "Browse files failed", message: getErrorMessage(errorResponse, "Browse files failed") });
     } finally {
-      setLoading("");
+      if (browseRequestIdRef.current === requestId) {
+        setLoading("");
+        setOpeningPath(null);
+      }
     }
   }
 
@@ -133,27 +229,42 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
   return (
     <>
       <div className={styles.grid}>
-        {devices.length ? devices.map((device) => (
-          <button className={`${styles.card} ${styles[robotGroupTone(device.group)]}`} key={device.name} onClick={() => openDevice(device)}>
-            <div className={styles.header}>
-              <RobotGroupBadge group={device.group} variant="avatar" />
-              <div>
-                <strong>{device.name}</strong>
-                <span>{device.ip}</span>
+        {devices.length ? devices.map((device) => {
+          const deviceKey = String(device.id ?? device.name);
+          const isOpening = openingDeviceId === deviceKey;
+          return (
+            <button
+              className={`${styles.card} ${styles[robotGroupTone(device.group)]}`}
+              key={deviceKey}
+              onClick={(event) => void openDevice(device, event.currentTarget)}
+              disabled={isOpening}
+              aria-busy={isOpening}
+            >
+              <div className={styles.header}>
+                <RobotGroupBadge group={device.group} variant="avatar" />
+                <div>
+                  <strong>{device.name}</strong>
+                  <span>{device.ip}</span>
+                </div>
               </div>
-            </div>
-            <div className={styles.footer}>
-              <span className={styles.onlinePill}>
-                <i aria-hidden="true" />
-                online
-              </span>
-              <span className={styles.timePill}>
-                <ClockIcon />
-                {device.lastSeen}
-              </span>
-            </div>
-          </button>
-        )) : (
+              <div className={styles.footer}>
+                <span className={styles.onlinePill}>
+                  <i aria-hidden="true" />
+                  online
+                </span>
+                <span className={styles.timePill}>
+                  <ClockIcon />
+                  {device.lastSeen}
+                </span>
+              </div>
+              {isOpening ? (
+                <div className={styles.cardBusy} aria-hidden="true">
+                  <span className={styles.spinner} />
+                </div>
+              ) : null}
+            </button>
+          );
+        }) : (
           <div className={styles.emptyState}>
             <strong>No online devices</strong>
             <span>Online robots will appear here when they are available.</span>
@@ -162,15 +273,20 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
       </div>
 
       {selectedDevice ? (
-        <div className={styles.overlay} role="dialog" aria-modal="true" aria-label={`${selectedDevice.name} detail`}>
+        <div
+          className={`${styles.overlay} ${isClosing ? styles.closing : ""}`}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="device-status-modal-title"
+        >
           <button className={styles.backdrop} onClick={closeModal} aria-label="Close device detail" />
-          <section className={styles.modal}>
+          <section className={styles.modal} ref={modalRef}>
             <div className={styles.modalHeader}>
               <div>
                 <p>{selectedDevice.group} device</p>
-                <h2>{selectedDevice.name}</h2>
+                <h2 id="device-status-modal-title">{selectedDevice.name}</h2>
               </div>
-              <button className={styles.close} onClick={closeModal} aria-label="Close">
+              <button className={styles.close} onClick={closeModal} aria-label="Close" ref={closeButtonRef}>
                 ×
               </button>
             </div>
@@ -190,7 +306,16 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
               </article>
               <article>
                 <span>Live check</span>
-                <strong>{loading === "status" ? "Checking..." : liveStatus?.message ?? "Loaded from list"}</strong>
+                <strong>
+                  {loading === "status" ? (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      <span className={styles.spinner} aria-hidden="true" />
+                      Checking...
+                    </span>
+                  ) : (
+                    liveStatus?.message ?? "Loaded from list"
+                  )}
+                </strong>
               </article>
             </div>
 
@@ -205,7 +330,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
                     <label className={styles.targetRow} key={target.key}>
                       <input
                         checked={selectedPaths.includes(target.path)}
-                        onChange={() => togglePath(target.path, target.target_type)}
+                        onChange={() => togglePath(target.path)}
                         type="checkbox"
                       />
                       <span>{target.label}: {target.path}</span>
@@ -213,11 +338,19 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
                         <button
                           onClick={(event) => {
                             event.preventDefault();
-                            openRemotePath(target.path);
+                            void openRemotePath(target.path);
                           }}
                           type="button"
+                          disabled={openingPath === target.path}
                         >
-                          Open
+                          {openingPath === target.path ? (
+                            <>
+                              <span className={styles.spinner} aria-hidden="true" />
+                              Opening
+                            </>
+                          ) : (
+                            "Open"
+                          )}
                         </button>
                       ) : (
                         <b>{target.target_type}</b>
@@ -227,7 +360,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
                     <label className={styles.targetRow} key={target.key}>
                       <input
                         checked={selectedPaths.includes(target.path)}
-                        onChange={() => togglePath(target.path, target.target_type)}
+                        onChange={() => togglePath(target.path)}
                         type="checkbox"
                       />
                       <span>{target.label}</span>
@@ -251,14 +384,23 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
                     placeholder="/home/matrix/path/to/file-or-folder"
                   />
                 </label>
-                <button onClick={() => void addCustomPath()} type="button">Add path</button>
+                <button onClick={() => void addCustomPath()} type="button" disabled={loading === "addPath"}>
+                  {loading === "addPath" ? (
+                    <>
+                      <span className={styles.spinner} aria-hidden="true" />
+                      Adding
+                    </>
+                  ) : (
+                    "Add path"
+                  )}
+                </button>
               </div>
               {selectedPaths.length ? (
                 <div className={styles.selectedPathList}>
                   {selectedPaths
                     .filter((path) => path.startsWith("/"))
                     .map((path) => (
-                      <button key={path} onClick={() => togglePath(path, "file")} type="button">
+                      <button key={path} onClick={() => togglePath(path)} type="button">
                         <span>{path}</span>
                         <b>×</b>
                       </button>
@@ -277,7 +419,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
                       <label className={styles.fileRow} key={file.path}>
                         <input
                           checked={selectedPaths.includes(file.path)}
-                          onChange={() => togglePath(file.path, file.file_type)}
+                          onChange={() => togglePath(file.path)}
                           type="checkbox"
                         />
                         <span>{file.name}</span>
@@ -285,11 +427,19 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
                           <button
                             onClick={(event) => {
                               event.preventDefault();
-                              openRemotePath(file.path);
+                              void openRemotePath(file.path);
                             }}
                             type="button"
+                            disabled={openingPath === file.path}
                           >
-                            Open
+                            {openingPath === file.path ? (
+                              <>
+                                <span className={styles.spinner} aria-hidden="true" />
+                                Opening
+                              </>
+                            ) : (
+                              "Open"
+                            )}
                           </button>
                         ) : (
                           <b>{formatBytes(file.size_bytes)}</b>
@@ -304,16 +454,27 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
             </div>
 
             {backupResult ? (
-              <div className={styles.result}>
+              <div className={styles.result} role="status" aria-live="polite">
                 <strong>{backupResult.message}</strong>
                 <span>{backupResult.local_path}</span>
               </div>
             ) : null}
-            {error ? <p className={styles.error}>{error}</p> : null}
+            {error ? (
+              <p className={styles.error} role="alert">
+                {error}
+              </p>
+            ) : null}
 
             <div className={styles.actions}>
-              <button onClick={backupNow} disabled={loading === "backup"}>
-                {loading === "backup" ? "Backing up..." : "Backup now"}
+              <button onClick={() => void backupNow()} disabled={loading === "backup"}>
+                {loading === "backup" ? (
+                  <>
+                    <span className={styles.spinner} aria-hidden="true" />
+                    Backing up...
+                  </>
+                ) : (
+                  "Backup now"
+                )}
               </button>
               <button onClick={() => selectedDevice.id && router.push(`/restore?device_id=${selectedDevice.id}`)}>Restore</button>
             </div>
@@ -323,8 +484,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
     </>
   );
 
-  function togglePath(path: string, pathType: string) {
-    void pathType;
+  function togglePath(path: string) {
     setSelectedPaths((current) => {
       if (current.includes(path)) {
         return current.filter((item) => item !== path);
@@ -356,12 +516,14 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
   }
 
   async function addCustomPath() {
+    if (loading === "addPath") return;
     const path = customPath.trim();
     if (!path) return;
     if (!path.startsWith("/")) {
       setError("Custom backup path must start with /");
       return;
     }
+    setLoading("addPath");
     try {
       const savedPath = await saveCustomBackupPath(path);
       setSelectedPaths((current) => uniquePaths([...current, savedPath.path]));
@@ -394,8 +556,17 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
         title: "Save auto backup path failed",
         message: getErrorMessage(errorResponse, "Save auto backup path failed"),
       });
+    } finally {
+      setLoading((current) => (current === "addPath" ? "" : current));
     }
   }
+}
+
+function getFocusableElements(container: HTMLElement): HTMLElement[] {
+  const selector = 'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
+  return Array.from(container.querySelectorAll<HTMLElement>(selector)).filter(
+    (element) => element.offsetParent !== null,
+  );
 }
 
 function formatTime(value?: string | null): string {

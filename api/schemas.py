@@ -31,8 +31,6 @@ class LoginResponse(BaseModel):
     user_id: int
     user_name: str
     role: int
-    access_token: str
-    token_type: str = "bearer"
     message: str
 
 

@@ -53,6 +53,45 @@
   transform: translateY(-2px);
 }
 
+.card:active {
+  transform: translateY(0);
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--card-accent) 13%, rgba(15, 23, 42, 0.08));
+}
+
+.card:focus-visible {
+  outline: 2px solid var(--card-accent);
+  outline-offset: 3px;
+}
+
+.card:disabled {
+  cursor: progress;
+}
+
+.cardBusy {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(1px);
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--card-accent, #2563eb) 28%, transparent);
+  border-top-color: var(--card-accent, #2563eb);
+  animation: spin 0.65s linear infinite;
+  flex: none;
+}
+
 .header {
   display: flex;
   align-items: center;
@@ -151,6 +190,32 @@
   font-weight: 700;
 }
 
+@keyframes backdropIn {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes backdropOut {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes modalIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+}
+
+@keyframes modalOut {
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
 .overlay {
   position: fixed;
   inset: 0;
@@ -158,6 +223,22 @@
   display: grid;
   place-items: center;
   padding: 24px;
+}
+
+.overlay .backdrop {
+  animation: backdropIn 0.18s ease both;
+}
+
+.overlay .modal {
+  animation: modalIn 0.18s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+}
+
+.overlay.closing .backdrop {
+  animation: backdropOut 0.14s ease both;
+}
+
+.overlay.closing .modal {
+  animation: modalOut 0.14s ease both;
 }
 
 .backdrop {
@@ -217,6 +298,21 @@
   color: #53647a;
   font-size: 22px;
   line-height: 1;
+  transition: border-color 0.12s ease, color 0.12s ease, transform 0.12s ease;
+}
+
+.close:hover {
+  border-color: #b9c6d8;
+  color: #223149;
+}
+
+.close:active {
+  transform: scale(0.94);
+}
+
+.close:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
 }
 
 .detailGrid {
@@ -314,6 +410,13 @@
   background: #ffffff;
   color: #162235;
   padding: 0 10px;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.customPathRow input:focus-visible {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
 }
 
 .customPathRow button {
@@ -381,6 +484,25 @@
 .fileRow input {
   width: 16px;
   height: 16px;
+  accent-color: #2563eb;
+}
+
+.targetRow input:focus-visible,
+.fileRow input:focus-visible,
+.customPathRow input:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.targetRow,
+.fileRow {
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.targetRow:has(input:checked),
+.fileRow:has(input:checked) {
+  border-color: #bfdbfe;
+  background: #f3f8ff;
 }
 
 .targetRow span,
@@ -395,6 +517,9 @@
 .targetRow button,
 .fileRow button,
 .browserHeader button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   min-height: 28px;
   padding: 0 10px;
   border: 1px solid #bfdbfe;
@@ -403,6 +528,23 @@
   color: #1d4ed8;
   font-size: 12px;
   font-weight: 900;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.targetRow button:hover:not(:disabled),
+.fileRow button:hover:not(:disabled),
+.browserHeader button:hover:not(:disabled) {
+  background: #dbeafe;
+}
+
+.targetRow button:focus-visible,
+.fileRow button:focus-visible,
+.browserHeader button:focus-visible,
+.customPathRow button:focus-visible,
+.selectedPathList button:focus-visible,
+.actions button:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
 }
 
 .targetRow b,
@@ -437,6 +579,13 @@
   text-align: center;
 }
 
+@keyframes bannerIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
 .result,
 .error {
   margin: 0 22px 14px;
@@ -444,6 +593,7 @@
   border-radius: 8px;
   font-size: 12px;
   font-weight: 800;
+  animation: bannerIn 0.15s ease both;
 }
 
 .result {
@@ -485,6 +635,9 @@
 }
 
 .actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   min-height: 36px;
   padding: 0 14px;
   border: 1px solid #dbe4ee;
@@ -493,12 +646,31 @@
   color: #223149;
   font-size: 13px;
   font-weight: 800;
+  transition: border-color 0.12s ease, background 0.12s ease, transform 0.12s ease;
+}
+
+.actions button:hover:not(:disabled) {
+  border-color: #b9c6d8;
+}
+
+.actions button:active:not(:disabled) {
+  transform: scale(0.98);
 }
 
 .actions button:first-child {
   border-color: #2563eb;
   background: #2563eb;
   color: #ffffff;
+}
+
+.actions button:first-child:hover:not(:disabled) {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+.actions button:first-child .spinner {
+  border-color: rgba(255, 255, 255, 0.4);
+  border-top-color: #ffffff;
 }
 
 .actions button:disabled,
@@ -527,5 +699,37 @@
 
   .overlay {
     padding: 14px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .close,
+  .actions button,
+  .targetRow button,
+  .fileRow button,
+  .browserHeader button,
+  .customPathRow input,
+  .customPathRow button,
+  .targetRow,
+  .fileRow {
+    transition: none;
+  }
+
+  .card:hover {
+    transform: none;
+  }
+
+  .spinner {
+    animation-duration: 1.2s;
+  }
+
+  .overlay .backdrop,
+  .overlay .modal,
+  .overlay.closing .backdrop,
+  .overlay.closing .modal,
+  .result,
+  .error {
+    animation: none;
   }
 }

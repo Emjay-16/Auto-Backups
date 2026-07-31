@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { signOut, useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { getNotificationsForUi, type NotificationItem } from "@/lib/api";
 import styles from "@/styles/components/AppShell.module.css";
 import { BackupIcon, DashboardIcon, DeviceIcon, JobIcon, RestoreIcon } from "./ActionIcons";
@@ -45,64 +46,112 @@ const pageTitles: Record<string, { title: string; crumb: string }> = {
   "/logs": { title: "Activity Logs", crumb: "Audit backup, restore, and device events" },
 };
 
+// Sorted longest-first so nested routes resolve to their section title.
+const orderedPageTitleRoutes = Object.keys(pageTitles).sort((a, b) => b.length - a.length);
+
+function resolvePageTitle(pathname: string) {
+  if (pathname in pageTitles) return pageTitles[pathname];
+  const match = orderedPageTitleRoutes.find(
+    (route) => route !== "/" && (pathname === route || pathname.startsWith(`${route}/`))
+  );
+  return match ? pageTitles[match] : pageTitles["/"];
+}
+
 const READ_NOTIFICATIONS_KEY = "auto_backup_read_notifications";
 const CLEARED_NOTIFICATIONS_KEY = "auto_backup_cleared_notifications";
+
+const TIMING = {
+  deviceFetchTimeoutMs: 5000,
+  deviceRefreshDelayMs: 1000,
+  deviceRefreshTimeoutMs: 20000,
+  jobsFetchTimeoutMs: 1500,
+  jobsInitialDelayMs: 1500,
+  jobsPollIntervalMs: 30000,
+  clockTickMs: 1000,
+  notificationsInitialDelayMs: 2500,
+  notificationsPollIntervalMs: 60000,
+} as const;
+
+type NotificationTone = "fail" | "wait" | "info";
+const KNOWN_NOTIFICATION_TONES: readonly NotificationTone[] = ["fail", "wait", "info"];
+
+function toneClassName(tone: string): string {
+  return KNOWN_NOTIFICATION_TONES.includes(tone as NotificationTone)
+    ? styles[tone as NotificationTone]
+    : styles.info;
+}
 
 export function AppShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const current = pageTitles[pathname] ?? pageTitles["/"];
+  const { data: session, status: sessionStatus } = useSession();
+  const isLoginPage = pathname === "/login";
+  const current = resolvePageTitle(pathname);
   const [deviceCount, setDeviceCount] = useState({ online: 0, total: 0 });
+  const [devicesUnavailable, setDevicesUnavailable] = useState(false);
   const [activeJobCount, setActiveJobCount] = useState(0);
   const [now, setNow] = useState<Date | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [readNotificationIds, setReadNotificationIds] = useState<string[]>(() => readStoredIds(READ_NOTIFICATIONS_KEY));
-  const [clearedNotificationIds, setClearedNotificationIds] = useState<string[]>(() => readStoredIds(CLEARED_NOTIFICATIONS_KEY));
+  const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
+  const [clearedNotificationIds, setClearedNotificationIds] = useState<string[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const notificationWrapRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
+    if (isLoginPage || sessionStatus !== "authenticated") return;
+
+    const storageId = window.setTimeout(() => {
+      setReadNotificationIds(readStoredIds(READ_NOTIFICATIONS_KEY));
+      setClearedNotificationIds(readStoredIds(CLEARED_NOTIFICATIONS_KEY));
+    }, 0);
+    return () => window.clearTimeout(storageId);
+  }, [isLoginPage, sessionStatus]);
+  useEffect(() => {
+    if (isLoginPage || sessionStatus !== "authenticated") return;
+
     const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-    function loadDeviceCount(path: string, timeoutMs: number) {
+    function fetchDevices(path: string, timeoutMs: number) {
       const controller = new AbortController();
       const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-
-      return fetch(`${apiUrl}${path}`, {
-        cache: "no-store",
-        signal: controller.signal,
-      })
+      return fetch(`${apiUrl}${path}`, { cache: "no-store", signal: controller.signal })
         .then((response) => {
           if (!response.ok) throw new Error("Failed to load devices");
           return response.json() as Promise<{ device_status: number }[]>;
         })
-        .catch(() => fetch(`${apiUrl}/devices/`, { cache: "no-store" }).then((response) => {
-          if (!response.ok) throw new Error("Failed to load devices");
-          return response.json() as Promise<{ device_status: number }[]>;
-        }))
+        .finally(() => window.clearTimeout(timeoutId));
+    }
+
+    function loadDeviceCount(path: string, timeoutMs: number) {
+      return fetchDevices(path, timeoutMs)
+        .catch(() => fetchDevices("/devices/", TIMING.deviceFetchTimeoutMs))
         .then((devices) => {
           setDeviceCount({
             online: devices.filter((device) => device.device_status === 1).length,
             total: devices.length,
           });
+          setDevicesUnavailable(false);
         })
-        .catch(() => undefined)
-        .finally(() => window.clearTimeout(timeoutId));
+        .catch(() => setDevicesUnavailable(true));
     }
 
-    void loadDeviceCount("/devices/", 5000);
+    void loadDeviceCount("/devices/", TIMING.deviceFetchTimeoutMs);
     const startId = window.setTimeout(() => {
-      void loadDeviceCount("/devices/?refresh_status=true", 20000);
-    }, 1000);
+      void loadDeviceCount("/devices/?refresh_status=true", TIMING.deviceRefreshTimeoutMs);
+    }, TIMING.deviceRefreshDelayMs);
 
     return () => {
       window.clearTimeout(startId);
     };
-  }, []);
+  }, [isLoginPage, sessionStatus]);
 
   useEffect(() => {
+    if (isLoginPage || sessionStatus !== "authenticated") return;
+
     const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
     function loadActiveJobs() {
       const controller = new AbortController();
-      const timeoutId = window.setTimeout(() => controller.abort(), 1500);
+      const timeoutId = window.setTimeout(() => controller.abort(), TIMING.jobsFetchTimeoutMs);
 
       fetch(`${apiUrl}/jobs/?limit=100`, {
         cache: "no-store",
@@ -118,18 +167,18 @@ export function AppShell({ children }: { children: ReactNode }) {
         .finally(() => window.clearTimeout(timeoutId));
     }
 
-    const startId = window.setTimeout(loadActiveJobs, 1500);
-    const intervalId = window.setInterval(loadActiveJobs, 30000);
+    const startId = window.setTimeout(loadActiveJobs, TIMING.jobsInitialDelayMs);
+    const intervalId = window.setInterval(loadActiveJobs, TIMING.jobsPollIntervalMs);
 
     return () => {
       window.clearTimeout(startId);
       window.clearInterval(intervalId);
     };
-  }, []);
+  }, [isLoginPage, sessionStatus]);
 
   useEffect(() => {
     const startId = window.setTimeout(() => setNow(new Date()), 0);
-    const intervalId = window.setInterval(() => setNow(new Date()), 1000);
+    const intervalId = window.setInterval(() => setNow(new Date()), TIMING.clockTickMs);
     return () => {
       window.clearTimeout(startId);
       window.clearInterval(intervalId);
@@ -137,6 +186,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (isLoginPage || sessionStatus !== "authenticated") return;
+
     let mounted = true;
 
     function loadNotifications() {
@@ -149,15 +200,42 @@ export function AppShell({ children }: { children: ReactNode }) {
         });
     }
 
-    const startId = window.setTimeout(loadNotifications, 2500);
-    const intervalId = window.setInterval(loadNotifications, 60000);
+    const startId = window.setTimeout(loadNotifications, TIMING.notificationsInitialDelayMs);
+    const intervalId = window.setInterval(loadNotifications, TIMING.notificationsPollIntervalMs);
 
     return () => {
       mounted = false;
       window.clearTimeout(startId);
       window.clearInterval(intervalId);
     };
-  }, []);
+  }, [isLoginPage, sessionStatus]);
+
+  useEffect(() => {
+    if (!isLoginPage && sessionStatus === "unauthenticated") {
+      router.replace("/login");
+    }
+  }, [isLoginPage, router, sessionStatus]);
+
+  useEffect(() => {
+    if (!showNotifications) return;
+
+    function handlePointerDown(event: MouseEvent) {
+      if (!notificationWrapRef.current?.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+    }
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setShowNotifications(false);
+    }
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showNotifications]);
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -185,6 +263,12 @@ export function AppShell({ children }: { children: ReactNode }) {
     setReadNotificationIds((current) => saveStoredIds(READ_NOTIFICATIONS_KEY, [...current, ...ids]));
   }
 
+  async function logout() {
+    await signOut({ redirect: false });
+    router.replace("/login");
+    router.refresh();
+  }
+
   const dateText = now
     ? now.toLocaleDateString("th-TH", { day: "2-digit", month: "short", year: "numeric" })
     : "--";
@@ -193,6 +277,15 @@ export function AppShell({ children }: { children: ReactNode }) {
     : "--";
   const visibleNotifications = notifications.filter((item) => !clearedNotificationIds.includes(item.id));
   const unreadCount = visibleNotifications.filter((item) => !readNotificationIds.includes(item.id)).length;
+  const userName = session?.user?.name || "User";
+
+  if (isLoginPage) {
+    return <>{children}</>;
+  }
+
+  if (sessionStatus !== "authenticated") {
+    return null;
+  }
 
   return (
     <main className={styles.shell}>
@@ -201,6 +294,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className={styles.brandMark}>AB</div>
           <div>
             <strong>Auto Backup</strong>
+            <span>Robot Data Migration</span>
           </div>
         </div>
 
@@ -223,19 +317,23 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className={styles.operator}>
-          <div className={styles.avatar}>A</div>
+          <div className={styles.avatar}>{userName.slice(0, 1).toUpperCase()}</div>
           <div>
-            <strong>Admin</strong>
-            <span>online</span>
+            <strong>{userName}</strong>
           </div>
+          <button onClick={() => void logout()} type="button">
+            Logout
+          </button>
         </div>
       </aside>
 
       <section className={styles.workspace}>
         <header className={styles.topbar}>
           <div className={styles.titleBlock}>
-            <p className={styles.eyebrow}>{current.crumb}</p>
-            <h1>{current.title}</h1>
+            <div>
+              <p className={styles.eyebrow}>{current.crumb}</p>
+              <h1>{current.title}</h1>
+            </div>
           </div>
           <div className={styles.topActions}>
             <form className={styles.search} onSubmit={submitSearch}>
@@ -246,14 +344,17 @@ export function AppShell({ children }: { children: ReactNode }) {
               </span>
               <input
                 name="q"
+                aria-label="ค้นหาอุปกรณ์, backup หรือ job"
                 placeholder="ค้นหาอุปกรณ์, backup, job..."
               />
             </form>
-            <div className={styles.notificationWrap}>
+            <div className={styles.notificationWrap} ref={notificationWrapRef}>
               <button
                 className={styles.iconButton}
                 type="button"
                 aria-label="Notifications"
+                aria-haspopup="true"
+                aria-expanded={showNotifications}
                 onClick={openNotifications}
               >
                 <BellIcon />
@@ -272,7 +373,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                   </div>
                   {visibleNotifications.length ? (
                     visibleNotifications.map((item) => (
-                      <article className={`${styles.notificationItem} ${styles[item.tone]} ${readNotificationIds.includes(item.id) ? styles.read : ""}`} key={item.id}>
+                      <article className={`${styles.notificationItem} ${toneClassName(item.tone)} ${readNotificationIds.includes(item.id) ? styles.read : ""}`} key={item.id}>
                         <b>{item.title}</b>
                         <p>{item.detail}</p>
                         <time>{item.time}</time>
@@ -285,8 +386,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               ) : null}
             </div>
             <div className={styles.statusBox}>
-              <strong>{deviceCount.online} / {deviceCount.total}</strong>
-              <span>online devices</span>
+              <strong className={devicesUnavailable ? styles.statusUnavailable : undefined}>
+                {devicesUnavailable ? "—" : `${deviceCount.online} / ${deviceCount.total}`}
+              </strong>
+              <span>{devicesUnavailable ? "status unavailable" : "online devices"}</span>
             </div>
             <div className={styles.dateBox}>
               <strong>{dateText}</strong>

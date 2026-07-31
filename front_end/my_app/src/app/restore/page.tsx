@@ -309,9 +309,9 @@ export default function RestorePage() {
                       <small>{selectedBackup ? `${selectedBackup.device} · ${selectedBackup.files} file(s) · ${selectedBackup.size}` : "Select from Backup Library"}</small>
                     </div>
                     <label>
-                      Fallback target path
-                      <input value={fallbackTargetPath} onChange={(event) => setFallbackTargetPath(event.target.value)} placeholder="ใช้เฉพาะไฟล์ที่ไม่มี target path แยก" />
-                      <span className={styles.hint}>ไฟล์ที่เลือกใน popup จะใช้ target path ของตัวเองก่อน ช่องนี้เป็นค่าสำรองเท่านั้น</span>
+                      Default target path (optional)
+                      <input value={fallbackTargetPath} onChange={(event) => setFallbackTargetPath(event.target.value)} placeholder="ใช้เมื่อไฟล์ใน popup ไม่ได้กำหนด Restore to" />
+                      <span className={styles.hint}>ถ้าต้องการส่งไฟล์ไป path อื่น ให้แก้ช่อง Restore to ใน popup ของไฟล์นั้น ช่องนี้ใช้เฉพาะไฟล์ที่ไม่มี path แยกเท่านั้น</span>
                     </label>
                     <div className={styles.filePickerSummary}>
                       <div>
@@ -388,7 +388,7 @@ export default function RestorePage() {
                         <input
                           value={targetPaths[file.backup_file_id] ?? fallbackTargetPath}
                           onChange={(event) => setTargetPaths({ ...targetPaths, [file.backup_file_id]: event.target.value })}
-                          placeholder="Target path for this file"
+                          placeholder="Path ปลายทางของไฟล์นี้"
                         />
                       </div>
                     </article>
