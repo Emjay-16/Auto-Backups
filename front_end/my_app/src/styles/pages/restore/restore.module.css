@@ -122,13 +122,14 @@
 }
 
 .snapshot {
+  position: relative;
   min-width: 0;
   width: 100%;
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  padding: 14px;
+  padding: 14px 15px;
   border: 1px solid #e0eaf6;
   border-radius: 15px;
   background: linear-gradient(180deg, #ffffff, #fbfdff);
@@ -139,8 +140,19 @@
 
 .snapshot.selected {
   border-color: #60a5fa;
-  background: linear-gradient(135deg, #eff6ff, #f8fbff);
+  background:
+    radial-gradient(circle at 96% 16%, rgba(37, 99, 235, 0.09), transparent 8rem),
+    linear-gradient(135deg, #eff6ff, #f8fbff);
   box-shadow: 0 12px 26px rgba(37, 99, 235, 0.1);
+}
+
+.snapshot.selected::before {
+  content: "";
+  position: absolute;
+  inset: 11px auto 11px 0;
+  width: 4px;
+  border-radius: 0 999px 999px 0;
+  background: linear-gradient(180deg, #2563eb, #0891b2);
 }
 
 .snapshot:not(:disabled):hover {
@@ -149,18 +161,38 @@
   transform: translateY(-1px);
 }
 
-.radio {
-  width: 16px;
-  height: 16px;
-  border: 1.5px solid #94a3b8;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 4px #ffffff;
+.selectionCheck {
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid #bfd0e5;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 6px rgba(15, 23, 42, 0.05);
+  transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
 }
 
-.selected .radio {
+.selectionCheck::before {
+  content: "";
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.58), transparent 34%),
+    linear-gradient(135deg, #2563eb, #0891b2);
+  transform: scale(0);
+  transition: transform 0.14s ease;
+}
+
+.selectionCheck.checked {
   border-color: #2563eb;
-  background: #2563eb;
-  box-shadow: inset 0 0 0 4px #ffffff, 0 0 0 4px rgba(37, 99, 235, 0.1);
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12), 0 8px 18px rgba(37, 99, 235, 0.16);
+}
+
+.selectionCheck.checked::before {
+  transform: scale(1);
 }
 
 .snapshot strong,
@@ -192,21 +224,24 @@
 
 .uploadSource {
   display: grid;
-  gap: 12px;
-  padding: 18px;
+  gap: 14px;
+  padding: 20px;
 }
 
 .uploadDropzone {
   display: grid;
   place-items: center;
-  gap: 8px;
+  gap: 10px;
   min-height: 220px;
-  padding: 20px;
+  padding: 24px;
   border: 1.5px dashed #93c5fd;
   border-radius: 18px;
-  background: linear-gradient(135deg, #eff6ff, #f8fbff);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.08), transparent 12rem),
+    linear-gradient(135deg, #eff6ff, #f8fbff);
   color: #1d4ed8;
   text-align: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
 }
 
 .uploadDropzone strong {
@@ -247,15 +282,16 @@
 .target {
   display: grid;
   gap: 16px;
-  padding: 20px;
+  padding: 22px 24px 24px;
 }
 
 .target label {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 900;
+  line-height: 1.35;
 }
 
 .target input,
@@ -263,12 +299,15 @@
 .targetPathField input {
   min-width: 0;
   width: 100%;
-  height: 42px;
+  height: 44px;
   padding: 0 12px;
-  border: 1px solid #d5e3f2;
+  border: 1px solid var(--control-border);
   border-radius: 12px;
-  background: #ffffff;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), var(--control-bg));
   color: #162235;
+  font-size: 13px;
+  font-weight: 760;
 }
 
 .target input:focus,
@@ -282,11 +321,14 @@
 .selectedBackupCard,
 .filePickerSummary {
   display: grid;
-  gap: 6px;
-  padding: 15px;
+  gap: 8px;
+  padding: 16px;
   border: 1px solid #dbeafe;
   border-radius: 16px;
-  background: linear-gradient(135deg, #f8fbff, #ffffff);
+  background:
+    radial-gradient(circle at 94% 0%, rgba(37, 99, 235, 0.07), transparent 9rem),
+    linear-gradient(135deg, #f8fbff, #ffffff);
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.05);
 }
 
 .selectedBackupCard span,
@@ -331,7 +373,7 @@
 .primaryAction,
 .target button,
 .dialogFooter button:last-child {
-  min-height: 42px;
+  min-height: 44px;
   border: 1px solid #2563eb;
   border-radius: 12px;
   background: linear-gradient(135deg, #2563eb, #0891b2);
@@ -520,21 +562,25 @@
 
 .fileRow {
   padding: 14px;
-  border: 1px solid #e1ebf6;
-  border-radius: 16px;
-  background: linear-gradient(180deg, #ffffff, #fbfdff);
+  border: 1px solid rgba(220, 231, 243, 0.95);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.82);
   transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .fileRow:hover {
   border-color: #bfdbfe;
-  background: #fbfdff;
+  background: #f8fbff;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.06);
 }
 
-.selectedFile {
-  border-color: #60a5fa;
-  background: #ffffff;
-  box-shadow: 0 12px 26px rgba(37, 99, 235, 0.11);
+.selectedFile,
+.fileRow:has(input:checked) {
+  border-color: #93c5fd;
+  background:
+    radial-gradient(circle at 94% 18%, rgba(37, 99, 235, 0.08), transparent 8rem),
+    linear-gradient(180deg, rgba(239, 246, 255, 0.94), rgba(248, 251, 255, 0.98));
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.08);
 }
 
 .fileRow label {
@@ -545,10 +591,67 @@
 }
 
 .fileRow label input {
-  width: 18px;
-  height: 18px;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
   flex: 0 0 auto;
-  accent-color: #2563eb;
+  border: 1.5px solid #bfd0e5;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 6px rgba(15, 23, 42, 0.05);
+  transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
+}
+
+.fileRow label input::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #ffffff;
+  transform: scale(0);
+  transform-origin: center;
+  transition: transform 0.14s ease;
+}
+
+.fileRow label input:checked {
+  border-color: #2563eb;
+  background: linear-gradient(135deg, #2563eb, #0891b2);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12), 0 8px 18px rgba(37, 99, 235, 0.16);
+}
+
+.fileRow label input:checked::before {
+  transform: scale(1);
+}
+
+.fileRow label input:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
+}
+
+.fileRow label input:active {
+  transform: scale(0.94);
+}
+
+.fileRow label input::before {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.58), transparent 34%),
+    linear-gradient(135deg, #2563eb, #0891b2);
+  transform: scale(0);
+}
+
+.fileRow label input:checked {
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12), 0 8px 18px rgba(37, 99, 235, 0.16);
+}
+
+.fileRow label input:checked::before {
+  transform: scale(1);
 }
 
 .fileRow span {

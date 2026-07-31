@@ -413,10 +413,10 @@
 
 .formGrid {
   display: grid;
-  gap: 14px;
+  gap: 16px;
   max-height: calc(88vh - 156px);
   overflow: auto;
-  padding: 20px 24px;
+  padding: 22px 24px 24px;
 }
 
 .backupForm {
@@ -434,22 +434,26 @@
 
 .formGrid label {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 900;
+  line-height: 1.35;
 }
 
 .formGrid input,
 .formGrid select {
   min-width: 0;
   width: 100%;
-  height: 40px;
-  border: 1px solid rgba(196, 212, 231, 0.86);
+  height: 44px;
+  border: 1px solid var(--control-border);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.92);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), var(--control-bg));
   color: var(--foreground);
-  padding: 0 10px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 760;
 }
 
 .formGrid input:focus,
@@ -466,16 +470,57 @@
   align-items: center;
   gap: 10px !important;
   width: fit-content;
-  min-height: 36px;
-  padding: 0 12px;
-  border: 1px solid rgba(220, 231, 243, 0.95);
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(207, 224, 243, 0.95);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.75);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.86));
+  color: #40546d;
+  font-weight: 900;
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
 }
 
 .checkRow input {
-  width: 16px;
-  height: 16px;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid #b7c9df;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 6px rgba(15, 23, 42, 0.05);
+  transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
+}
+
+.checkRow input::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #ffffff;
+  transform: scale(0);
+  transform-origin: center;
+  transition: transform 0.14s ease;
+}
+
+.checkRow input:checked {
+  border-color: #2563eb;
+  background: linear-gradient(135deg, #2563eb, #0891b2);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12), 0 8px 18px rgba(37, 99, 235, 0.16);
+}
+
+.checkRow input:checked::before {
+  transform: scale(1);
+}
+
+.checkRow input:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
+}
+
+.checkRow input:active {
+  transform: scale(0.94);
 }
 
 .targetList,
@@ -561,26 +606,29 @@
 
 .customPathRow label {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 900;
 }
 
 .customPathRow input {
   min-width: 0;
   width: 100%;
-  height: 40px;
-  border: 1px solid rgba(196, 212, 231, 0.86);
+  height: 44px;
+  border: 1px solid var(--control-border);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.92);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), var(--control-bg));
   color: var(--foreground);
-  padding: 0 10px;
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 760;
 }
 
 .customPathRow button {
-  min-height: 40px;
-  padding: 0 14px;
+  min-height: 44px;
+  padding: 0 15px;
   border: 1px solid #bfdbfe;
   border-radius: 12px;
   background: linear-gradient(180deg, #eff6ff, #dbeafe);
@@ -664,7 +712,8 @@
   box-shadow: 0 10px 22px rgba(37, 99, 235, 0.06);
 }
 
-.targetList label:has(input:checked) {
+.targetList label:has(input:checked),
+.fileRow:has(input:checked) {
   border-color: #93c5fd;
   background:
     radial-gradient(circle at 94% 18%, rgba(37, 99, 235, 0.08), transparent 8rem),
@@ -675,44 +724,52 @@
 .targetList input,
 .fileRow input {
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   display: grid;
   place-items: center;
   border: 1.5px solid #bfd0e5;
-  border-radius: 6px;
-  background: #ffffff;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
   color: #ffffff;
   flex: 0 0 auto;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 6px rgba(15, 23, 42, 0.05);
+  transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
 }
 
 .targetList input::before,
 .fileRow input::before {
   content: "";
-  width: 9px;
-  height: 9px;
-  border-radius: 3px;
-  background: transparent;
-  transform: scale(0.5);
-  transition: transform 0.12s ease, background 0.12s ease;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #ffffff;
+  transform: scale(0);
+  transform-origin: center;
+  transition: transform 0.14s ease;
 }
 
 .targetList input:checked,
 .fileRow input:checked {
-  border-color: var(--primary);
-  background: var(--primary);
+  border-color: #2563eb;
+  background: linear-gradient(135deg, #2563eb, #0891b2);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12), 0 8px 18px rgba(37, 99, 235, 0.16);
 }
 
 .targetList input:checked::before,
 .fileRow input:checked::before {
-  background: #ffffff;
   transform: scale(1);
 }
 
 .targetList input:focus-visible,
 .fileRow input:focus-visible {
   outline: 0;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
+}
+
+.targetList input:active,
+.fileRow input:active {
+  transform: scale(0.94);
 }
 
 .targetText {
@@ -802,7 +859,7 @@
 
 .downloadNameField {
   display: grid;
-  gap: 6px;
+  gap: 8px;
   color: var(--muted);
   font-size: 12px;
   font-weight: 900;
@@ -810,14 +867,15 @@
 
 .downloadNameField input {
   width: 100%;
-  height: 38px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: #ffffff;
+  height: 44px;
+  border: 1px solid var(--control-border);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), var(--control-bg));
   color: var(--foreground);
-  padding: 0 10px;
+  padding: 0 12px;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 760;
 }
 
 .fileToolbar button {
@@ -858,18 +916,84 @@
 }
 
 .fileList input {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--primary);
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid #bfd0e5;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 6px rgba(15, 23, 42, 0.05);
+  transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
+}
+
+.fileList input::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #ffffff;
+  transform: scale(0);
+  transform-origin: center;
+  transition: transform 0.14s ease;
+}
+
+.fileList input:checked {
+  border-color: #2563eb;
+  background: linear-gradient(135deg, #2563eb, #0891b2);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12), 0 8px 18px rgba(37, 99, 235, 0.16);
+}
+
+.fileList input:checked::before {
+  transform: scale(1);
+}
+
+.fileList input:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
+}
+
+.fileList input:active {
+  transform: scale(0.94);
+}
+
+.checkRow input::before,
+.targetList input::before,
+.fileRow input::before,
+.fileList input::before {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.58), transparent 34%),
+    linear-gradient(135deg, #2563eb, #0891b2);
+  transform: scale(0);
+}
+
+.checkRow input:checked,
+.targetList input:checked,
+.fileRow input:checked,
+.fileList input:checked {
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12), 0 8px 18px rgba(37, 99, 235, 0.16);
+}
+
+.checkRow input:checked::before,
+.targetList input:checked::before,
+.fileRow input:checked::before,
+.fileList input:checked::before {
+  transform: scale(1);
 }
 
 .fileList .selectedFile {
-  border-color: #60a5fa;
+  border-color: #93c5fd;
   background:
-    radial-gradient(circle at 94% 18%, rgba(37, 99, 235, 0.1), transparent 8rem),
-    linear-gradient(180deg, #eff6ff, #ffffff);
-  color: #1d4ed8;
-  box-shadow: 0 12px 26px rgba(37, 99, 235, 0.12);
+    radial-gradient(circle at 94% 18%, rgba(37, 99, 235, 0.08), transparent 8rem),
+    linear-gradient(180deg, rgba(239, 246, 255, 0.94), rgba(248, 251, 255, 0.98));
+  color: #315c98;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.08);
 }
 
 .fileList b,

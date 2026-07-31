@@ -260,7 +260,10 @@ export default function RestorePage() {
                         }}
                         type="button"
                       >
-                        <span className={styles.radio} />
+                        <span
+                          aria-hidden="true"
+                          className={`${styles.selectionCheck} ${String(backup.id) === selectedBackupId ? styles.checked : ""}`}
+                        />
                         <div>
                           <strong>{backup.name}</strong>
                           <p>{backup.device} · {backup.files} file(s) · {backup.size}</p>
