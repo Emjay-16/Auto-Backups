@@ -283,9 +283,12 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
           <button className={styles.backdrop} onClick={closeModal} aria-label="Close device detail" />
           <section className={styles.modal} ref={modalRef}>
             <div className={styles.modalHeader}>
-              <div>
-                <p>{selectedDevice.group} device</p>
-                <h2 id="device-status-modal-title">{selectedDevice.name}</h2>
+              <div className={styles.modalTitle}>
+                <RobotGroupBadge group={selectedDevice.group} variant="avatar" />
+                <div>
+                  <p>{selectedDevice.group} device</p>
+                  <h2 id="device-status-modal-title">{selectedDevice.name}</h2>
+                </div>
               </div>
               <button className={styles.close} onClick={closeModal} aria-label="Close" ref={closeButtonRef}>
                 ×
@@ -456,14 +459,16 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
             </div>
 
             <div className={styles.actions}>
-              <button onClick={() => void backupNow()} disabled={loading === "backup"}>
+              <button onClick={() => void backupNow()} disabled={loading === "backup" || !selectedPaths.length}>
                 {loading === "backup" ? (
                   <>
                     <span className={styles.spinner} aria-hidden="true" />
                     Backing up...
                   </>
+                ) : selectedPaths.length ? (
+                  `Backup now (${selectedPaths.length})`
                 ) : (
-                  "Backup now"
+                  "Select targets first"
                 )}
               </button>
               <button onClick={() => selectedDevice.id && router.push(`/restore?device_id=${selectedDevice.id}`)}>Restore</button>

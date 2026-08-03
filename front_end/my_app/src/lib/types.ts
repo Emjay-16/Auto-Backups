@@ -23,6 +23,7 @@ export type Backup = {
   size: string;
   status: JobStatus;
   createdAt: string;
+  createdAtRaw?: string;
 };
 
 export type Job = {

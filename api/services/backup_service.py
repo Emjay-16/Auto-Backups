@@ -1,3 +1,4 @@
+import hashlib
 import os
 import re
 import shutil
@@ -1313,8 +1314,9 @@ def _make_download_zip(backup: models.Backup, backup_files: List[models.BackupFi
     base_path = Path(os.getenv("BACKUP_STORAGE_PATH", "storage/backups")) / "downloads"
     base_path.mkdir(parents=True, exist_ok=True)
     if selected:
-        selected_ids = "_".join(str(file.backup_file_id) for file in backup_files)
-        zip_path = base_path / f"backup_{backup.backup_id}_selected_{selected_ids}.zip"
+        selected_ids = ",".join(str(file.backup_file_id) for file in backup_files)
+        selection_hash = hashlib.sha256(selected_ids.encode("ascii")).hexdigest()[:16]
+        zip_path = base_path / f"backup_{backup.backup_id}_selected_{len(backup_files)}_{selection_hash}.zip"
     else:
         zip_path = base_path / f"backup_{backup.backup_id}.zip"
 
@@ -1465,8 +1467,6 @@ def _default_auto_backup_paths() -> List[str]:
 
 
 def _local_files_signature(backup_files: List[models.BackupFile]) -> str:
-    import hashlib
-
     file_paths = [Path(file.file_path) for file in backup_files]
     common_root = Path(os.path.commonpath([str(path.parent) for path in file_paths]))
     digest = hashlib.sha256()

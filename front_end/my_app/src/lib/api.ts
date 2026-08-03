@@ -571,7 +571,8 @@ function mapBackup(backup: ApiBackup): Backup {
     files: backup.total_file,
     size: `${Number(backup.total_size_mb).toFixed(2)} MB`,
     status: mapBackupStatus(backup.backup_status),
-    createdAt: formatTime(backup.created_at),
+    createdAt: formatDateTime(backup.created_at),
+    createdAtRaw: backup.created_at,
   };
 }
 

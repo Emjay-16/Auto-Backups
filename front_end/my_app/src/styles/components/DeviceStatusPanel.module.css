@@ -273,7 +273,7 @@
 .modalHeader {
   flex: 0 0 auto;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   padding: 16px 24px;
@@ -281,6 +281,17 @@
   background:
     radial-gradient(circle at 8% 12%, rgba(37, 99, 235, 0.08), transparent 18rem),
     linear-gradient(180deg, #ffffff, #f8fbff);
+}
+
+.modalTitle {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.modalTitle > div {
+  min-width: 0;
 }
 
 .modalHeader p {
@@ -296,6 +307,9 @@
   color: #162235;
   font-size: 22px;
   line-height: 1.12;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .close {
@@ -328,7 +342,7 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
-  padding: 14px 24px 12px;
+  padding: 16px 24px 12px;
 }
 
 .detailGrid article {
@@ -360,13 +374,19 @@
 
 .paths {
   display: grid;
-  gap: 10px;
-  padding: 0 24px 12px;
+  gap: 11px;
+  margin: 0 24px 14px;
+  padding: 14px;
+  border: 1px solid rgba(220, 231, 243, 0.9);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 96% 0%, rgba(37, 99, 235, 0.055), transparent 10rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(248, 251, 255, 0.86));
 }
 
 .paths h3 {
   color: #162235;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .pathHeader,
@@ -378,9 +398,16 @@
 }
 
 .pathHeader span {
-  color: #66758a;
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  border: 1px solid #dbeafe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #315c98;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 900;
 }
 
 .targetList,
@@ -390,7 +417,7 @@
 }
 
 .targetList {
-  max-height: 240px;
+  max-height: 260px;
   overflow: auto;
   padding: 2px;
 }
@@ -403,7 +430,7 @@
   padding: 12px;
   border: 1px solid rgba(220, 231, 243, 0.92);
   border-radius: 16px;
-  background: rgba(248, 251, 255, 0.72);
+  background: rgba(255, 255, 255, 0.72);
 }
 
 .customPathRow label {
@@ -729,6 +756,15 @@
   justify-content: flex-end;
 }
 
+.actions::before {
+  margin-right: auto;
+  align-self: center;
+  color: #66758a;
+  font-size: 12px;
+  font-weight: 800;
+  content: "Select targets, then run backup";
+}
+
 .actions button {
   display: inline-flex;
   align-items: center;
@@ -756,6 +792,13 @@
   border-color: #2563eb;
   background: #2563eb;
   color: #ffffff;
+}
+
+.actions button:first-child:disabled {
+  border-color: #cbd5e1;
+  background: #eef2f7;
+  color: #64748b;
+  box-shadow: none;
 }
 
 .actions button:first-child:hover:not(:disabled) {

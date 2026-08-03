@@ -1,3 +1,4 @@
+import os
 import sys
 import threading
 from pathlib import Path
@@ -34,9 +35,16 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(SQLAlchemyError, sqlalchemy_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 
-origins = [
-    "http://localhost:3000"
+default_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
 ]
+env_origins = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", "").split(",")
+    if origin.strip()
+]
+origins = list(dict.fromkeys([*default_origins, *env_origins]))
 
 app.add_middleware(
     CORSMiddleware,

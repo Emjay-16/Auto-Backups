@@ -25,6 +25,7 @@ import {
 import type { Backup, Device } from "@/lib/types";
 import styles from "@/styles/pages/backups/backups.module.css";
 import { BackupIcon, CleanupIcon, FolderIcon } from "./ActionIcons";
+import { AppModal } from "./AppModal";
 import { PaginatedBackupsTable } from "./PaginatedBackupsTable";
 import { Panel } from "./Panel";
 import { StatusBadge } from "./StatusBadge";
@@ -81,6 +82,15 @@ export function BackupsWorkspace({
     () => backupStats.deviceSummaries.find((summary) => summary.device.name === selectedDeviceBackups),
     [backupStats.deviceSummaries, selectedDeviceBackups],
   );
+  const modalTitle = mode === "autoBackup"
+    ? "Auto backup settings"
+    : mode === "cleanup"
+      ? "Cleanup old backups"
+      : mode === "browse"
+        ? "Browse robot files"
+        : mode === "detail"
+          ? "Backup detail"
+          : "Run backup";
 
   useEffect(() => {
     let mounted = true;
@@ -440,29 +450,20 @@ export function BackupsWorkspace({
     setPendingDownloadConfirm(true);
   }
 
-  async function confirmDownloadSelectedFiles() {
+  function confirmDownloadSelectedFiles() {
     if (!backupDetail || !selectedDownloadFileIds.length) return;
-    setSaving(true);
     setError("");
-    try {
-      const response = await fetch(backupDownloadUrl(backupDetail.backup_id, selectedDownloadFileIds, downloadFilename));
-      if (!response.ok) throw new Error(`Download failed: ${response.status}`);
-
-      const blob = await response.blob();
-      const objectUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = objectUrl;
-      link.download = normalizeZipFilename(downloadFilename || backupDetail.backup_name);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(objectUrl);
-      setPendingDownloadConfirm(false);
-    } catch (errorResponse) {
-      setError(errorResponse instanceof Error ? errorResponse.message : "Download failed");
-    } finally {
-      setSaving(false);
-    }
+    const link = document.createElement("a");
+    link.href = backupDownloadUrl(
+      backupDetail.backup_id,
+      selectedDownloadFileIds,
+      normalizeZipFilename(downloadFilename || backupDetail.backup_name),
+    );
+    link.download = normalizeZipFilename(downloadFilename || backupDetail.backup_name);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setPendingDownloadConfirm(false);
   }
 
   async function confirmDeleteCustomPath() {
@@ -612,7 +613,7 @@ export function BackupsWorkspace({
                         <button
                           className={styles.backupRound}
                           disabled={!backup.id}
-                          key={`${backup.id ?? backup.name}-${backup.createdAt}`}
+                          key={`${backup.id ?? backup.name}-${backup.createdAtRaw ?? backup.createdAt}`}
                           onClick={() => {
                             setSelectedDeviceBackups("");
                             void openBackupDetail(backup);
@@ -620,8 +621,8 @@ export function BackupsWorkspace({
                           type="button"
                         >
                           <span>
-                            <b>{formatBackupDateTime(backup.createdAt).date}</b>
-                            <small>{formatBackupDateTime(backup.createdAt).time}</small>
+                            <b>{formatBackupDateTime(backup.createdAtRaw ?? backup.createdAt).date}</b>
+                            <small>{formatBackupDateTime(backup.createdAtRaw ?? backup.createdAt).time}</small>
                           </span>
                           <span>
                             <b>{backup.files} file(s)</b>
@@ -714,16 +715,50 @@ export function BackupsWorkspace({
       </aside>
 
       {mode ? (
-        <div className={styles.overlay} role="dialog" aria-modal="true">
-          <button className={styles.backdrop} onClick={closeModal} aria-label="Close" />
-          <section className={styles.modal}>
-            <div className={styles.modalHeader}>
-              <div>
-                <p>Backups API</p>
-                <h2>{mode === "autoBackup" ? "Auto backup settings" : mode === "cleanup" ? "Cleanup old backups" : mode === "browse" ? "Browse robot files" : mode === "detail" ? "Backup detail" : "Run backup"}</h2>
-              </div>
-              <button className={styles.closeButton} onClick={closeModal}>×</button>
-            </div>
+        <AppModal
+          eyebrow="Backups API"
+          title={modalTitle}
+          onClose={closeModal}
+          className={mode === "detail" ? styles.detailModal : ""}
+          footer={(
+            <>
+              {mode === "detail" && backupDetail ? (
+                <button
+                  className={styles.dangerButton}
+                  onClick={() => requestDeleteBackup({
+                    id: backupDetail.backup_id,
+                    name: backupDetail.backup_name,
+                    device: backupDetail.device_name ?? `Device #${backupDetail.device_id}`,
+                    type: String(backupDetail.backup_type),
+                    files: backupDetail.total_file,
+                    size: `${Number(backupDetail.total_size_mb).toFixed(2)} MB`,
+                    status: backupDetail.backup_status === 1 ? "success" : backupDetail.backup_status === 2 ? "failed" : "running",
+                    createdAt: formatDisplayDateTime(backupDetail.created_at),
+                    createdAtRaw: backupDetail.created_at,
+                  })}
+                  disabled={saving}
+                >
+                  Delete
+                </button>
+              ) : null}
+              <button onClick={closeModal}>Close</button>
+              {mode === "detail" && backupDetail ? (
+                <button onClick={downloadSelectedFiles} disabled={saving || !selectedDownloadFileIds.length}>
+                  Download selected zip
+                </button>
+              ) : null}
+              {mode === "backup" ? (
+                <button onClick={() => submitBackup()} disabled={saving || !Number(deviceId) || !backupSelectionCount}>
+                  {saving ? "Running..." : backupSelectionCount ? `Run backup (${backupSelectionCount})` : "Select targets first"}
+                </button>
+              ) : null}
+              {mode === "browse" ? <button onClick={browseFiles} disabled={saving}>{saving ? "Loading..." : "Load files"}</button> : null}
+              {mode === "autoBackup" ? <button onClick={saveAutoBackupSettings} disabled={saving}>{saving ? "Saving..." : "Save settings"}</button> : null}
+              {mode === "cleanup" ? <button onClick={saveCleanupSettings} disabled={saving}>{saving ? "Saving..." : "Save settings"}</button> : null}
+              {mode === "cleanup" ? <button onClick={submitCleanup} disabled={saving}>{saving ? "Cleaning..." : "Run cleanup"}</button> : null}
+            </>
+          )}
+        >
 
             {mode === "detail" ? (
               <div className={styles.detailBody}>
@@ -991,44 +1026,7 @@ export function BackupsWorkspace({
 
             {result ? <ResultBox result={result} /> : null}
             {error ? <p className={styles.formError}>{error}</p> : null}
-
-            <div className={styles.modalActions}>
-              <button onClick={closeModal}>Close</button>
-              {mode === "detail" && backupDetail ? (
-                <button onClick={downloadSelectedFiles} disabled={saving || !selectedDownloadFileIds.length}>
-                  Download selected zip
-                </button>
-              ) : null}
-              {mode === "detail" && backupDetail ? (
-                <button
-                  className={styles.dangerButton}
-                  onClick={() => requestDeleteBackup({
-                    id: backupDetail.backup_id,
-                    name: backupDetail.backup_name,
-                    device: backupDetail.device_name ?? `Device #${backupDetail.device_id}`,
-                    type: String(backupDetail.backup_type),
-                    files: backupDetail.total_file,
-                    size: `${Number(backupDetail.total_size_mb).toFixed(2)} MB`,
-                    status: backupDetail.backup_status === 1 ? "success" : backupDetail.backup_status === 2 ? "failed" : "running",
-                    createdAt: backupDetail.created_at,
-                  })}
-                  disabled={saving}
-                >
-                  Delete
-                </button>
-              ) : null}
-              {mode === "backup" ? (
-                <button onClick={() => submitBackup()} disabled={saving || !Number(deviceId) || !backupSelectionCount}>
-                  {saving ? "Running..." : backupSelectionCount ? `Run backup (${backupSelectionCount})` : "Select targets first"}
-                </button>
-              ) : null}
-              {mode === "browse" ? <button onClick={browseFiles} disabled={saving}>{saving ? "Loading..." : "Load files"}</button> : null}
-              {mode === "autoBackup" ? <button onClick={saveAutoBackupSettings} disabled={saving}>{saving ? "Saving..." : "Save settings"}</button> : null}
-              {mode === "cleanup" ? <button onClick={saveCleanupSettings} disabled={saving}>{saving ? "Saving..." : "Save settings"}</button> : null}
-              {mode === "cleanup" ? <button onClick={submitCleanup} disabled={saving}>{saving ? "Cleaning..." : "Run cleanup"}</button> : null}
-            </div>
-          </section>
-        </div>
+        </AppModal>
       ) : null}
 
       {pendingDeleteBackup ? (
@@ -1101,7 +1099,7 @@ export function BackupsWorkspace({
             {error ? <p className={styles.formError}>{error}</p> : null}
             <div className={`${styles.confirmActions} ${styles.downloadActions}`}>
               <button onClick={() => setPendingDownloadConfirm(false)} disabled={saving}>Cancel</button>
-              <button onClick={() => void confirmDownloadSelectedFiles()} disabled={saving}>
+              <button onClick={confirmDownloadSelectedFiles} disabled={saving}>
                 {saving ? "Downloading..." : "Download zip"}
               </button>
             </div>
@@ -1182,7 +1180,7 @@ function buildBackupStats(backups: Backup[], devices: Device[]) {
 }
 
 function backupTimeValue(backup: Backup): number {
-  const parsed = Date.parse(backup.createdAt);
+  const parsed = Date.parse(backup.createdAtRaw ?? backup.createdAt);
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
@@ -1234,6 +1232,19 @@ function formatBackupDateTime(value: string): { date: string; time: string } {
     date: date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
     time: date.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }),
   };
+}
+
+function formatDisplayDateTime(value: string): string {
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) return value || "-";
+  const date = new Date(parsed);
+  return date.toLocaleString("th-TH", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function formatBytes(value?: number | null): string {
