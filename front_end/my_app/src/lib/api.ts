@@ -9,6 +9,7 @@ import {
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+const API_AUTH_TOKEN = process.env.NEXT_PUBLIC_API_AUTH_TOKEN?.trim() ?? "";
 
 type ApiDevice = {
   device_id: number;
@@ -108,12 +109,10 @@ export type UploadRunResult = {
 export type BackupCleanupPayload = {
   older_than_days: number;
   keep_latest_per_device: boolean;
-  dry_run: boolean;
 };
 
 export type BackupCleanupResult = {
   older_than_days: number;
-  dry_run: boolean;
   candidates: number;
   deleted: number;
   skipped: number;
@@ -256,7 +255,7 @@ type ApiErrorResponse = {
 };
 
 async function getJson<T>(path: string, timeoutMs = 1500): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetchApi(path, {
     cache: "no-store",
     signal: AbortSignal.timeout(timeoutMs),
   });
@@ -355,7 +354,7 @@ export async function saveCustomBackupPath(path: string): Promise<CustomBackupPa
 }
 
 export async function deleteCustomBackupPath(path: string): Promise<CustomBackupPathResult> {
-  const response = await fetch(`${API_URL}/backups/auto-paths?path=${encodeURIComponent(path)}`, {
+  const response = await fetchApi(`/backups/auto-paths?path=${encodeURIComponent(path)}`, {
     method: "DELETE",
   });
 
@@ -419,7 +418,7 @@ export async function getBackupDetail(backupId: number): Promise<BackupDetail> {
 }
 
 export async function deleteBackup(backupId: number): Promise<void> {
-  const response = await fetch(`${API_URL}/backups/${backupId}`, {
+  const response = await fetchApi(`/backups/${backupId}`, {
     method: "DELETE",
   });
 
@@ -452,7 +451,7 @@ export async function uploadFilesToDevice(payload: {
   if (payload.uploaded_by) formData.append("uploaded_by", String(payload.uploaded_by));
   payload.files.forEach((file) => formData.append("files", file));
 
-  const response = await fetch(`${API_URL}/uploads/`, {
+  const response = await fetchApi(`/uploads/`, {
     method: "POST",
     body: formData,
   });
@@ -465,7 +464,7 @@ export async function uploadFilesToDevice(payload: {
 }
 
 async function sendJson<T = void>(path: string, method: "POST" | "PUT", payload: unknown): Promise<T> {
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetchApi(path, {
     method,
     headers: {
       "Content-Type": "application/json",
@@ -484,7 +483,7 @@ async function postCustomBackupPath(path: string, remotePath: string): Promise<
   | { ok: true; data: CustomBackupPathResult }
   | { ok: false; status: number; message: string }
 > {
-  const response = await fetch(`${API_URL}${path}`, {
+  const response = await fetchApi(path, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -504,6 +503,18 @@ async function postCustomBackupPath(path: string, remotePath: string): Promise<
     status: response.status,
     message: await readApiError(response, `API ${path} failed: ${response.status}`),
   };
+}
+
+export async function fetchApi(path: string, init: RequestInit = {}): Promise<Response> {
+  const headers = new Headers(init.headers ?? undefined);
+  if (API_AUTH_TOKEN) {
+    headers.set("Authorization", `Bearer ${API_AUTH_TOKEN}`);
+  }
+
+  return fetch(`${API_URL}${path}`, {
+    ...init,
+    headers,
+  });
 }
 
 async function readApiError(response: Response, fallback: string): Promise<string> {

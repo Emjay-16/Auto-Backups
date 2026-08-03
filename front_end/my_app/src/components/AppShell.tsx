@@ -4,7 +4,7 @@ import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { getNotificationsForUi, type NotificationItem } from "@/lib/api";
+import { fetchApi, getNotificationsForUi, type NotificationItem } from "@/lib/api";
 import styles from "@/styles/components/AppShell.module.css";
 import { BackupIcon, DashboardIcon, DeviceIcon, JobIcon, RestoreIcon } from "./ActionIcons";
 
@@ -109,12 +109,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (isLoginPage || sessionStatus !== "authenticated") return;
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
-
     function fetchDevices(path: string, timeoutMs: number) {
       const controller = new AbortController();
       const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
-      return fetch(`${apiUrl}${path}`, { cache: "no-store", signal: controller.signal })
+      return fetchApi(path, { cache: "no-store", signal: controller.signal })
         .then((response) => {
           if (!response.ok) throw new Error("Failed to load devices");
           return response.json() as Promise<{ device_status: number }[]>;
@@ -147,13 +145,11 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (isLoginPage || sessionStatus !== "authenticated") return;
-
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
     function loadActiveJobs() {
       const controller = new AbortController();
       const timeoutId = window.setTimeout(() => controller.abort(), TIMING.jobsFetchTimeoutMs);
 
-      fetch(`${apiUrl}/jobs/?limit=100`, {
+      fetchApi("/jobs/?limit=100", {
         cache: "no-store",
         signal: controller.signal,
       })

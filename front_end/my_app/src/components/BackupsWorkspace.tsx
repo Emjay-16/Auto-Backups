@@ -62,7 +62,6 @@ export function BackupsWorkspace({
   const [cleanupDays, setCleanupDays] = useState("90");
   const [cleanupEnabled, setCleanupEnabled] = useState(false);
   const [cleanupIntervalHours, setCleanupIntervalHours] = useState("720");
-  const [cleanupDryRun, setCleanupDryRun] = useState(true);
   const [cleanupKeepLatest, setCleanupKeepLatest] = useState(true);
   const [cleanupSettings, setCleanupSettings] = useState<AutoCleanupSettings | null>(null);
   const [autoBackupSettings, setAutoBackupSettings] = useState<AutoBackupSettings | null>(null);
@@ -76,6 +75,7 @@ export function BackupsWorkspace({
   const [pendingDeleteBackup, setPendingDeleteBackup] = useState<Backup | null>(null);
   const [pendingDeletePath, setPendingDeletePath] = useState<string | null>(null);
   const [selectedDeviceBackups, setSelectedDeviceBackups] = useState("");
+  const defaultBrowsePath = targets.find((target) => target.browsable)?.path ?? targets[0]?.path ?? "";
   const backupSelectionCount = selectedPaths.length + (includeDatabase ? 1 : 0);
   const backupStats = useMemo(() => buildBackupStats(backups, usableDevices), [backups, usableDevices]);
   const selectedDeviceBackupSummary = useMemo(
@@ -121,6 +121,11 @@ export function BackupsWorkspace({
   }, []);
 
   function openModal(nextMode: ModalMode) {
+    if (nextMode === "browse") {
+      setBrowsePath(defaultBrowsePath);
+      setRemoteFiles([]);
+      setOpenedPath("");
+    }
     setMode(nextMode);
     setResult(null);
     setError("");
@@ -139,9 +144,20 @@ export function BackupsWorkspace({
 
   function closeModal() {
     if (saving) return;
+    if (mode === "browse") {
+      setBrowsePath(defaultBrowsePath);
+      setRemoteFiles([]);
+      setOpenedPath("");
+    }
     setMode(null);
     setResult(null);
     setError("");
+  }
+
+  function resetBrowseState() {
+    setBrowsePath(defaultBrowsePath);
+    setRemoteFiles([]);
+    setOpenedPath("");
   }
 
   async function submitBackup(databaseOnly = false) {
@@ -250,13 +266,12 @@ export function BackupsWorkspace({
     try {
       const response = await cleanupBackups({
         older_than_days: Number(cleanupDays) || 90,
-        dry_run: cleanupDryRun,
         keep_latest_per_device: cleanupKeepLatest,
       });
       setResult(response);
       showToast({
-        tone: cleanupDryRun ? "info" : "success",
-        title: cleanupDryRun ? "Cleanup preview ready" : "Cleanup completed",
+        tone: "success",
+        title: "Cleanup completed",
         message: `${response.deleted} deleted · ${response.skipped} skipped`,
       });
       router.refresh();
@@ -851,10 +866,6 @@ export function BackupsWorkspace({
                   <input value={cleanupIntervalHours} onChange={(event) => setCleanupIntervalHours(event.target.value)} />
                 </label>
                 <label className={styles.checkRow}>
-                  <input checked={cleanupDryRun} onChange={(event) => setCleanupDryRun(event.target.checked)} type="checkbox" />
-                  Dry run
-                </label>
-                <label className={styles.checkRow}>
                   <input checked={cleanupKeepLatest} onChange={(event) => setCleanupKeepLatest(event.target.checked)} type="checkbox" />
                   Keep latest per device
                 </label>
@@ -984,7 +995,7 @@ export function BackupsWorkspace({
                       <div className={styles.browser}>
                         <div className={styles.browserHeader}>
                           <strong>{openedPath}</strong>
-                          <button onClick={() => setOpenedPath("")}>Close</button>
+                          <button onClick={resetBrowseState}>Close</button>
                         </div>
                         {remoteFiles.length ? (
                           remoteFiles.map((file) => (
@@ -1122,7 +1133,7 @@ function ResultBox({ result }: { result: BackupRunResult | BackupCleanupResult }
 
   return (
     <div className={styles.resultBox}>
-      <strong>{result.dry_run ? "Cleanup preview" : "Cleanup completed"}</strong>
+      <strong>Cleanup completed</strong>
       <span>{result.candidates} candidates · {result.deleted} deleted · {result.skipped} skipped</span>
     </div>
   );

@@ -147,10 +147,6 @@ def cleanup_old_backups(
             items.append(_cleanup_item(backup, deleted=False, reason=reason))
             continue
 
-        if data.dry_run:
-            items.append(_cleanup_item(backup, deleted=False, reason="Would delete"))
-            continue
-
         item = _cleanup_item(backup, deleted=True, reason="Deleted")
         delete_backup(backup.backup_id, db)
         deleted += 1
@@ -158,7 +154,6 @@ def cleanup_old_backups(
 
     return schemas.BackupCleanupResponse(
         older_than_days=data.older_than_days,
-        dry_run=data.dry_run,
         candidates=len(backups),
         deleted=deleted,
         skipped=skipped,

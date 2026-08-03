@@ -263,7 +263,6 @@ class BackupDeleteResponse(BaseModel):
 class BackupCleanupRequest(BaseModel):
     older_than_days: int = 90
     keep_latest_per_device: bool = True
-    dry_run: bool = True
 
 
 class BackupCleanupItemResponse(BaseModel):
@@ -277,7 +276,6 @@ class BackupCleanupItemResponse(BaseModel):
 
 class BackupCleanupResponse(BaseModel):
     older_than_days: int
-    dry_run: bool
     candidates: int
     deleted: int
     skipped: int

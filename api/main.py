@@ -21,6 +21,7 @@ from api.errors import (
     validation_exception_handler,
 )
 from api.routers import auth, backups, device_groups, devices, jobs, logs, restore, uploads
+from api.services.api_token_auth import api_token_auth_middleware
 from api.services.auto_backup_state import auto_backup_loop, pending_backup_loop
 from api.services.backup_service import cleanup_old_backups, process_pending_auto_backups, run_auto_backups
 from api.services.cleanup_state import auto_cleanup_loop
@@ -54,6 +55,7 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["*"]
 )
+app.middleware("http")(api_token_auth_middleware)
 
 app.include_router(auth.router)
 app.include_router(backups.router)
@@ -79,7 +81,6 @@ def _run_cleanup_from_settings(settings):
             schemas.BackupCleanupRequest(
                 older_than_days=settings.older_than_days,
                 keep_latest_per_device=settings.keep_latest_per_device,
-                dry_run=False,
             ),
             db,
         )
