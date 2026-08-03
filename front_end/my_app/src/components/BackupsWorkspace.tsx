@@ -354,10 +354,10 @@ export function BackupsWorkspace({
       setPendingDeleteBackup(null);
       showToast({ tone: "success", title: "Backup deleted", message: backup.name });
       if (backupDetail?.backup_id === backup.id) {
-      setBackupDetail(null);
-      setSelectedDownloadFileIds([]);
-      setPendingDownloadConfirm(false);
-      closeModal();
+        setBackupDetail(null);
+        setSelectedDownloadFileIds([]);
+        setPendingDownloadConfirm(false);
+        closeModal();
       }
       router.refresh();
     } catch (errorResponse) {
@@ -540,128 +540,128 @@ export function BackupsWorkspace({
           </div>
         </section>
 
-      {error ? <p className={styles.pageError}>{error}</p> : null}
+        {error ? <p className={styles.pageError}>{error}</p> : null}
 
         <div className={styles.mainStack}>
-      <Panel title="Backup by Device">
-        <div className={styles.deviceBackupGrid}>
-          {backupStats.deviceSummaries.length ? backupStats.deviceSummaries.map((summary) => (
-            <article className={`${styles.deviceBackupCard} ${summary.total ? styles.hasBackup : styles.noBackup}`} key={summary.device.name}>
-              <div className={styles.deviceBackupHeader}>
-                <span className={styles.groupPill}>{summary.device.group}</span>
-                <div>
-                  <strong>{summary.device.name}</strong>
-                  <p>{summary.device.ip}</p>
+          <Panel title="Backup by Device">
+            <div className={styles.deviceBackupGrid}>
+              {backupStats.deviceSummaries.length ? backupStats.deviceSummaries.map((summary) => (
+                <article className={`${styles.deviceBackupCard} ${summary.total ? styles.hasBackup : styles.noBackup}`} key={summary.device.name}>
+                  <div className={styles.deviceBackupHeader}>
+                    <span className={styles.groupPill}>{summary.device.group}</span>
+                    <div>
+                      <strong>{summary.device.name}</strong>
+                      <p>{summary.device.ip}</p>
+                    </div>
+                  </div>
+                  <div className={styles.deviceBackupMetrics}>
+                    <span>
+                      <b>{summary.total}</b>
+                      backups
+                    </span>
+                    <span>
+                      <b>{formatSizeMb(summary.totalSizeMb)}</b>
+                      used
+                    </span>
+                    <span>
+                      <b>{summary.latest?.createdAt ?? "-"}</b>
+                      latest
+                    </span>
+                  </div>
+                  <div className={styles.deviceBackupFooter}>
+                    <span className={summary.total ? styles.covered : styles.missing}>
+                      {summary.total ? `${summary.success} success · ${summary.failed} failed` : "No backup yet"}
+                    </span>
+                    <button
+                      disabled={!summary.latest}
+                      onClick={() => setSelectedDeviceBackups(summary.device.name)}
+                      type="button"
+                    >
+                      View backups
+                    </button>
+                  </div>
+                </article>
+              )) : (
+                <p className={styles.emptyDeviceBackups}>No devices available.</p>
+              )}
+            </div>
+          </Panel>
+
+          {selectedDeviceBackupSummary ? (
+            <div className={styles.overlay} role="dialog" aria-modal="true" aria-label={`Backups for ${selectedDeviceBackupSummary.device.name}`}>
+              <button className={styles.backdrop} onClick={() => setSelectedDeviceBackups("")} aria-label="Close backups by device" />
+              <section className={`${styles.modal} ${styles.deviceHistoryModal}`}>
+                <div className={styles.modalHeader}>
+                  <div>
+                    <p>{selectedDeviceBackupSummary.device.ip}</p>
+                    <h2>{selectedDeviceBackupSummary.device.name} backups</h2>
+                  </div>
+                  <button className={styles.closeButton} onClick={() => setSelectedDeviceBackups("")}>×</button>
                 </div>
-              </div>
-              <div className={styles.deviceBackupMetrics}>
-                <span>
-                  <b>{summary.total}</b>
-                  backups
-                </span>
-                <span>
-                  <b>{formatSizeMb(summary.totalSizeMb)}</b>
-                  used
-                </span>
-                <span>
-                  <b>{summary.latest?.createdAt ?? "-"}</b>
-                  latest
-                </span>
-              </div>
-              <div className={styles.deviceBackupFooter}>
-                <span className={summary.total ? styles.covered : styles.missing}>
-                  {summary.total ? `${summary.success} success · ${summary.failed} failed` : "No backup yet"}
-                </span>
-                <button
-                  disabled={!summary.latest}
-                  onClick={() => setSelectedDeviceBackups(summary.device.name)}
-                  type="button"
-                >
-                  View backups
-                </button>
-              </div>
-            </article>
-          )) : (
-            <p className={styles.emptyDeviceBackups}>No devices available.</p>
-          )}
-        </div>
-      </Panel>
-
-      {selectedDeviceBackupSummary ? (
-        <div className={styles.overlay} role="dialog" aria-modal="true" aria-label={`Backups for ${selectedDeviceBackupSummary.device.name}`}>
-          <button className={styles.backdrop} onClick={() => setSelectedDeviceBackups("")} aria-label="Close backups by device" />
-          <section className={`${styles.modal} ${styles.deviceHistoryModal}`}>
-            <div className={styles.modalHeader}>
-              <div>
-                <p>{selectedDeviceBackupSummary.device.ip}</p>
-                <h2>{selectedDeviceBackupSummary.device.name} backups</h2>
-              </div>
-              <button className={styles.closeButton} onClick={() => setSelectedDeviceBackups("")}>×</button>
+                <div className={styles.deviceHistoryBody}>
+                  <div className={styles.deviceHistorySummary}>
+                    <span>
+                      <b>{selectedDeviceBackupSummary.total}</b>
+                      backup round(s)
+                    </span>
+                    <span>
+                      <b>{formatSizeMb(selectedDeviceBackupSummary.totalSizeMb)}</b>
+                      total size
+                    </span>
+                    <span>
+                      <b>{selectedDeviceBackupSummary.latest?.createdAt ?? "-"}</b>
+                      latest
+                    </span>
+                  </div>
+                  <div className={styles.backupGroupList}>
+                    {groupBackupsByName(selectedDeviceBackupSummary.backups).map((group) => (
+                      <article className={styles.backupGroup} key={group.name}>
+                        <div className={styles.backupGroupHeader}>
+                          <span className={styles.folderIcon}><FolderIcon /></span>
+                          <div>
+                            <strong>{group.name}</strong>
+                            <p>{group.backups.length} round(s)</p>
+                          </div>
+                        </div>
+                        <div className={styles.backupRoundList}>
+                          {group.backups.map((backup) => (
+                            <button
+                              className={styles.backupRound}
+                              disabled={!backup.id}
+                              key={`${backup.id ?? backup.name}-${backup.createdAtRaw ?? backup.createdAt}`}
+                              onClick={() => {
+                                setSelectedDeviceBackups("");
+                                void openBackupDetail(backup);
+                              }}
+                              type="button"
+                            >
+                              <span>
+                                <b>{formatBackupDateTime(backup.createdAtRaw ?? backup.createdAt).date}</b>
+                                <small>{formatBackupDateTime(backup.createdAtRaw ?? backup.createdAt).time}</small>
+                              </span>
+                              <span>
+                                <b>{backup.files} file(s)</b>
+                                <small>{backup.size}</small>
+                              </span>
+                              <StatusBadge status={backup.status} />
+                            </button>
+                          ))}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              </section>
             </div>
-            <div className={styles.deviceHistoryBody}>
-              <div className={styles.deviceHistorySummary}>
-                <span>
-                  <b>{selectedDeviceBackupSummary.total}</b>
-                  backup round(s)
-                </span>
-                <span>
-                  <b>{formatSizeMb(selectedDeviceBackupSummary.totalSizeMb)}</b>
-                  total size
-                </span>
-                <span>
-                  <b>{selectedDeviceBackupSummary.latest?.createdAt ?? "-"}</b>
-                  latest
-                </span>
-              </div>
-              <div className={styles.backupGroupList}>
-                {groupBackupsByName(selectedDeviceBackupSummary.backups).map((group) => (
-                  <article className={styles.backupGroup} key={group.name}>
-                    <div className={styles.backupGroupHeader}>
-                      <span className={styles.folderIcon}><FolderIcon /></span>
-                      <div>
-                        <strong>{group.name}</strong>
-                        <p>{group.backups.length} round(s)</p>
-                      </div>
-                    </div>
-                    <div className={styles.backupRoundList}>
-                      {group.backups.map((backup) => (
-                        <button
-                          className={styles.backupRound}
-                          disabled={!backup.id}
-                          key={`${backup.id ?? backup.name}-${backup.createdAtRaw ?? backup.createdAt}`}
-                          onClick={() => {
-                            setSelectedDeviceBackups("");
-                            void openBackupDetail(backup);
-                          }}
-                          type="button"
-                        >
-                          <span>
-                            <b>{formatBackupDateTime(backup.createdAtRaw ?? backup.createdAt).date}</b>
-                            <small>{formatBackupDateTime(backup.createdAtRaw ?? backup.createdAt).time}</small>
-                          </span>
-                          <span>
-                            <b>{backup.files} file(s)</b>
-                            <small>{backup.size}</small>
-                          </span>
-                          <StatusBadge status={backup.status} />
-                        </button>
-                      ))}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </div>
-          </section>
-        </div>
-      ) : null}
+          ) : null}
 
-      <Panel title="Backup History">
-        <PaginatedBackupsTable
-          backups={backups}
-          onDelete={requestDeleteBackup}
-          onOpen={openBackupDetail}
-        />
-      </Panel>
+          <Panel title="Backup History">
+            <PaginatedBackupsTable
+              backups={backups}
+              onDelete={requestDeleteBackup}
+              onOpen={openBackupDetail}
+            />
+          </Panel>
 
         </div>
       </div>
@@ -708,24 +708,24 @@ export function BackupsWorkspace({
         </section>
 
         <div className={styles.sideStack}>
-        <Panel title="Backup Paths">
-          <div className={styles.pathList}>
-            {targets.length ? (
-              targets.map((target) => (
-                <div className={styles.pathItem} key={target.key}>
-                  <p>{target.label}: {target.path}</p>
-                  {target.removable ? (
-                    <button onClick={() => requestDeleteCustomPath(target.path)} type="button">
-                      Delete
-                    </button>
-                  ) : null}
-                </div>
-              ))
-            ) : (
-              <p>No auto backup paths configured yet. Add a custom path from New backup.</p>
-            )}
-          </div>
-        </Panel>
+          <Panel title="Backup Paths">
+            <div className={styles.pathList}>
+              {targets.length ? (
+                targets.map((target) => (
+                  <div className={styles.pathItem} key={target.key}>
+                    <p>{target.label}: {target.path}</p>
+                    {target.removable ? (
+                      <button onClick={() => requestDeleteCustomPath(target.path)} type="button">
+                        Delete
+                      </button>
+                    ) : null}
+                  </div>
+                ))
+              ) : (
+                <p>No auto backup paths configured yet. Add a custom path from New backup.</p>
+              )}
+            </div>
+          </Panel>
         </div>
       </aside>
 
@@ -775,268 +775,268 @@ export function BackupsWorkspace({
           )}
         >
 
-            {mode === "detail" ? (
-              <div className={styles.detailBody}>
-                {backupDetail ? (
-                  <>
-                    <div className={styles.detailSummary}>
-                      <div>
-                        <span>Backup package</span>
-                        <strong>{backupDetail.backup_name}</strong>
-                      </div>
-                      <div className={styles.detailMeta}>
-                        <b>{backupDetail.device_name ?? `Device #${backupDetail.device_id}`}</b>
-                        <b>{backupDetail.total_file} file(s)</b>
-                        <b>{Number(backupDetail.total_size_mb).toFixed(2)} MB</b>
-                      </div>
+          {mode === "detail" ? (
+            <div className={styles.detailBody}>
+              {backupDetail ? (
+                <>
+                  <div className={styles.detailSummary}>
+                    <div>
+                      <span>Backup package</span>
+                      <strong>{backupDetail.backup_name}</strong>
                     </div>
-                    <div className={styles.fileToolbar}>
-                      <button onClick={toggleAllDownloadFiles} type="button">
-                        {selectedDownloadFileIds.length === backupDetail.files.length ? "Clear selection" : "Select all"}
+                    <div className={styles.detailMeta}>
+                      <b>{backupDetail.device_name ?? `Device #${backupDetail.device_id}`}</b>
+                      <b>{backupDetail.total_file} file(s)</b>
+                      <b>{Number(backupDetail.total_size_mb).toFixed(2)} MB</b>
+                    </div>
+                  </div>
+                  <div className={styles.fileToolbar}>
+                    <button onClick={toggleAllDownloadFiles} type="button">
+                      {selectedDownloadFileIds.length === backupDetail.files.length ? "Clear selection" : "Select all"}
+                    </button>
+                    <span>
+                      {selectedDownloadFileIds.length} / {backupDetail.files.length} selected for zip
+                    </span>
+                  </div>
+                  <div className={styles.fileList}>
+                    {backupDetail.files.map((file) => (
+                      <button
+                        className={selectedDownloadFileIds.includes(file.backup_file_id) ? styles.selectedFile : ""}
+                        key={file.backup_file_id}
+                        onClick={() => toggleDownloadFile(file.backup_file_id)}
+                        type="button"
+                      >
+                        <input
+                          checked={selectedDownloadFileIds.includes(file.backup_file_id)}
+                          onChange={() => toggleDownloadFile(file.backup_file_id)}
+                          onClick={(event) => event.stopPropagation()}
+                          type="checkbox"
+                        />
+                        <span>{file.file_name}</span>
+                        <b>{Number(file.file_size_mb).toFixed(2)} MB</b>
                       </button>
-                      <span>
-                        {selectedDownloadFileIds.length} / {backupDetail.files.length} selected for zip
-                      </span>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <p className={styles.emptyText}>{saving ? "Loading backup detail..." : "No detail loaded"}</p>
+              )}
+            </div>
+          ) : mode === "autoBackup" ? (
+            <div className={styles.formGrid}>
+              <label className={styles.checkRow}>
+                <input checked={autoBackupEnabled} onChange={(event) => setAutoBackupEnabled(event.target.checked)} type="checkbox" />
+                Enable auto backup
+              </label>
+              <label>
+                Interval hours
+                <input value={autoBackupIntervalHours} onChange={(event) => setAutoBackupIntervalHours(event.target.value)} inputMode="numeric" />
+                {autoBackupSettings ? (
+                  <span className={styles.fieldHint}>
+                    Current auto backup setting: every {autoBackupSettings.interval_hours} hour(s)
+                  </span>
+                ) : null}
+              </label>
+              <label className={styles.checkRow}>
+                <input checked={autoBackupZipOutput} onChange={(event) => setAutoBackupZipOutput(event.target.checked)} type="checkbox" />
+                Zip output
+              </label>
+              <label className={styles.checkRow}>
+                <input checked={autoBackupRunOnStartup} onChange={(event) => setAutoBackupRunOnStartup(event.target.checked)} type="checkbox" />
+                Run on startup
+              </label>
+            </div>
+          ) : mode === "cleanup" ? (
+            <div className={styles.formGrid}>
+              <label className={styles.checkRow}>
+                <input checked={cleanupEnabled} onChange={(event) => setCleanupEnabled(event.target.checked)} type="checkbox" />
+                Enable auto cleanup
+              </label>
+              <label>
+                Older than days
+                <input value={cleanupDays} onChange={(event) => setCleanupDays(event.target.value)} />
+                {cleanupSettings ? (
+                  <span className={styles.fieldHint}>
+                    Current auto cleanup setting: {cleanupSettings.older_than_days} day(s)
+                  </span>
+                ) : null}
+              </label>
+              <label>
+                Interval hours
+                <input value={cleanupIntervalHours} onChange={(event) => setCleanupIntervalHours(event.target.value)} />
+              </label>
+              <label className={styles.checkRow}>
+                <input checked={cleanupKeepLatest} onChange={(event) => setCleanupKeepLatest(event.target.checked)} type="checkbox" />
+                Keep latest per device
+              </label>
+            </div>
+          ) : (
+            <div className={mode === "backup" ? `${styles.formGrid} ${styles.backupForm}` : styles.formGrid}>
+              <label>
+                Device
+                <select value={deviceId} onChange={(event) => setDeviceId(event.target.value)}>
+                  {usableDevices.map((device) => (
+                    <option key={device.id} value={device.id}>{device.name} · {device.ip}</option>
+                  ))}
+                </select>
+              </label>
+
+              {mode === "browse" ? (
+                <>
+                  <label>
+                    Path
+                    <input value={browsePath} onChange={(event) => setBrowsePath(event.target.value)} />
+                  </label>
+                  <div className={styles.fileList}>
+                    {remoteFiles.map((file) => (
+                      <button
+                        key={file.path}
+                        onClick={() => {
+                          if (file.file_type === "directory") setBrowsePath(file.path);
+                          else setSelectedPaths((current) => current.includes(file.path) ? current : [...current, file.path]);
+                        }}
+                      >
+                        <span>{file.name}</span>
+                        <b>{file.file_type}</b>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <label>
+                    Backup name
+                    <input
+                      value={backupName}
+                      onChange={(event) => setBackupName(event.target.value)}
+                      placeholder="เช่น ก่อนแก้ flows หรือ Daily maps backup"
+                    />
+                  </label>
+                  <div className={styles.selectionPanel}>
+                    <div className={styles.selectionHeader}>
+                      <div>
+                        <strong>Backup targets</strong>
+                        <span>{backupSelectionCount} selected</span>
+                      </div>
+                      <div className={styles.selectionActions}>
+                        <button onClick={selectAllBackupTargets} type="button">Select all</button>
+                        <button disabled={!backupSelectionCount} onClick={clearBackupTargets} type="button">Clear</button>
+                      </div>
                     </div>
-                    <div className={styles.fileList}>
-                      {backupDetail.files.map((file) => (
-                        <button
-                          className={selectedDownloadFileIds.includes(file.backup_file_id) ? styles.selectedFile : ""}
-                          key={file.backup_file_id}
-                          onClick={() => toggleDownloadFile(file.backup_file_id)}
-                          type="button"
-                        >
+                    <div className={styles.targetList}>
+                      {targets.length ? targets.map((target) => (
+                        <label key={target.key}>
                           <input
-                            checked={selectedDownloadFileIds.includes(file.backup_file_id)}
-                            onChange={() => toggleDownloadFile(file.backup_file_id)}
-                            onClick={(event) => event.stopPropagation()}
+                            checked={target.backup_api === "robot_db" ? includeDatabase : selectedPaths.includes(target.path)}
+                            onChange={() => {
+                              if (target.backup_api === "robot_db") setIncludeDatabase((current) => !current);
+                              else togglePath(target.path);
+                            }}
                             type="checkbox"
                           />
-                          <span>{file.file_name}</span>
-                          <b>{Number(file.file_size_mb).toFixed(2)} MB</b>
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <p className={styles.emptyText}>{saving ? "Loading backup detail..." : "No detail loaded"}</p>
-                )}
-              </div>
-            ) : mode === "autoBackup" ? (
-              <div className={styles.formGrid}>
-                <label className={styles.checkRow}>
-                  <input checked={autoBackupEnabled} onChange={(event) => setAutoBackupEnabled(event.target.checked)} type="checkbox" />
-                  Enable auto backup
-                </label>
-                <label>
-                  Interval hours
-                  <input value={autoBackupIntervalHours} onChange={(event) => setAutoBackupIntervalHours(event.target.value)} inputMode="numeric" />
-                  {autoBackupSettings ? (
-                    <span className={styles.fieldHint}>
-                      Current auto backup setting: every {autoBackupSettings.interval_hours} hour(s)
-                    </span>
-                  ) : null}
-                </label>
-                <label className={styles.checkRow}>
-                  <input checked={autoBackupZipOutput} onChange={(event) => setAutoBackupZipOutput(event.target.checked)} type="checkbox" />
-                  Zip output
-                </label>
-                <label className={styles.checkRow}>
-                  <input checked={autoBackupRunOnStartup} onChange={(event) => setAutoBackupRunOnStartup(event.target.checked)} type="checkbox" />
-                  Run on startup
-                </label>
-              </div>
-            ) : mode === "cleanup" ? (
-              <div className={styles.formGrid}>
-                <label className={styles.checkRow}>
-                  <input checked={cleanupEnabled} onChange={(event) => setCleanupEnabled(event.target.checked)} type="checkbox" />
-                  Enable auto cleanup
-                </label>
-                <label>
-                  Older than days
-                  <input value={cleanupDays} onChange={(event) => setCleanupDays(event.target.value)} />
-                  {cleanupSettings ? (
-                    <span className={styles.fieldHint}>
-                      Current auto cleanup setting: {cleanupSettings.older_than_days} day(s)
-                    </span>
-                  ) : null}
-                </label>
-                <label>
-                  Interval hours
-                  <input value={cleanupIntervalHours} onChange={(event) => setCleanupIntervalHours(event.target.value)} />
-                </label>
-                <label className={styles.checkRow}>
-                  <input checked={cleanupKeepLatest} onChange={(event) => setCleanupKeepLatest(event.target.checked)} type="checkbox" />
-                  Keep latest per device
-                </label>
-              </div>
-            ) : (
-              <div className={mode === "backup" ? `${styles.formGrid} ${styles.backupForm}` : styles.formGrid}>
-                <label>
-                  Device
-                  <select value={deviceId} onChange={(event) => setDeviceId(event.target.value)}>
-                    {usableDevices.map((device) => (
-                      <option key={device.id} value={device.id}>{device.name} · {device.ip}</option>
-                    ))}
-                  </select>
-                </label>
-
-                {mode === "browse" ? (
-                  <>
-                    <label>
-                      Path
-                      <input value={browsePath} onChange={(event) => setBrowsePath(event.target.value)} />
-                    </label>
-                    <div className={styles.fileList}>
-                      {remoteFiles.map((file) => (
-                        <button
-                          key={file.path}
-                          onClick={() => {
-                            if (file.file_type === "directory") setBrowsePath(file.path);
-                            else setSelectedPaths((current) => current.includes(file.path) ? current : [...current, file.path]);
-                          }}
-                        >
-                          <span>{file.name}</span>
-                          <b>{file.file_type}</b>
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <label>
-                      Backup name
-                      <input
-                        value={backupName}
-                        onChange={(event) => setBackupName(event.target.value)}
-                        placeholder="เช่น ก่อนแก้ flows หรือ Daily maps backup"
-                      />
-                    </label>
-                    <div className={styles.selectionPanel}>
-                      <div className={styles.selectionHeader}>
-                        <div>
-                          <strong>Backup targets</strong>
-                          <span>{backupSelectionCount} selected</span>
-                        </div>
-                        <div className={styles.selectionActions}>
-                          <button onClick={selectAllBackupTargets} type="button">Select all</button>
-                          <button disabled={!backupSelectionCount} onClick={clearBackupTargets} type="button">Clear</button>
-                        </div>
-                      </div>
-                      <div className={styles.targetList}>
-                        {targets.length ? targets.map((target) => (
-                          <label key={target.key}>
-                            <input
-                              checked={target.backup_api === "robot_db" ? includeDatabase : selectedPaths.includes(target.path)}
-                              onChange={() => {
-                                if (target.backup_api === "robot_db") setIncludeDatabase((current) => !current);
-                                else togglePath(target.path);
-                              }}
-                              type="checkbox"
-                            />
-                            <span className={styles.targetText}>
-                              <strong>{target.label}</strong>
-                              <small>{target.path}</small>
-                            </span>
+                          <span className={styles.targetText}>
+                            <strong>{target.label}</strong>
+                            <small>{target.path}</small>
+                          </span>
                           <b className={`${styles.targetMeta} ${targetToneClass(target)}`}>
                             {target.backup_api === "robot_db" ? "DB JSON" : target.target_type}
                           </b>
-                            {target.browsable ? (
+                          {target.browsable ? (
+                            <button
+                              onClick={(event) => {
+                                event.preventDefault();
+                                openTargetPath(target.path);
+                              }}
+                              type="button"
+                            >
+                              Open
+                            </button>
+                          ) : null}
+                        </label>
+                      )) : (
+                        <p className={styles.emptyText}>No backup targets configured</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className={styles.customPathRow}>
+                    <label>
+                      Add custom path
+                      <input
+                        value={customPath}
+                        onChange={(event) => setCustomPath(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            void addCustomPath();
+                          }
+                        }}
+                        placeholder="/home/matrix/path/to/file-or-folder"
+                      />
+                    </label>
+                    <button onClick={() => void addCustomPath()} type="button">Add path</button>
+                  </div>
+                  {backupSelectionCount ? (
+                    <div className={styles.selectedPathList} aria-label="Selected backup targets">
+                      {includeDatabase ? (
+                        <button onClick={() => setIncludeDatabase(false)} type="button">
+                          <span>Robot database JSON</span>
+                          <b>×</b>
+                        </button>
+                      ) : null}
+                      {selectedPaths.map((path) => (
+                        <button key={path} onClick={() => togglePath(path)} type="button">
+                          <span>{path}</span>
+                          <b>×</b>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                  {openedPath ? (
+                    <div className={styles.browser}>
+                      <div className={styles.browserHeader}>
+                        <strong>{openedPath}</strong>
+                        <button onClick={resetBrowseState}>Close</button>
+                      </div>
+                      {remoteFiles.length ? (
+                        remoteFiles.map((file) => (
+                          <label className={styles.fileRow} key={file.path}>
+                            <input
+                              checked={selectedPaths.includes(file.path)}
+                              onChange={() => togglePath(file.path)}
+                              type="checkbox"
+                            />
+                            <span>{file.name}</span>
+                            {file.file_type === "directory" ? (
                               <button
                                 onClick={(event) => {
                                   event.preventDefault();
-                                  openTargetPath(target.path);
+                                  openTargetPath(file.path);
                                 }}
                                 type="button"
                               >
                                 Open
                               </button>
-                            ) : null}
+                            ) : (
+                              <b>{formatBytes(file.size_bytes)}</b>
+                            )}
                           </label>
-                        )) : (
-                          <p className={styles.emptyText}>No backup targets configured</p>
-                        )}
-                      </div>
+                        ))
+                      ) : (
+                        <p className={styles.emptyText}>{saving ? "Loading files..." : "No files found"}</p>
+                      )}
                     </div>
-                    <div className={styles.customPathRow}>
-                      <label>
-                        Add custom path
-                        <input
-                          value={customPath}
-                          onChange={(event) => setCustomPath(event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter") {
-                              event.preventDefault();
-                              void addCustomPath();
-                            }
-                          }}
-                          placeholder="/home/matrix/path/to/file-or-folder"
-                        />
-                      </label>
-                      <button onClick={() => void addCustomPath()} type="button">Add path</button>
-                    </div>
-                    {backupSelectionCount ? (
-                      <div className={styles.selectedPathList} aria-label="Selected backup targets">
-                        {includeDatabase ? (
-                          <button onClick={() => setIncludeDatabase(false)} type="button">
-                            <span>Robot database JSON</span>
-                            <b>×</b>
-                          </button>
-                        ) : null}
-                        {selectedPaths.map((path) => (
-                          <button key={path} onClick={() => togglePath(path)} type="button">
-                            <span>{path}</span>
-                            <b>×</b>
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                    {openedPath ? (
-                      <div className={styles.browser}>
-                        <div className={styles.browserHeader}>
-                          <strong>{openedPath}</strong>
-                          <button onClick={resetBrowseState}>Close</button>
-                        </div>
-                        {remoteFiles.length ? (
-                          remoteFiles.map((file) => (
-                            <label className={styles.fileRow} key={file.path}>
-                              <input
-                                checked={selectedPaths.includes(file.path)}
-                                onChange={() => togglePath(file.path)}
-                                type="checkbox"
-                              />
-                              <span>{file.name}</span>
-                              {file.file_type === "directory" ? (
-                                <button
-                                  onClick={(event) => {
-                                    event.preventDefault();
-                                    openTargetPath(file.path);
-                                  }}
-                                  type="button"
-                                >
-                                  Open
-                                </button>
-                              ) : (
-                                <b>{formatBytes(file.size_bytes)}</b>
-                              )}
-                            </label>
-                          ))
-                        ) : (
-                          <p className={styles.emptyText}>{saving ? "Loading files..." : "No files found"}</p>
-                        )}
-                      </div>
-                    ) : null}
-                    <label className={styles.checkRow}>
-                      <input checked={zipOutput} onChange={(event) => setZipOutput(event.target.checked)} type="checkbox" />
-                      Zip output
-                    </label>
-                  </>
-                )}
-              </div>
-            )}
+                  ) : null}
+                  <label className={styles.checkRow}>
+                    <input checked={zipOutput} onChange={(event) => setZipOutput(event.target.checked)} type="checkbox" />
+                    Zip output
+                  </label>
+                </>
+              )}
+            </div>
+          )}
 
-            {result ? <ResultBox result={result} /> : null}
-            {error ? <p className={styles.formError}>{error}</p> : null}
+          {result ? <ResultBox result={result} /> : null}
+          {error ? <p className={styles.formError}>{error}</p> : null}
         </AppModal>
       ) : null}
 
