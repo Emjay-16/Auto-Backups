@@ -18,14 +18,14 @@ from api.schemas import (
     DeviceStatusResponse,
     DeviceUpdate,
     BackupTargetResponse,
-    CustomBackupPathRequest,
     CustomBackupPathResponse,
     RemotePathCheckResponse,
     RemoteFileResponse,
 )
-from api.services.backup_targets import add_custom_auto_backup_path, get_custom_auto_backup_paths
+from api.services.backup_targets import get_custom_auto_backup_paths
 from api.services.device_resolver import map_device_name
 from api.services.sftp_backup import RemotePathNotFound, list_remote_path
+from api.services.ssh_credentials import require_ssh_credentials
 from api.utils.time import now_local
 
 
@@ -129,25 +129,6 @@ def get_backup_targets():
     return targets
 
 
-@router.post("/backup-targets/custom", response_model=CustomBackupPathResponse)
-def add_custom_backup_target(
-    data: CustomBackupPathRequest,
-):
-    try:
-        path = add_custom_auto_backup_path(data.path)
-    except ValueError as exc:
-        raise api_exception(
-            400,
-            "INVALID_BACKUP_PATH",
-            str(exc),
-        )
-
-    return CustomBackupPathResponse(
-        path=path,
-        message="Custom auto backup path saved",
-    )
-
-
 @router.get("/{device_id}/status", response_model=DeviceStatusResponse)
 def check_device_status(
     device_id: int,
@@ -225,16 +206,7 @@ def list_device_files(
     db: Session = Depends(get_db),
 ):
     device = _get_device_or_404(device_id, db)
-    username = os.getenv("ROBOT_SSH_USERNAME")
-    password = os.getenv("ROBOT_SSH_PASSWORD")
-    port = int(os.getenv("ROBOT_SSH_PORT", "22"))
-
-    if not username or not password:
-        raise api_exception(
-            500,
-            "SSH_CREDENTIALS_MISSING",
-            "ROBOT_SSH_USERNAME and ROBOT_SSH_PASSWORD are required",
-        )
+    username, password, port = require_ssh_credentials()
 
     remote_paths = [path] if path else _default_browse_paths()
     if not remote_paths:
@@ -312,16 +284,7 @@ def check_device_remote_path(
     db: Session = Depends(get_db),
 ):
     device = _get_device_or_404(device_id, db)
-    username = os.getenv("ROBOT_SSH_USERNAME")
-    password = os.getenv("ROBOT_SSH_PASSWORD")
-    port = int(os.getenv("ROBOT_SSH_PORT", "22"))
-
-    if not username or not password:
-        raise api_exception(
-            500,
-            "SSH_CREDENTIALS_MISSING",
-            "ROBOT_SSH_USERNAME and ROBOT_SSH_PASSWORD are required",
-        )
+    username, password, port = require_ssh_credentials()
 
     try:
         files = list_remote_path(

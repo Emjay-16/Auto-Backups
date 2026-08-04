@@ -337,20 +337,10 @@ export async function getBackupTargets(): Promise<BackupTarget[]> {
 }
 
 export async function saveCustomBackupPath(path: string): Promise<CustomBackupPathResult> {
-  const primary = await postCustomBackupPath("/backups/auto-paths", path);
-  if (primary.ok) return primary.data;
+  const result = await postCustomBackupPath("/backups/auto-paths", path);
+  if (result.ok) return result.data;
 
-  if (primary.status === 404) {
-    const fallback = await postCustomBackupPath("/devices/backup-targets/custom", path);
-    if (fallback.ok) return fallback.data;
-    if (fallback.status !== 404) throw new Error(fallback.message);
-  }
-
-  if (primary.status === 404) {
-    throw new Error("Auto backup path endpoint not found. Please confirm FastAPI is running from the latest backend code.");
-  }
-
-  throw new Error(primary.message);
+  throw new Error(result.message);
 }
 
 export async function deleteCustomBackupPath(path: string): Promise<CustomBackupPathResult> {

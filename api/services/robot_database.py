@@ -11,7 +11,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from api.services.sftp_backup import DownloadedFile, _sha256_file
+from api.services.sftp_backup import DownloadedFile
 
 
 @dataclass
@@ -57,24 +57,12 @@ def dump_mysql_table_to_json(
     finally:
         connection.close()
 
-    payload = {
-        "database": database,
-        "table": table,
-        "row_count": len(rows),
-        "dumped_at": datetime.now().astimezone().isoformat(),
-        "rows": rows,
-    }
-
-    with output_path.open("w", encoding="utf-8") as file:
-        json.dump(payload, file, ensure_ascii=False, indent=2, default=_json_default)
-
-    file_size_mb = os.path.getsize(output_path) / (1024 * 1024)
-    return DownloadedFile(
-        file_name=output_path.name,
-        local_path=str(output_path),
-        remote_path=f"mysql://{host}:{port}/{database}/{table}",
-        file_size_mb=file_size_mb,
-        checksum=_database_payload_checksum(database, table, rows),
+    return _write_database_payload(
+        database,
+        table,
+        rows,
+        output_path,
+        f"mysql://{host}:{port}/{database}/{table}",
     )
 
 
@@ -132,24 +120,12 @@ def dump_mysql_table_via_ssh(
         raise RuntimeError(error_data or f"mysql query failed with exit status {exit_status}")
 
     rows = _mysql_batch_output_to_rows(output_data)
-    payload = {
-        "database": database,
-        "table": table,
-        "row_count": len(rows),
-        "dumped_at": datetime.now().astimezone().isoformat(),
-        "rows": rows,
-    }
-
-    with output_path.open("w", encoding="utf-8") as file:
-        json.dump(payload, file, ensure_ascii=False, indent=2, default=_json_default)
-
-    file_size_mb = os.path.getsize(output_path) / (1024 * 1024)
-    return DownloadedFile(
-        file_name=output_path.name,
-        local_path=str(output_path),
-        remote_path=f"ssh+mysql://{host}:{db_port}/{database}/{table}",
-        file_size_mb=file_size_mb,
-        checksum=_database_payload_checksum(database, table, rows),
+    return _write_database_payload(
+        database,
+        table,
+        rows,
+        output_path,
+        f"ssh+mysql://{host}:{db_port}/{database}/{table}",
     )
 
 
@@ -264,6 +240,33 @@ def restore_mysql_table_via_ssh(
         database=target_database,
         table=target_table,
         row_count=len(rows),
+    )
+
+
+def _write_database_payload(
+    database: str,
+    table: str,
+    rows: List[Dict[str, Any]],
+    output_path: Path,
+    remote_path: str,
+) -> DownloadedFile:
+    payload = {
+        "database": database,
+        "table": table,
+        "row_count": len(rows),
+        "dumped_at": datetime.now().astimezone().isoformat(),
+        "rows": rows,
+    }
+    with output_path.open("w", encoding="utf-8") as file:
+        json.dump(payload, file, ensure_ascii=False, indent=2, default=_json_default)
+
+    file_size_mb = os.path.getsize(output_path) / (1024 * 1024)
+    return DownloadedFile(
+        file_name=output_path.name,
+        local_path=str(output_path),
+        remote_path=remote_path,
+        file_size_mb=file_size_mb,
+        checksum=_database_payload_checksum(database, table, rows),
     )
 
 

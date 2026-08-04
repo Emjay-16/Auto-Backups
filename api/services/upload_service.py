@@ -13,6 +13,7 @@ from api.errors import api_exception
 from api.services.device_resolver import resolve_device, resolve_user
 from api.services.activity_log import log_activity
 from api.services.sftp_backup import upload_files
+from api.services.ssh_credentials import require_ssh_credentials
 from api.utils.time import now_local
 
 
@@ -41,16 +42,7 @@ def upload_files_to_device(
     device = resolve_device(db, device_id, ip_address, device_name)
     user = resolve_user(db, uploaded_by)
 
-    username = os.getenv("ROBOT_SSH_USERNAME")
-    password = os.getenv("ROBOT_SSH_PASSWORD")
-    port = int(os.getenv("ROBOT_SSH_PORT", "22"))
-
-    if not username or not password:
-        raise api_exception(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "SSH_CREDENTIALS_MISSING",
-            "ROBOT_SSH_USERNAME and ROBOT_SSH_PASSWORD are required",
-        )
+    username, password, port = require_ssh_credentials()
 
     uploaded_files = []
 

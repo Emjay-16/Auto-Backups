@@ -35,6 +35,7 @@ from api.services.sftp_backup import (
     download_paths,
     snapshot_remote_path,
 )
+from api.services.ssh_credentials import require_ssh_credentials
 from api.utils.time import now_local
 
 
@@ -173,11 +174,9 @@ def run_file_backup(data: schemas.BackupRunRequest, db: Session) -> schemas.Back
     )
     backup_storage_path = os.getenv("BACKUP_STORAGE_PATH", "storage/backups")
 
-    username = os.getenv("ROBOT_SSH_USERNAME")
-    password = os.getenv("ROBOT_SSH_PASSWORD")
-    port = int(os.getenv("ROBOT_SSH_PORT", "22"))
-
-    if not username or not password:
+    try:
+        username, password, port = require_ssh_credentials()
+    except HTTPException:
         update_job(
             db,
             job,
@@ -185,11 +184,7 @@ def run_file_backup(data: schemas.BackupRunRequest, db: Session) -> schemas.Back
             message="SSH username/password are required for this device",
             finished=True,
         )
-        raise api_exception(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "SSH_CREDENTIALS_MISSING",
-            "SSH username/password are required for this device",
-        )
+        raise
 
     backup_name = data.backup_name or f"{device.device_name}_{now_local():%Y%m%d_%H%M%S}"
     local_path = build_backup_directory(backup_storage_path, device.device_name)
@@ -213,55 +208,12 @@ def run_file_backup(data: schemas.BackupRunRequest, db: Session) -> schemas.Back
 
         total_size_mb = _total_size_mb(downloaded_files)
         _finish_backup_success(db, backup, downloaded_files, total_size_mb, "Backup completed")
-        update_job(
-            db,
-            job,
-            status=constants.JOB_STATUS_SUCCESS,
-            backup_id=backup.backup_id,
-            total_devices=1,
-            checked_devices=1,
-            online_devices=1,
-            backups_created=1,
-            message="Backup completed",
-            finished=True,
-        )
+        _succeed_job(db, job, backup, "Backup completed")
     except RuntimeError as exc:
-        _finish_backup_failed(db, backup, str(exc))
-        update_job(
-            db,
-            job,
-            status=constants.JOB_STATUS_FAILED,
-            backup_id=backup.backup_id,
-            total_devices=1,
-            checked_devices=1,
-            failed_devices=1,
-            message=str(exc),
-            finished=True,
-        )
-        raise api_exception(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "FILE_BACKUP_FAILED",
-            str(exc),
-        )
+        _fail_backup_job(db, job, backup, str(exc), "FILE_BACKUP_FAILED", status.HTTP_500_INTERNAL_SERVER_ERROR)
     except Exception as exc:
         message = f"SFTP backup failed: {exc}"
-        _finish_backup_failed(db, backup, message)
-        update_job(
-            db,
-            job,
-            status=constants.JOB_STATUS_FAILED,
-            backup_id=backup.backup_id,
-            total_devices=1,
-            checked_devices=1,
-            failed_devices=1,
-            message=message,
-            finished=True,
-        )
-        raise api_exception(
-            status.HTTP_502_BAD_GATEWAY,
-            "SFTP_BACKUP_FAILED",
-            message,
-        )
+        _fail_backup_job(db, job, backup, message, "SFTP_BACKUP_FAILED", status.HTTP_502_BAD_GATEWAY)
 
     return schemas.BackupRunResponse(
         backup_id=backup.backup_id,
@@ -296,10 +248,6 @@ def run_robot_database_backup(
     table_name = data.table_name or os.getenv("ROBOT_DB_TABLE")
     username = os.getenv("ROBOT_DB_USER")
     password = os.getenv("ROBOT_DB_PASSWORD")
-    port = int(os.getenv("ROBOT_DB_PORT", "3306"))
-    ssh_username = os.getenv("ROBOT_SSH_USERNAME")
-    ssh_password = os.getenv("ROBOT_SSH_PASSWORD")
-    ssh_port = int(os.getenv("ROBOT_SSH_PORT", "22"))
 
     if not database_name or not table_name or not username or not password:
         update_job(
@@ -321,85 +269,21 @@ def run_robot_database_backup(
     backup = _create_backup_record(db, device, user, backup_name, data.backup_type)
 
     try:
-        try:
-            dumped_file = dump_mysql_table_to_json(
-                host=device.ip_address,
-                port=port,
-                username=username,
-                password=password,
-                database=database_name,
-                table=table_name,
-                output_path=output_path,
-            )
-        except Exception as direct_exc:
-            if not ssh_username or not ssh_password:
-                raise direct_exc
-
-            output_path = local_path / f"{database_name}_{table_name}.json"
-            dumped_file = dump_mysql_table_via_ssh(
-                host=device.ip_address,
-                ssh_username=ssh_username,
-                ssh_password=ssh_password,
-                ssh_port=ssh_port,
-                db_username=username,
-                db_password=password,
-                db_port=port,
-                database=database_name,
-                table=table_name,
-                output_path=output_path,
-            )
+        dumped_file = _dump_robot_database(
+            device,
+            output_path,
+            database_name=database_name,
+            table_name=table_name,
+        )
 
         total_size_mb = Decimal(str(round(dumped_file.file_size_mb, 2)))
         _finish_backup_success(db, backup, [dumped_file], total_size_mb, "Robot database backup completed")
-        update_job(
-            db,
-            job,
-            status=constants.JOB_STATUS_SUCCESS,
-            backup_id=backup.backup_id,
-            total_devices=1,
-            checked_devices=1,
-            online_devices=1,
-            backups_created=1,
-            message="Robot database backup completed",
-            finished=True,
-        )
+        _succeed_job(db, job, backup, "Robot database backup completed")
     except RuntimeError as exc:
-        _finish_backup_failed(db, backup, str(exc))
-        update_job(
-            db,
-            job,
-            status=constants.JOB_STATUS_FAILED,
-            backup_id=backup.backup_id,
-            total_devices=1,
-            checked_devices=1,
-            failed_devices=1,
-            message=str(exc),
-            finished=True,
-        )
-        raise api_exception(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "ROBOT_DATABASE_BACKUP_FAILED",
-            str(exc),
-        )
+        _fail_backup_job(db, job, backup, str(exc), "ROBOT_DATABASE_BACKUP_FAILED", status.HTTP_500_INTERNAL_SERVER_ERROR)
     except Exception as exc:
         message = f"Robot database backup failed: {exc}"
-        _finish_backup_failed(db, backup, message)
-        update_job(
-            db,
-            job,
-            status=constants.JOB_STATUS_FAILED,
-            backup_id=backup.backup_id,
-            total_devices=1,
-            checked_devices=1,
-            failed_devices=1,
-            message=message,
-            finished=True,
-        )
-        raise api_exception(
-            status.HTTP_502_BAD_GATEWAY,
-            "ROBOT_DATABASE_BACKUP_FAILED",
-            message,
-        )
+        _fail_backup_job(db, job, backup, message, "ROBOT_DATABASE_BACKUP_FAILED", status.HTTP_502_BAD_GATEWAY)
 
     return schemas.BackupRunResponse(
         backup_id=backup.backup_id,
@@ -686,16 +570,7 @@ def _run_auto_backups(
     job: models.BackupJob,
     max_retries: int,
 ) -> schemas.AutoBackupResponse:
-    username = os.getenv("ROBOT_SSH_USERNAME")
-    password = os.getenv("ROBOT_SSH_PASSWORD")
-    port = int(os.getenv("ROBOT_SSH_PORT", "22"))
-
-    if not username or not password:
-        raise api_exception(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "SSH_CREDENTIALS_MISSING",
-            "SSH username/password are required",
-        )
+    username, password, port = require_ssh_credentials()
 
     remote_paths = data.remote_paths or _default_auto_backup_paths()
     if not remote_paths:
@@ -986,16 +861,10 @@ def _create_combined_auto_backup(
 ) -> models.Backup:
     user = resolve_user(db, created_by)
     backup_storage_path = os.getenv("BACKUP_STORAGE_PATH", "storage/backups")
-    username = os.getenv("ROBOT_SSH_USERNAME")
-    password = os.getenv("ROBOT_SSH_PASSWORD")
-    port = int(os.getenv("ROBOT_SSH_PORT", "22"))
 
-    if remote_paths and (not username or not password):
-        raise api_exception(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "SSH_CREDENTIALS_MISSING",
-            "SSH username/password are required",
-        )
+    username = password = port = None
+    if remote_paths:
+        username, password, port = require_ssh_credentials()
 
     backup_name = backup_name or _auto_full_backup_name(device.device_name)
     local_path = build_backup_directory(backup_storage_path, device.device_name)
@@ -1060,9 +929,11 @@ def _create_combined_auto_backup(
 def _dump_robot_database(
     device: models.Device,
     output_path: Path,
+    database_name: Optional[str] = None,
+    table_name: Optional[str] = None,
 ) -> DownloadedFile:
-    database_name = os.getenv("ROBOT_DB_NAME")
-    table_name = os.getenv("ROBOT_DB_TABLE")
+    database_name = database_name or os.getenv("ROBOT_DB_NAME")
+    table_name = table_name or os.getenv("ROBOT_DB_TABLE")
     username = os.getenv("ROBOT_DB_USER")
     password = os.getenv("ROBOT_DB_PASSWORD")
     port = int(os.getenv("ROBOT_DB_PORT", "3306"))
@@ -1295,6 +1166,49 @@ def _finish_backup_failed(db: Session, backup: models.Backup, message: str) -> N
     backup.updated_at = now_local()
     log_activity(db, backup.created_by, backup.device_id, backup.backup_id, "backup", constants.BACKUP_STATUS_FAILED, message)
     db.commit()
+
+
+def _succeed_job(
+    db: Session,
+    job: models.BackupJob,
+    backup: models.Backup,
+    message: str,
+) -> None:
+    update_job(
+        db,
+        job,
+        status=constants.JOB_STATUS_SUCCESS,
+        backup_id=backup.backup_id,
+        total_devices=1,
+        checked_devices=1,
+        online_devices=1,
+        backups_created=1,
+        message=message,
+        finished=True,
+    )
+
+
+def _fail_backup_job(
+    db: Session,
+    job: models.BackupJob,
+    backup: models.Backup,
+    message: str,
+    error_code: str,
+    http_status: int,
+) -> None:
+    _finish_backup_failed(db, backup, message)
+    update_job(
+        db,
+        job,
+        status=constants.JOB_STATUS_FAILED,
+        backup_id=backup.backup_id,
+        total_devices=1,
+        checked_devices=1,
+        failed_devices=1,
+        message=message,
+        finished=True,
+    )
+    raise api_exception(http_status, error_code, message)
 
 
 def _existing_zip_file(backup_files: List[models.BackupFile]) -> Optional[Path]:
