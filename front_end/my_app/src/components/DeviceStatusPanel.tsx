@@ -39,6 +39,8 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
   const [browserPath, setBrowserPath] = useState("");
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
   const [customPath, setCustomPath] = useState("");
+  const [backupName, setBackupName] = useState("");
+  const [isBackupNamePromptOpen, setIsBackupNamePromptOpen] = useState(false);
   const [loading, setLoading] = useState("");
   const [error, setError] = useState("");
   const [openingDeviceId, setOpeningDeviceId] = useState<string | null>(null);
@@ -82,6 +84,8 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
     setBrowserPath("");
     setSelectedPaths([]);
     setCustomPath("");
+    setBackupName("");
+    setIsBackupNamePromptOpen(false);
     setError("");
     setOpeningDeviceId(deviceKey);
 
@@ -128,6 +132,8 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
       setBrowserPath("");
       setSelectedPaths([]);
       setCustomPath("");
+      setBackupName("");
+      setIsBackupNamePromptOpen(false);
       setError("");
       setOpeningPath(null);
       closeTimeoutRef.current = null;
@@ -142,6 +148,10 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         event.preventDefault();
+        if (isBackupNamePromptOpen) {
+          setIsBackupNamePromptOpen(false);
+          return;
+        }
         closeModal();
         return;
       }
@@ -164,7 +174,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [selectedDevice]);
+  }, [isBackupNamePromptOpen, selectedDevice]);
 
   async function openRemotePath(path: string) {
     if (!selectedDevice?.id) return;
@@ -189,6 +199,12 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
     }
   }
 
+  function requestBackupName() {
+    if (!selectedPaths.length || loading === "backup") return;
+    setBackupName(defaultBackupName(selectedDevice));
+    setIsBackupNamePromptOpen(true);
+  }
+
   async function backupNow() {
     if (!selectedDevice?.id) return;
     const remotePaths = selectedPaths.filter((path) => path.startsWith("/"));
@@ -209,8 +225,10 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
         device_id: selectedDevice.id,
         remote_paths: remotePaths,
         include_database: includeDatabase,
+        backup_name: backupName.trim() || undefined,
       });
       setBackupResult(result);
+      setIsBackupNamePromptOpen(false);
       showToast({
         tone: "success",
         title: "Backup completed",
@@ -459,7 +477,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
             </div>
 
             <div className={styles.actions}>
-              <button onClick={() => void backupNow()} disabled={loading === "backup" || !selectedPaths.length}>
+              <button onClick={requestBackupName} disabled={loading === "backup" || !selectedPaths.length}>
                 {loading === "backup" ? (
                   <>
                     <span className={styles.spinner} aria-hidden="true" />
@@ -473,6 +491,54 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
               </button>
               <button onClick={() => selectedDevice.id && router.push(`/restore?device_id=${selectedDevice.id}`)}>Restore</button>
             </div>
+
+            {isBackupNamePromptOpen ? (
+              <div className={styles.namePrompt} role="dialog" aria-modal="true" aria-labelledby="dashboard-backup-name-title">
+                <button
+                  className={styles.namePromptBackdrop}
+                  onClick={() => loading !== "backup" && setIsBackupNamePromptOpen(false)}
+                  aria-label="Cancel backup name"
+                  type="button"
+                />
+                <section className={styles.namePromptDialog}>
+                  <div className={styles.namePromptHeader}>
+                    <p>Backup name</p>
+                    <h3 id="dashboard-backup-name-title">ตั้งชื่อ backup ก่อนเริ่ม</h3>
+                    <span>{selectedPaths.length} target(s) selected for {selectedDevice.name}</span>
+                  </div>
+                  <label className={styles.namePromptField}>
+                    Backup name
+                    <input
+                      autoFocus
+                      value={backupName}
+                      onChange={(event) => setBackupName(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          void backupNow();
+                        }
+                      }}
+                      placeholder={defaultBackupName(selectedDevice)}
+                    />
+                  </label>
+                  <div className={styles.namePromptActions}>
+                    <button onClick={() => setIsBackupNamePromptOpen(false)} disabled={loading === "backup"} type="button">
+                      Cancel
+                    </button>
+                    <button onClick={() => void backupNow()} disabled={loading === "backup"} type="button">
+                      {loading === "backup" ? (
+                        <>
+                          <span className={styles.spinner} aria-hidden="true" />
+                          Backing up...
+                        </>
+                      ) : (
+                        "Start backup"
+                      )}
+                    </button>
+                  </div>
+                </section>
+              </div>
+            ) : null}
           </section>
         </div>
       ), document.body) : null}
@@ -598,6 +664,14 @@ function formatBytes(value?: number | null): string {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function defaultBackupName(device: Device | null): string {
+  if (!device) return "";
+  const now = new Date();
+  const date = now.toISOString().slice(0, 10).replace(/-/g, "");
+  const time = now.toTimeString().slice(0, 5).replace(":", "");
+  return `manual_${device.name}_${date}_${time}`;
 }
 
 function getErrorMessage(errorResponse: unknown, fallback: string): string {
