@@ -27,6 +27,7 @@
   font-size: 12px;
   font-weight: 900;
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.035);
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.15s var(--ease-out-expo), box-shadow 0.15s ease;
 }
 
 .pagination button:disabled {
@@ -38,10 +39,12 @@
   border-color: #93c5fd;
   background: #eff6ff;
   color: var(--primary);
+  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.1);
+  transform: translateY(-1px);
 }
 
 .pagination button:not(:disabled):active {
-  transform: translateY(1px);
+  transform: translateY(0) scale(0.95);
 }
 
 .pagination strong {

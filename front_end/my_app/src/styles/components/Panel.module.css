@@ -7,6 +7,12 @@
     var(--surface);
   box-shadow: 0 18px 48px rgba(15, 23, 42, 0.075);
   backdrop-filter: blur(12px);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.panel:hover {
+  border-color: rgba(147, 197, 253, 0.55);
+  box-shadow: 0 22px 54px rgba(15, 23, 42, 0.09);
 }
 
 .header {

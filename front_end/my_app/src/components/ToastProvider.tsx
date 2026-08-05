@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 import styles from "@/styles/components/ToastProvider.module.css";
 
-type ToastTone = "success" | "error" | "info";
+type ToastTone = "success" | "error" | "warning" | "info";
 
 type Toast = {
   id: number;
@@ -38,8 +38,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className={styles.toasts} aria-live="polite" aria-relevant="additions">
         {toasts.map((toast) => (
-          <article className={`${styles.toast} ${styles[toast.tone]}`} key={toast.id}>
-            <div>
+          <article className={`${styles.toast} ${styles[toast.tone]}`} key={toast.id} role={toast.tone === "error" ? "alert" : "status"}>
+            <span className={styles.icon} aria-hidden="true" />
+            <div className={styles.content}>
               <strong>{toast.title}</strong>
               {toast.message ? <p>{toast.message}</p> : null}
             </div>
