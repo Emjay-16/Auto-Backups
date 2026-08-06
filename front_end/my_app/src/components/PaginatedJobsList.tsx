@@ -41,8 +41,8 @@ export function PaginatedJobsList({ jobs }: { jobs: Job[] }) {
         page={safePage}
         pageSize={PAGE_SIZE}
         total={jobs.length}
-        onPrevious={() => setPage((current) => Math.max(0, current - 1))}
-        onNext={() => setPage((current) => Math.min(Math.ceil(jobs.length / PAGE_SIZE) - 1, current + 1))}
+        onPrevious={() => setPage((current) => Math.max(0, Math.min(current, pageCount - 1) - 1))}
+        onNext={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
       />
     </>
   );

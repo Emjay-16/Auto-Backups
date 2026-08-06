@@ -80,6 +80,7 @@ def _run_cleanup_from_settings(settings):
         cleanup_old_backups(
             schemas.BackupCleanupRequest(
                 older_than_days=settings.older_than_days,
+                older_than_hours=settings.older_than_hours,
                 keep_latest_per_device=settings.keep_latest_per_device,
             ),
             db,

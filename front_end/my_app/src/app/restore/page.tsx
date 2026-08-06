@@ -102,9 +102,15 @@ export default function RestorePage() {
     [backups, selectedBackupId],
   );
   const visibleBackups = useMemo(
-    () => backups.slice(backupPage * BACKUP_PAGE_SIZE, backupPage * BACKUP_PAGE_SIZE + BACKUP_PAGE_SIZE),
+    () => {
+      const pageCount = Math.max(1, Math.ceil(backups.length / BACKUP_PAGE_SIZE));
+      const safePage = Math.min(backupPage, pageCount - 1);
+      return backups.slice(safePage * BACKUP_PAGE_SIZE, safePage * BACKUP_PAGE_SIZE + BACKUP_PAGE_SIZE);
+    },
     [backups, backupPage],
   );
+  const backupPageCount = Math.max(1, Math.ceil(backups.length / BACKUP_PAGE_SIZE));
+  const safeBackupPage = Math.min(backupPage, backupPageCount - 1);
   const selectedFileCount = selectedFileIds.length;
   const totalBackupFiles = backupDetail?.files.length ?? 0;
   const allFilesSelected = totalBackupFiles > 0 && selectedFileCount === totalBackupFiles;
@@ -235,7 +241,7 @@ export default function RestorePage() {
                   {uploadFiles.length ? (
                     <div className={styles.uploadList}>
                       {uploadFiles.map((file) => (
-                        <span key={`${file.name}-${file.size}`}>{file.name}</span>
+                        <span key={`${file.name}-${file.size}-${file.lastModified}`}>{file.name}</span>
                       ))}
                     </div>
                   ) : null}
@@ -250,10 +256,10 @@ export default function RestorePage() {
                     <b>{selectedBackup ? selectedBackup.device : "Select one"}</b>
                   </div>
                   <div className={styles.snapshots}>
-                    {visibleBackups.length ? visibleBackups.map((backup) => (
+                    {visibleBackups.length ? visibleBackups.map((backup, index) => (
                       <button
                         className={`${styles.snapshot} ${String(backup.id) === selectedBackupId ? styles.selected : ""}`}
-                        key={backup.id ?? backup.name}
+                        key={backup.id ?? `${backup.device}-${backup.name}-${backup.createdAtRaw ?? backup.createdAt}-${index}`}
                         onClick={() => {
                           setSelectedBackupId(String(backup.id ?? ""));
                           setFilesDialogOpen(false);
@@ -275,11 +281,11 @@ export default function RestorePage() {
                     )}
                   </div>
                   <PaginationControls
-                    page={backupPage}
+                    page={safeBackupPage}
                     pageSize={BACKUP_PAGE_SIZE}
                     total={backups.length}
-                    onPrevious={() => setBackupPage((current) => Math.max(0, current - 1))}
-                    onNext={() => setBackupPage((current) => Math.min(Math.ceil(backups.length / BACKUP_PAGE_SIZE) - 1, current + 1))}
+                    onPrevious={() => setBackupPage((current) => Math.max(0, Math.min(current, backupPageCount - 1) - 1))}
+                    onNext={() => setBackupPage((current) => Math.min(backupPageCount - 1, current + 1))}
                   />
                 </>
               )}
@@ -334,7 +340,7 @@ export default function RestorePage() {
                     {result.message} · {"total_file" in result ? result.total_file : 0} file(s)
                   </p>
                 ) : null}
-                <button className={styles.primaryAction} onClick={restoreMode === "upload" ? submitUpload : submitRestore} disabled={saving || !sourceReady || !targetReady || !filesReady}>
+                <button className={styles.primaryAction} onClick={restoreMode === "upload" ? submitUpload : submitRestore} disabled={saving || !sourceReady || !targetReady || !filesReady} type="button">
                   {restoreMode === "upload" ? (saving ? "Uploading..." : "Upload to robot") : (saving ? "Restoring..." : "Restore selected")}
                 </button>
               </div>

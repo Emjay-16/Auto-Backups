@@ -19,9 +19,11 @@ export function PaginatedBackupsTable({
   onOpen?: (backup: Backup) => void;
 }) {
   const [page, setPage] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(backups.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
   const visibleBackups = useMemo(
-    () => backups.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE),
-    [backups, page],
+    () => backups.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
+    [backups, safePage],
   );
 
   return (
@@ -42,9 +44,9 @@ export function PaginatedBackupsTable({
           </thead>
           <tbody>
             {visibleBackups.length ? visibleBackups.map((backup) => (
-              <tr key={backup.name}>
+              <tr key={backup.id ?? `${backup.device}-${backup.name}-${backup.createdAtRaw ?? backup.createdAt}`}>
                 <td>
-                  <button className={styles.nameButton} disabled={!backup.id} onClick={() => onOpen?.(backup)}>
+                  <button className={styles.nameButton} disabled={!backup.id} onClick={() => onOpen?.(backup)} type="button">
                     {backup.name}
                   </button>
                 </td>
@@ -60,8 +62,8 @@ export function PaginatedBackupsTable({
                 <td>{backup.createdAt}</td>
                 <td className={styles.actionsCell}>
                   <div className={styles.actions}>
-                    <button disabled={!backup.id} onClick={() => onOpen?.(backup)} title="Details and download" aria-label={`Open ${backup.name}`}><DetailsIcon /></button>
-                    <button className={styles.dangerAction} disabled={!backup.id} onClick={() => onDelete?.(backup)} title="Delete" aria-label={`Delete ${backup.name}`}><DeleteIcon /></button>
+                    <button disabled={!backup.id} onClick={() => onOpen?.(backup)} title="Details and download" aria-label={`Open ${backup.name}`} type="button"><DetailsIcon /></button>
+                    <button className={styles.dangerAction} disabled={!backup.id} onClick={() => onDelete?.(backup)} title="Delete" aria-label={`Delete ${backup.name}`} type="button"><DeleteIcon /></button>
                   </div>
                 </td>
               </tr>
@@ -77,11 +79,11 @@ export function PaginatedBackupsTable({
         </table>
       </div>
       <PaginationControls
-        page={page}
+        page={safePage}
         pageSize={PAGE_SIZE}
         total={backups.length}
-        onPrevious={() => setPage((current) => Math.max(0, current - 1))}
-        onNext={() => setPage((current) => Math.min(Math.ceil(backups.length / PAGE_SIZE) - 1, current + 1))}
+        onPrevious={() => setPage((current) => Math.max(0, Math.min(current, totalPages - 1) - 1))}
+        onNext={() => setPage((current) => Math.min(totalPages - 1, current + 1))}
       />
     </>
   );

@@ -262,6 +262,7 @@ class BackupDeleteResponse(BaseModel):
 
 class BackupCleanupRequest(BaseModel):
     older_than_days: int = 90
+    older_than_hours: Optional[int] = None
     keep_latest_per_device: bool = True
 
 
@@ -276,6 +277,7 @@ class BackupCleanupItemResponse(BaseModel):
 
 class BackupCleanupResponse(BaseModel):
     older_than_days: int
+    older_than_hours: Optional[int] = None
     candidates: int
     deleted: int
     skipped: int
@@ -285,6 +287,7 @@ class BackupCleanupResponse(BaseModel):
 class AutoCleanupSettingsRequest(BaseModel):
     enabled: Optional[bool] = None
     older_than_days: Optional[int] = None
+    older_than_hours: Optional[int] = None
     interval_hours: Optional[int] = None
     keep_latest_per_device: Optional[bool] = None
 
@@ -292,6 +295,7 @@ class AutoCleanupSettingsRequest(BaseModel):
 class AutoCleanupSettingsResponse(BaseModel):
     enabled: bool
     older_than_days: int
+    older_than_hours: int
     interval_hours: int
     keep_latest_per_device: bool
 

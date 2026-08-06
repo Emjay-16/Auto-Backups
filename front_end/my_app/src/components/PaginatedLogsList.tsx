@@ -42,8 +42,8 @@ export function PaginatedLogsList({ activities }: { activities: Activity[] }) {
         page={safePage}
         pageSize={PAGE_SIZE}
         total={activities.length}
-        onPrevious={() => setPage((current) => Math.max(0, current - 1))}
-        onNext={() => setPage((current) => Math.min(Math.ceil(activities.length / PAGE_SIZE) - 1, current + 1))}
+        onPrevious={() => setPage((current) => Math.max(0, Math.min(current, pageCount - 1) - 1))}
+        onNext={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
       />
     </>
   );

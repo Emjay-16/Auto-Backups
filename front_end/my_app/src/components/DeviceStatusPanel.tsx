@@ -248,8 +248,8 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
   return (
     <>
       <div className={styles.grid}>
-        {devices.length ? devices.map((device) => {
-          const deviceKey = String(device.id ?? device.name);
+        {devices.length ? devices.map((device, index) => {
+          const deviceKey = String(device.id || device.ip || device.code || `${device.name}-${index}`);
           const isOpening = openingDeviceId === deviceKey;
           return (
             <button
@@ -258,6 +258,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
               onClick={(event) => void openDevice(device, event.currentTarget)}
               disabled={isOpening}
               aria-busy={isOpening}
+              type="button"
             >
               <div className={styles.header}>
                 <RobotGroupBadge group={device.group} variant="avatar" />
@@ -298,7 +299,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
           aria-modal="true"
           aria-labelledby="device-status-modal-title"
         >
-          <button className={styles.backdrop} onClick={closeModal} aria-label="Close device detail" />
+          <button className={styles.backdrop} onClick={closeModal} aria-label="Close device detail" type="button" />
           <section className={styles.modal} ref={modalRef}>
             <div className={styles.modalHeader}>
               <div className={styles.modalTitle}>
@@ -308,7 +309,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
                   <h2 id="device-status-modal-title">{selectedDevice.name}</h2>
                 </div>
               </div>
-              <button className={styles.close} onClick={closeModal} aria-label="Close" ref={closeButtonRef}>
+              <button className={styles.close} onClick={closeModal} aria-label="Close" ref={closeButtonRef} type="button">
                 ×
               </button>
             </div>
@@ -350,7 +351,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
                 <div className={styles.targetList}>
                   {backupTargets.length ? backupTargets.map((target) => (
                     target.backup_api === "file" ? (
-                      <label className={styles.targetRow} key={target.key}>
+                      <label className={styles.targetRow} key={`${target.backup_api}:${target.path}:${target.key}`}>
                         <input
                           checked={selectedPaths.includes(target.path)}
                           onChange={() => togglePath(target.path)}
@@ -380,7 +381,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
                         )}
                       </label>
                     ) : (
-                      <label className={styles.targetRow} key={target.key}>
+                      <label className={styles.targetRow} key={`${target.backup_api}:${target.path}:${target.key}`}>
                         <input
                           checked={selectedPaths.includes(target.path)}
                           onChange={() => togglePath(target.path)}
@@ -422,7 +423,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
                   <div className={styles.browser}>
                     <div className={styles.browserHeader}>
                       <strong>{browserPath}</strong>
-                      <button onClick={() => setBrowserPath("")}>Close</button>
+                      <button onClick={() => setBrowserPath("")} type="button">Close</button>
                     </div>
                     {remoteFiles.length ? (
                       remoteFiles.map((file) => (
@@ -477,7 +478,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
             </div>
 
             <div className={styles.actions}>
-              <button onClick={requestBackupName} disabled={loading === "backup" || !selectedPaths.length}>
+              <button onClick={requestBackupName} disabled={loading === "backup" || !selectedPaths.length} type="button">
                 {loading === "backup" ? (
                   <>
                     <span className={styles.spinner} aria-hidden="true" />
@@ -489,7 +490,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
                   "Select targets first"
                 )}
               </button>
-              <button onClick={() => selectedDevice.id && router.push(`/restore?device_id=${selectedDevice.id}`)}>Restore</button>
+              <button onClick={() => selectedDevice.id && router.push(`/restore?device_id=${selectedDevice.id}`)} type="button">Restore</button>
             </div>
 
             {isBackupNamePromptOpen ? (

@@ -60,6 +60,7 @@ export function BackupsWorkspace({
   const [downloadFilename, setDownloadFilename] = useState("");
   const [pendingDownloadConfirm, setPendingDownloadConfirm] = useState(false);
   const [cleanupDays, setCleanupDays] = useState("90");
+  const [cleanupHours, setCleanupHours] = useState("0");
   const [cleanupEnabled, setCleanupEnabled] = useState(false);
   const [cleanupIntervalHours, setCleanupIntervalHours] = useState("720");
   const [cleanupKeepLatest, setCleanupKeepLatest] = useState(true);
@@ -79,7 +80,7 @@ export function BackupsWorkspace({
   const backupSelectionCount = selectedPaths.length + (includeDatabase ? 1 : 0);
   const backupStats = useMemo(() => buildBackupStats(backups, usableDevices), [backups, usableDevices]);
   const selectedDeviceBackupSummary = useMemo(
-    () => backupStats.deviceSummaries.find((summary) => summary.device.name === selectedDeviceBackups),
+    () => backupStats.deviceSummaries.find((summary) => deviceBackupKey(summary.device) === selectedDeviceBackups),
     [backupStats.deviceSummaries, selectedDeviceBackups],
   );
   const modalTitle = mode === "autoBackup"
@@ -110,6 +111,7 @@ export function BackupsWorkspace({
         setCleanupSettings(cleanupRule);
         if (!cleanupRule) return;
         setCleanupDays(String(cleanupRule.older_than_days));
+        setCleanupHours(String(cleanupRule.older_than_hours ?? 0));
         setCleanupEnabled(cleanupRule.enabled);
         setCleanupIntervalHours(String(cleanupRule.interval_hours));
         setCleanupKeepLatest(cleanupRule.keep_latest_per_device);
@@ -266,6 +268,7 @@ export function BackupsWorkspace({
     try {
       const response = await cleanupBackups({
         older_than_days: Number(cleanupDays) || 90,
+        older_than_hours: Number(cleanupHours) > 0 ? Number(cleanupHours) : undefined,
         keep_latest_per_device: cleanupKeepLatest,
       });
       setResult(response);
@@ -289,11 +292,13 @@ export function BackupsWorkspace({
       const settings = await updateAutoCleanupSettings({
         enabled: cleanupEnabled,
         older_than_days: Number(cleanupDays) || 90,
+        older_than_hours: Number(cleanupHours) > 0 ? Number(cleanupHours) : 0,
         interval_hours: Number(cleanupIntervalHours) || 720,
         keep_latest_per_device: cleanupKeepLatest,
       });
       setCleanupSettings(settings);
       setCleanupDays(String(settings.older_than_days));
+      setCleanupHours(String(settings.older_than_hours ?? 0));
       setCleanupEnabled(settings.enabled);
       setCleanupIntervalHours(String(settings.interval_hours));
       setCleanupKeepLatest(settings.keep_latest_per_device);
@@ -546,7 +551,7 @@ export function BackupsWorkspace({
           <Panel title="Backup by Device">
             <div className={styles.deviceBackupGrid}>
               {backupStats.deviceSummaries.length ? backupStats.deviceSummaries.map((summary) => (
-                <article className={`${styles.deviceBackupCard} ${summary.total ? styles.hasBackup : styles.noBackup}`} key={summary.device.name}>
+                <article className={`${styles.deviceBackupCard} ${summary.total ? styles.hasBackup : styles.noBackup}`} key={summary.device.id ?? summary.device.ip ?? summary.device.name}>
                   <div className={styles.deviceBackupHeader}>
                     <span className={styles.groupPill}>{summary.device.group}</span>
                     <div>
@@ -574,7 +579,7 @@ export function BackupsWorkspace({
                     </span>
                     <button
                       disabled={!summary.latest}
-                      onClick={() => setSelectedDeviceBackups(summary.device.name)}
+                      onClick={() => setSelectedDeviceBackups(deviceBackupKey(summary.device))}
                       type="button"
                     >
                       View backups
@@ -589,14 +594,14 @@ export function BackupsWorkspace({
 
           {selectedDeviceBackupSummary ? (
             <div className={styles.overlay} role="dialog" aria-modal="true" aria-label={`Backups for ${selectedDeviceBackupSummary.device.name}`}>
-              <button className={styles.backdrop} onClick={() => setSelectedDeviceBackups("")} aria-label="Close backups by device" />
+              <button className={styles.backdrop} onClick={() => setSelectedDeviceBackups("")} aria-label="Close backups by device" type="button" />
               <section className={`${styles.modal} ${styles.deviceHistoryModal}`}>
                 <div className={styles.modalHeader}>
                   <div>
                     <p>{selectedDeviceBackupSummary.device.ip}</p>
                     <h2>{selectedDeviceBackupSummary.device.name} backups</h2>
                   </div>
-                  <button className={styles.closeButton} onClick={() => setSelectedDeviceBackups("")}>×</button>
+                  <button className={styles.closeButton} onClick={() => setSelectedDeviceBackups("")} type="button">×</button>
                 </div>
                 <div className={styles.deviceHistoryBody}>
                   <div className={styles.deviceHistorySummary}>
@@ -615,7 +620,7 @@ export function BackupsWorkspace({
                   </div>
                   <div className={styles.backupGroupList}>
                     {groupBackupsByName(selectedDeviceBackupSummary.backups).map((group) => (
-                      <article className={styles.backupGroup} key={group.name}>
+                      <article className={styles.backupGroup} key={`${selectedDeviceBackupSummary.device.id ?? selectedDeviceBackupSummary.device.ip}:${group.name}`}>
                         <div className={styles.backupGroupHeader}>
                           <span className={styles.folderIcon}><FolderIcon /></span>
                           <div>
@@ -624,11 +629,11 @@ export function BackupsWorkspace({
                           </div>
                         </div>
                         <div className={styles.backupRoundList}>
-                          {group.backups.map((backup) => (
+                          {group.backups.map((backup, index) => (
                             <button
                               className={styles.backupRound}
                               disabled={!backup.id}
-                              key={`${backup.id ?? backup.name}-${backup.createdAtRaw ?? backup.createdAt}`}
+                              key={`${backup.id ?? `${backup.device}-${backup.name}`}-${backup.createdAtRaw ?? backup.createdAt}-${index}`}
                               onClick={() => {
                                 setSelectedDeviceBackups("");
                                 void openBackupDetail(backup);
@@ -712,7 +717,7 @@ export function BackupsWorkspace({
             <div className={styles.pathList}>
               {targets.length ? (
                 targets.map((target) => (
-                  <div className={styles.pathItem} key={target.key}>
+                  <div className={styles.pathItem} key={`${target.backup_api}:${target.path}:${target.key}`}>
                     <p>{target.label}: {target.path}</p>
                     {target.removable ? (
                       <button onClick={() => requestDeleteCustomPath(target.path)} type="button">
@@ -752,25 +757,26 @@ export function BackupsWorkspace({
                     createdAtRaw: backupDetail.created_at,
                   })}
                   disabled={saving}
+                  type="button"
                 >
                   Delete
                 </button>
               ) : null}
-              <button onClick={closeModal}>Close</button>
+              <button onClick={closeModal} type="button">Close</button>
               {mode === "detail" && backupDetail ? (
-                <button onClick={downloadSelectedFiles} disabled={saving || !selectedDownloadFileIds.length}>
+                <button onClick={downloadSelectedFiles} disabled={saving || !selectedDownloadFileIds.length} type="button">
                   Download selected zip
                 </button>
               ) : null}
               {mode === "backup" ? (
-                <button onClick={() => submitBackup()} disabled={saving || !Number(deviceId) || !backupSelectionCount}>
+                <button onClick={() => submitBackup()} disabled={saving || !Number(deviceId) || !backupSelectionCount} type="button">
                   {saving ? "Running..." : backupSelectionCount ? `Run backup (${backupSelectionCount})` : "Select targets first"}
                 </button>
               ) : null}
-              {mode === "browse" ? <button onClick={browseFiles} disabled={saving}>{saving ? "Loading..." : "Load files"}</button> : null}
-              {mode === "autoBackup" ? <button onClick={saveAutoBackupSettings} disabled={saving}>{saving ? "Saving..." : "Save settings"}</button> : null}
-              {mode === "cleanup" ? <button onClick={saveCleanupSettings} disabled={saving}>{saving ? "Saving..." : "Save settings"}</button> : null}
-              {mode === "cleanup" ? <button onClick={submitCleanup} disabled={saving}>{saving ? "Cleaning..." : "Run cleanup"}</button> : null}
+              {mode === "browse" ? <button onClick={browseFiles} disabled={saving} type="button">{saving ? "Loading..." : "Load files"}</button> : null}
+              {mode === "autoBackup" ? <button onClick={saveAutoBackupSettings} disabled={saving} type="button">{saving ? "Saving..." : "Save settings"}</button> : null}
+              {mode === "cleanup" ? <button onClick={saveCleanupSettings} disabled={saving} type="button">{saving ? "Saving..." : "Save settings"}</button> : null}
+              {mode === "cleanup" ? <button onClick={submitCleanup} disabled={saving} type="button">{saving ? "Cleaning..." : "Run cleanup"}</button> : null}
             </>
           )}
         >
@@ -857,9 +863,16 @@ export function BackupsWorkspace({
                 <input value={cleanupDays} onChange={(event) => setCleanupDays(event.target.value)} />
                 {cleanupSettings ? (
                   <span className={styles.fieldHint}>
-                    Current auto cleanup setting: {cleanupSettings.older_than_days} day(s)
+                    Current auto cleanup setting: {cleanupSettings.older_than_hours > 0 ? `${cleanupSettings.older_than_hours} hour(s)` : `${cleanupSettings.older_than_days} day(s)`}
                   </span>
                 ) : null}
+              </label>
+              <label>
+                Older than hours (optional)
+                <input value={cleanupHours} onChange={(event) => setCleanupHours(event.target.value)} />
+                <span className={styles.fieldHint}>
+                  ถ้าใส่มากกว่า 0 ระบบจะใช้ชั่วโมงแทนจำนวนวัน เหมาะสำหรับทดสอบ
+                </span>
               </label>
               <label>
                 Interval hours
@@ -895,6 +908,7 @@ export function BackupsWorkspace({
                           if (file.file_type === "directory") setBrowsePath(file.path);
                           else setSelectedPaths((current) => current.includes(file.path) ? current : [...current, file.path]);
                         }}
+                        type="button"
                       >
                         <span>{file.name}</span>
                         <b>{file.file_type}</b>
@@ -925,7 +939,7 @@ export function BackupsWorkspace({
                     </div>
                     <div className={styles.targetList}>
                       {targets.length ? targets.map((target) => (
-                        <label key={target.key}>
+                        <label key={`${target.backup_api}:${target.path}:${target.key}`}>
                           <input
                             checked={target.backup_api === "robot_db" ? includeDatabase : selectedPaths.includes(target.path)}
                             onChange={() => {
@@ -995,7 +1009,7 @@ export function BackupsWorkspace({
                     <div className={styles.browser}>
                       <div className={styles.browserHeader}>
                         <strong>{openedPath}</strong>
-                        <button onClick={resetBrowseState}>Close</button>
+                        <button onClick={resetBrowseState} type="button">Close</button>
                       </div>
                       {remoteFiles.length ? (
                         remoteFiles.map((file) => (
@@ -1042,7 +1056,7 @@ export function BackupsWorkspace({
 
       {pendingDeleteBackup ? (
         <div className={styles.confirmOverlay} role="dialog" aria-modal="true" aria-labelledby="delete-backup-title">
-          <button className={styles.confirmBackdrop} onClick={() => !saving && setPendingDeleteBackup(null)} aria-label="Cancel delete" />
+          <button className={styles.confirmBackdrop} onClick={() => !saving && setPendingDeleteBackup(null)} aria-label="Cancel delete" type="button" />
           <section className={styles.confirmDialog}>
             <div className={styles.confirmIcon}>!</div>
             <div className={styles.confirmContent}>
@@ -1054,8 +1068,8 @@ export function BackupsWorkspace({
             </div>
             {error ? <p className={styles.formError}>{error}</p> : null}
             <div className={styles.confirmActions}>
-              <button onClick={() => setPendingDeleteBackup(null)} disabled={saving}>Cancel</button>
-              <button onClick={confirmDeleteBackup} disabled={saving}>
+              <button onClick={() => setPendingDeleteBackup(null)} disabled={saving} type="button">Cancel</button>
+              <button onClick={confirmDeleteBackup} disabled={saving} type="button">
                 {saving ? "Deleting..." : "Delete backup"}
               </button>
             </div>
@@ -1065,7 +1079,7 @@ export function BackupsWorkspace({
 
       {pendingDeletePath ? (
         <div className={styles.confirmOverlay} role="dialog" aria-modal="true" aria-labelledby="delete-path-title">
-          <button className={styles.confirmBackdrop} onClick={() => !saving && setPendingDeletePath(null)} aria-label="Cancel delete" />
+          <button className={styles.confirmBackdrop} onClick={() => !saving && setPendingDeletePath(null)} aria-label="Cancel delete" type="button" />
           <section className={styles.confirmDialog}>
             <div className={styles.confirmIcon}>!</div>
             <div className={styles.confirmContent}>
@@ -1078,8 +1092,8 @@ export function BackupsWorkspace({
             </div>
             {error ? <p className={styles.formError}>{error}</p> : null}
             <div className={styles.confirmActions}>
-              <button onClick={() => setPendingDeletePath(null)} disabled={saving}>Cancel</button>
-              <button onClick={() => void confirmDeleteCustomPath()} disabled={saving}>
+              <button onClick={() => setPendingDeletePath(null)} disabled={saving} type="button">Cancel</button>
+              <button onClick={() => void confirmDeleteCustomPath()} disabled={saving} type="button">
                 {saving ? "Deleting..." : "Delete path"}
               </button>
             </div>
@@ -1089,7 +1103,7 @@ export function BackupsWorkspace({
 
       {pendingDownloadConfirm && backupDetail ? (
         <div className={styles.confirmOverlay} role="dialog" aria-modal="true" aria-labelledby="download-zip-title">
-          <button className={styles.confirmBackdrop} onClick={() => setPendingDownloadConfirm(false)} aria-label="Cancel download" />
+          <button className={styles.confirmBackdrop} onClick={() => setPendingDownloadConfirm(false)} aria-label="Cancel download" type="button" />
           <section className={`${styles.confirmDialog} ${styles.downloadDialog}`}>
             <div className={`${styles.confirmIcon} ${styles.downloadIcon}`}>↓</div>
             <div className={styles.confirmContent}>
@@ -1109,8 +1123,8 @@ export function BackupsWorkspace({
             </div>
             {error ? <p className={styles.formError}>{error}</p> : null}
             <div className={`${styles.confirmActions} ${styles.downloadActions}`}>
-              <button onClick={() => setPendingDownloadConfirm(false)} disabled={saving}>Cancel</button>
-              <button onClick={confirmDownloadSelectedFiles} disabled={saving}>
+              <button onClick={() => setPendingDownloadConfirm(false)} disabled={saving} type="button">Cancel</button>
+              <button onClick={confirmDownloadSelectedFiles} disabled={saving} type="button">
                 {saving ? "Downloading..." : "Download zip"}
               </button>
             </div>
@@ -1212,6 +1226,10 @@ function formatSizeMb(value: number): string {
   if (!value) return "0 MB";
   if (value >= 1024) return `${(value / 1024).toFixed(1)} GB`;
   return `${value.toFixed(value >= 10 ? 1 : 2)} MB`;
+}
+
+function deviceBackupKey(device: Device): string {
+  return String(device.id || `${device.ip || device.group}:${device.name}`);
 }
 
 function groupBackupsByName(backups: Backup[]) {

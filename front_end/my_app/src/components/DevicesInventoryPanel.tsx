@@ -33,6 +33,10 @@ type FormState = {
 
 type DeviceModalMode = "add" | "edit" | null;
 type ActionModalMode = "browse" | "backup" | null;
+type DeviceFilter =
+  | { key: "all"; label: "All"; kind: "all" }
+  | { key: `group:${number}`; label: string; kind: "group"; groupId: number }
+  | { key: "online"; label: "Online"; kind: "online" };
 
 function makeEmptyForm(groups: DeviceGroupOption[]): FormState {
   return {
@@ -49,7 +53,7 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
   const groupOptions = groups;
   const [mode, setMode] = useState<DeviceModalMode>(null);
   const [actionMode, setActionMode] = useState<ActionModalMode>(null);
-  const [activeFilter, setActiveFilter] = useState("All");
+  const [activeFilter, setActiveFilter] = useState<DeviceFilter["key"]>("all");
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [form, setForm] = useState<FormState>(() => makeEmptyForm(groupOptions));
   const [remotePath, setRemotePath] = useState("");
@@ -64,11 +68,22 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
   const [backupResult, setBackupResult] = useState<BackupRunResult | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const filterOptions = useMemo<DeviceFilter[]>(() => [
+    { key: "all", label: "All", kind: "all" },
+    ...groupOptions.map((group) => ({
+      key: `group:${group.group_id}` as const,
+      label: group.group_name,
+      kind: "group" as const,
+      groupId: group.group_id,
+    })),
+    { key: "online", label: "Online", kind: "online" },
+  ], [groupOptions]);
+  const selectedFilter = filterOptions.find((filter) => filter.key === activeFilter) ?? filterOptions[0];
   const filteredDevices = useMemo(() => {
-    if (activeFilter === "All") return devices;
-    if (activeFilter === "Online") return devices.filter((device) => device.status === "online");
-    return devices.filter((device) => device.group === activeFilter);
-  }, [activeFilter, devices]);
+    if (selectedFilter.kind === "all") return devices;
+    if (selectedFilter.kind === "online") return devices.filter((device) => device.status === "online");
+    return devices.filter((device) => device.groupId === selectedFilter.groupId);
+  }, [devices, selectedFilter]);
 
   function openAdd() {
     setSelectedDevice(null);
@@ -98,6 +113,12 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
     setRemoteFiles([]);
     setOpenedPath("");
     setBackupResult(null);
+    setSelectedPaths([]);
+    setCustomBackupPath("");
+    setIncludeDatabase(false);
+    setBackupName("");
+    setZipOutput(false);
+    setBackupTargets([]);
   }
 
   async function openBrowse(device: Device) {
@@ -312,18 +333,18 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
         action={
           <div className={styles.panelActions}>
             <div className={styles.filters}>
-              {["All", ...groupOptions.map((group) => group.group_name), "Online"].map((filter) => (
+              {filterOptions.map((filter) => (
                 <button
-                  className={`${activeFilter === filter ? styles.active : ""} ${filterToneClass(filter)}`}
-                  key={filter}
-                  onClick={() => setActiveFilter(filter)}
+                  className={`${activeFilter === filter.key ? styles.active : ""} ${filterToneClass(filter.label)}`}
+                  key={filter.key}
+                  onClick={() => setActiveFilter(filter.key)}
                   type="button"
                 >
-                  {filter}
+                  {filter.label}
                 </button>
               ))}
             </div>
-            <button className={styles.addButton} onClick={openAdd}>
+            <button className={styles.addButton} onClick={openAdd} type="button">
               <span>+</span>
               Add device
             </button>
@@ -331,6 +352,7 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
         }
       >
         <PaginatedDevicesTable
+          key={activeFilter}
           devices={filteredDevices}
           onBackup={openBackup}
           onBrowse={openBrowse}
@@ -341,14 +363,14 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
 
       {mode ? (
         <div className={styles.overlay} role="dialog" aria-modal="true" aria-label={`${mode} device`}>
-          <button className={styles.backdrop} onClick={closeModal} aria-label="Close device form" />
+          <button className={styles.backdrop} onClick={closeModal} aria-label="Close device form" type="button" />
           <section className={styles.modal}>
             <div className={styles.modalHeader}>
               <div>
                 <p>{mode === "add" ? "Create device" : "Update device"}</p>
                 <h2>{mode === "add" ? "Add device" : selectedDevice?.name}</h2>
               </div>
-              <button className={styles.closeButton} onClick={closeModal} aria-label="Close">
+              <button className={styles.closeButton} onClick={closeModal} aria-label="Close" type="button">
                 ×
               </button>
             </div>
@@ -382,8 +404,8 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
             {error ? <p className={styles.formError}>{error}</p> : null}
 
             <div className={styles.modalActions}>
-              <button onClick={closeModal}>Cancel</button>
-              <button onClick={submitForm} disabled={saving}>
+              <button onClick={closeModal} type="button">Cancel</button>
+              <button onClick={submitForm} disabled={saving} type="button">
                 {saving ? "Saving..." : "Save device"}
               </button>
             </div>
@@ -393,14 +415,14 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
 
       {actionMode ? (
         <div className={styles.overlay} role="dialog" aria-modal="true" aria-label={`${actionMode} device`}>
-          <button className={styles.backdrop} onClick={closeModal} aria-label="Close device action" />
+          <button className={styles.backdrop} onClick={closeModal} aria-label="Close device action" type="button" />
           <section className={styles.modal}>
             <div className={styles.modalHeader}>
               <div>
                 <p>{selectedDevice?.ip}</p>
                 <h2>{actionMode === "browse" ? `Browse ${selectedDevice?.name}` : `Backup ${selectedDevice?.name}`}</h2>
               </div>
-              <button className={styles.closeButton} onClick={closeModal} aria-label="Close">
+              <button className={styles.closeButton} onClick={closeModal} aria-label="Close" type="button">
                 ×
               </button>
             </div>
@@ -415,6 +437,7 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
                   <button
                     disabled={saving || !selectedDevice?.id}
                     onClick={() => selectedDevice?.id && loadRemoteFiles(selectedDevice.id, remotePath)}
+                    type="button"
                   >
                     {saving ? "Loading..." : "Load files"}
                   </button>
@@ -448,7 +471,7 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
                   </div>
                   <div className={styles.targetList}>
                     {backupTargets.length ? backupTargets.map((target) => (
-                      <label key={target.key}>
+                      <label key={`${target.backup_api}:${target.path}:${target.key}`}>
                         <input
                           checked={target.backup_api === "robot_db" ? includeDatabase : selectedPaths.includes(target.path)}
                           onChange={() => {
@@ -552,9 +575,9 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
             {error ? <p className={styles.formError}>{error}</p> : null}
 
             <div className={styles.modalActions}>
-              <button onClick={closeModal}>Close</button>
+              <button onClick={closeModal} type="button">Close</button>
               {actionMode === "backup" ? (
-                <button onClick={submitBackup} disabled={saving}>
+                <button onClick={submitBackup} disabled={saving} type="button">
                   {saving ? "Backing up..." : "Run backup"}
                 </button>
               ) : null}

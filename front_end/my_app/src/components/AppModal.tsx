@@ -29,14 +29,14 @@ export function AppModal({
 
   return createPortal(
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby={labelledBy}>
-      <button className={styles.backdrop} onClick={onClose} aria-label="Close" />
+      <button className={styles.backdrop} onClick={onClose} aria-label="Close" type="button" />
       <section className={`${styles.modal} ${className}`}>
         <header className={styles.header}>
           <div>
             {eyebrow ? <p>{eyebrow}</p> : null}
             <h2 id={labelledBy}>{title}</h2>
           </div>
-          <button className={styles.closeButton} onClick={onClose} aria-label="Close">
+          <button className={styles.closeButton} onClick={onClose} aria-label="Close" type="button">
             ×
           </button>
         </header>

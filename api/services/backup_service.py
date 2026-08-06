@@ -125,7 +125,7 @@ def cleanup_old_backups(
     data: schemas.BackupCleanupRequest,
     db: Session,
 ) -> schemas.BackupCleanupResponse:
-    cutoff = now_local() - timedelta(days=data.older_than_days)
+    cutoff = now_local() - cleanup_age_delta(data)
     backups = (
         db.query(models.Backup)
         .filter(models.Backup.created_at < cutoff)
@@ -155,11 +155,18 @@ def cleanup_old_backups(
 
     return schemas.BackupCleanupResponse(
         older_than_days=data.older_than_days,
+        older_than_hours=data.older_than_hours,
         candidates=len(backups),
         deleted=deleted,
         skipped=skipped,
         items=items,
     )
+
+
+def cleanup_age_delta(data: schemas.BackupCleanupRequest) -> timedelta:
+    if data.older_than_hours is not None and data.older_than_hours > 0:
+        return timedelta(hours=data.older_than_hours)
+    return timedelta(days=max(data.older_than_days, 1))
 
 
 def run_file_backup(data: schemas.BackupRunRequest, db: Session) -> schemas.BackupRunResponse:

@@ -24,9 +24,11 @@ export function PaginatedDevicesTable({
   onRestore?: (device: Device) => void;
 }) {
   const [page, setPage] = useState(0);
+  const totalPages = Math.max(1, Math.ceil(devices.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages - 1);
   const visibleDevices = useMemo(
-    () => devices.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE),
-    [devices, page],
+    () => devices.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE),
+    [devices, safePage],
   );
 
   return (
@@ -44,8 +46,8 @@ export function PaginatedDevicesTable({
             </tr>
           </thead>
           <tbody>
-            {visibleDevices.length ? visibleDevices.map((device) => (
-              <tr key={device.name}>
+            {visibleDevices.length ? visibleDevices.map((device, index) => (
+              <tr key={device.id || device.code || device.ip || `${device.name}-${index}`}>
                 <td className={styles.deviceCell}>
                   <StatusDot status={device.status} />
                   <div>
@@ -63,10 +65,10 @@ export function PaginatedDevicesTable({
                 <td className={styles.mono}>{device.lastSeen}</td>
                 <td className={styles.actionsCell}>
                   <div className={styles.actions}>
-                    <button title="Browse files" aria-label={`Browse files for ${device.name}`} onClick={() => onBrowse?.(device)}><DetailsIcon /></button>
-                    <button title="Backup" aria-label={`Backup ${device.name}`} onClick={() => onBackup?.(device)}><BackupIcon /></button>
-                    <button title="Restore" aria-label={`Restore ${device.name}`} onClick={() => onRestore?.(device)}><RestoreIcon /></button>
-                    <button title="Edit device" aria-label={`Edit ${device.name}`} onClick={() => onEdit?.(device)}><EditIcon /></button>
+                    <button title="Browse files" aria-label={`Browse files for ${device.name}`} onClick={() => onBrowse?.(device)} type="button"><DetailsIcon /></button>
+                    <button title="Backup" aria-label={`Backup ${device.name}`} onClick={() => onBackup?.(device)} type="button"><BackupIcon /></button>
+                    <button title="Restore" aria-label={`Restore ${device.name}`} onClick={() => onRestore?.(device)} type="button"><RestoreIcon /></button>
+                    <button title="Edit device" aria-label={`Edit ${device.name}`} onClick={() => onEdit?.(device)} type="button"><EditIcon /></button>
                   </div>
                 </td>
               </tr>
@@ -82,11 +84,11 @@ export function PaginatedDevicesTable({
         </table>
       </div>
       <PaginationControls
-        page={page}
+        page={safePage}
         pageSize={PAGE_SIZE}
         total={devices.length}
-        onPrevious={() => setPage((current) => Math.max(0, current - 1))}
-        onNext={() => setPage((current) => Math.min(Math.ceil(devices.length / PAGE_SIZE) - 1, current + 1))}
+        onPrevious={() => setPage((current) => Math.max(0, Math.min(current, totalPages - 1) - 1))}
+        onNext={() => setPage((current) => Math.min(totalPages - 1, current + 1))}
       />
     </>
   );

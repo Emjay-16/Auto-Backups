@@ -108,11 +108,13 @@ export type UploadRunResult = {
 
 export type BackupCleanupPayload = {
   older_than_days: number;
+  older_than_hours?: number;
   keep_latest_per_device: boolean;
 };
 
 export type BackupCleanupResult = {
   older_than_days: number;
+  older_than_hours?: number | null;
   candidates: number;
   deleted: number;
   skipped: number;
@@ -129,6 +131,7 @@ export type BackupCleanupResult = {
 export type AutoCleanupSettings = {
   enabled: boolean;
   older_than_days: number;
+  older_than_hours: number;
   interval_hours: number;
   keep_latest_per_device: boolean;
 };

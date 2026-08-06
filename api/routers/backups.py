@@ -53,10 +53,25 @@ def update_cleanup_settings(
     return update_auto_cleanup_settings(
         enabled=data.enabled,
         older_than_days=data.older_than_days,
+        older_than_hours=data.older_than_hours,
         interval_hours=data.interval_hours,
         keep_latest_per_device=data.keep_latest_per_device,
     )
 
+
+@router.put("/cleanup/every-6-hours", response_model=schemas.AutoCleanupSettingsResponse)
+def enable_cleanup_every_six_hours(
+    older_than_days: Optional[int] = None,
+    older_than_hours: Optional[int] = None,
+    keep_latest_per_device: Optional[bool] = None,
+):
+    return update_auto_cleanup_settings(
+        enabled=True,
+        older_than_days=older_than_days,
+        older_than_hours=older_than_hours,
+        interval_hours=6,
+        keep_latest_per_device=keep_latest_per_device,
+    )
 
 @router.post("/cleanup", response_model=schemas.BackupCleanupResponse)
 def cleanup_backups(
