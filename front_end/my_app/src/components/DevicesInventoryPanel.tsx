@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import type { Device } from "@/lib/types";
 import {
   createDevice,
-  backupTargetLabelFromPath,
   backupTargetTypeFromPath,
   getBackupTargets,
   listDeviceFiles,
@@ -29,6 +28,7 @@ type FormState = {
   deviceCode: string;
   deviceName: string;
   ipAddress: string;
+  autoBackupEnabled: boolean;
 };
 
 type DeviceModalMode = "add" | "edit" | null;
@@ -44,6 +44,7 @@ function makeEmptyForm(groups: DeviceGroupOption[]): FormState {
     deviceCode: "",
     deviceName: "",
     ipAddress: "",
+    autoBackupEnabled: true,
   };
 }
 
@@ -59,6 +60,7 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
   const [remotePath, setRemotePath] = useState("");
   const [backupTargets, setBackupTargets] = useState<BackupTarget[]>([]);
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
+  const [customBackupPathLabel, setCustomBackupPathLabel] = useState("");
   const [customBackupPath, setCustomBackupPath] = useState("");
   const [includeDatabase, setIncludeDatabase] = useState(false);
   const [backupName, setBackupName] = useState("");
@@ -99,6 +101,7 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
       deviceCode: device.code ?? "",
       deviceName: device.name,
       ipAddress: device.ip,
+      autoBackupEnabled: device.autoBackupEnabled,
     });
     setError("");
     setMode("edit");
@@ -114,6 +117,7 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
     setOpenedPath("");
     setBackupResult(null);
     setSelectedPaths([]);
+    setCustomBackupPathLabel("");
     setCustomBackupPath("");
     setIncludeDatabase(false);
     setBackupName("");
@@ -133,6 +137,7 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
   async function openBackup(device: Device) {
     setSelectedDevice(device);
     setSelectedPaths([]);
+    setCustomBackupPathLabel("");
     setCustomBackupPath("");
     setIncludeDatabase(false);
     setBackupName("");
@@ -261,7 +266,7 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
       return;
     }
     try {
-      const savedPath = await saveCustomBackupPath(path);
+      const savedPath = await saveCustomBackupPath(path, customBackupPathLabel);
       setSelectedPaths((current) => uniquePaths([...current, savedPath.path]));
       setBackupTargets((current) => {
         if (current.some((target) => target.path === savedPath.path)) return current;
@@ -270,7 +275,7 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
           ...current,
           {
             key: `custom_${Date.now()}`,
-            label: backupTargetLabelFromPath(savedPath.path),
+            label: savedPath.label,
             path: savedPath.path,
             target_type: targetType,
             browsable: targetType === "directory",
@@ -279,12 +284,13 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
           },
         ];
       });
+      setCustomBackupPathLabel("");
       setCustomBackupPath("");
       setError("");
       showToast({
         tone: "success",
         title: "Auto backup path added",
-        message: savedPath.path,
+        message: `${savedPath.label}: ${savedPath.path}`,
       });
     } catch (errorResponse) {
       showToast({
@@ -399,6 +405,10 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
                 IP address
                 <input value={form.ipAddress} onChange={(event) => setForm({ ...form, ipAddress: event.target.value })} placeholder="172.30.39.101" />
               </label>
+              <label className={styles.checkboxField}>
+                <input checked={form.autoBackupEnabled} onChange={(event) => setForm({ ...form, autoBackupEnabled: event.target.checked })} type="checkbox" />
+                Auto backup this device
+              </label>
             </div>
 
             {error ? <p className={styles.formError}>{error}</p> : null}
@@ -498,7 +508,15 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
                   </div>
                   <div className={styles.customPathRow}>
                     <label>
-                      Add custom path
+                      Path name
+                      <input
+                        value={customBackupPathLabel}
+                        onChange={(event) => setCustomBackupPathLabel(event.target.value)}
+                        placeholder="เช่น Robot rules"
+                      />
+                    </label>
+                    <label>
+                      Remote path
                       <input
                         value={customBackupPath}
                         onChange={(event) => setCustomBackupPath(event.target.value)}
@@ -601,6 +619,7 @@ function buildCreatePayload(form: FormState): DeviceFormPayload {
     device_name: form.deviceName.trim(),
     ip_address: form.ipAddress.trim(),
     device_status: 0,
+    auto_backup_enabled: form.autoBackupEnabled,
   };
 }
 
@@ -615,6 +634,7 @@ function buildUpdatePayload(form: FormState, original: Device): Partial<DeviceFo
   if (deviceCode && deviceCode !== original.code) payload.device_code = deviceCode;
   if (deviceName && deviceName !== original.name) payload.device_name = deviceName;
   if (ipAddress && ipAddress !== original.ip) payload.ip_address = ipAddress;
+  if (form.autoBackupEnabled !== original.autoBackupEnabled) payload.auto_backup_enabled = form.autoBackupEnabled;
 
   return payload;
 }

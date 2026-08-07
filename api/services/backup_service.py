@@ -4,6 +4,7 @@ import re
 import shutil
 import tempfile
 import threading
+import time
 import zipfile
 from datetime import timedelta
 from decimal import Decimal
@@ -22,6 +23,7 @@ from api.services.job_service import (
     acquire_job_lock,
     create_job,
     ensure_pending_auto_backup_job,
+    is_job_lock_active,
     release_job_lock,
     update_job,
 )
@@ -410,23 +412,10 @@ def run_combined_backup(
 
 
 def run_auto_backups(data: schemas.AutoBackupRequest, db: Session) -> schemas.AutoBackupResponse:
-    max_retries = int(os.getenv("AUTO_BACKUP_MAX_RETRIES", "1"))
-    job = create_job(
-        db,
-        job_type="auto_backup",
-        requested_by=data.created_by,
-        max_retries=max_retries,
-        message="Auto backup queued",
-    )
+    max_retries = int(os.getenv("AUTO_BACKUP_MAX_RETRIES", "3"))
+    retry_delay_seconds = float(os.getenv("AUTO_BACKUP_RETRY_DELAY_SECONDS", "15"))
 
     if not _AUTO_BACKUP_LOCK.acquire(blocking=False):
-        update_job(
-            db,
-            job,
-            status=constants.JOB_STATUS_SKIPPED,
-            message="Auto backup is already running in this process",
-            finished=True,
-        )
         raise api_exception(
             status.HTTP_409_CONFLICT,
             "AUTO_BACKUP_ALREADY_RUNNING",
@@ -434,6 +423,7 @@ def run_auto_backups(data: schemas.AutoBackupRequest, db: Session) -> schemas.Au
         )
 
     lock_owner = None
+    job = None
     try:
         lock_owner = acquire_job_lock(
             db,
@@ -441,51 +431,48 @@ def run_auto_backups(data: schemas.AutoBackupRequest, db: Session) -> schemas.Au
             ttl_minutes=int(os.getenv("AUTO_BACKUP_LOCK_MINUTES", "180")),
         )
         if not lock_owner:
-            update_job(
-                db,
-                job,
-                status=constants.JOB_STATUS_SKIPPED,
-                message="Auto backup is already running on another server",
-                finished=True,
-            )
             raise api_exception(
                 status.HTTP_409_CONFLICT,
                 "AUTO_BACKUP_ALREADY_RUNNING",
                 "Auto backup is already running",
             )
 
-        response = _run_auto_backups(data, db, job, max_retries)
+        job = create_job(
+            db,
+            job_type="auto_backup",
+            requested_by=data.created_by,
+            max_retries=max_retries,
+            message="Auto backup queued",
+        )
+        response = _run_auto_backups(data, db, job, max_retries, retry_delay_seconds)
         update_job(
             db,
             job,
-            status=constants.JOB_STATUS_SUCCESS,
-            message=(
-                f"Auto backup completed: checked={response.checked_devices}, "
-                f"online={response.online_devices}, offline={response.skipped_offline}, "
-                f"created={response.backups_created}, failed={response.failed_devices}"
-            ),
+            status=_auto_backup_finished_status(response),
+            message=_auto_backup_completion_message(response),
             finished=True,
         )
         response.job_id = job.job_id
         return response
     except HTTPException as exc:
-        if job.job_status == constants.JOB_STATUS_RUNNING:
+        if job and job.job_status == constants.JOB_STATUS_RUNNING:
             update_job(
                 db,
                 job,
                 status=constants.JOB_STATUS_FAILED,
                 message=str(exc.detail),
                 finished=True,
-            )
+        )
         raise
     except Exception as exc:
-        update_job(
-            db,
-            job,
-            status=constants.JOB_STATUS_FAILED,
-            message=f"Auto backup failed: {exc}",
-            finished=True,
-        )
+        if job:
+            update_job(
+                db,
+                job,
+                status=constants.JOB_STATUS_FAILED,
+                message=f"Auto backup failed: {exc}",
+                finished=True,
+            )
         raise
     finally:
         release_job_lock(db, "auto_backup", lock_owner)
@@ -493,6 +480,9 @@ def run_auto_backups(data: schemas.AutoBackupRequest, db: Session) -> schemas.Au
 
 
 def process_pending_auto_backups(db: Session, limit: int = 20) -> int:
+    if is_job_lock_active(db, "auto_backup"):
+        return 0
+
     pending_jobs = (
         db.query(models.BackupJob)
         .filter(
@@ -564,7 +554,7 @@ def process_pending_auto_backups(db: Session, limit: int = 20) -> int:
                 checked_devices=pending_job.checked_devices + 1,
                 offline_devices=1,
                 retry_count=pending_job.retry_count + 1,
-                message="Device still offline, waiting for next hourly retry",
+                message="Device still offline, waiting for next pending retry",
             )
         processed += 1
 
@@ -576,6 +566,7 @@ def _run_auto_backups(
     db: Session,
     job: models.BackupJob,
     max_retries: int,
+    retry_delay_seconds: float,
 ) -> schemas.AutoBackupResponse:
     username, password, port = require_ssh_credentials()
 
@@ -587,7 +578,11 @@ def _run_auto_backups(
             "No remote paths configured for auto backup",
         )
 
-    devices_query = db.query(models.Device).order_by(models.Device.device_id)
+    devices_query = (
+        db.query(models.Device)
+        .filter(models.Device.auto_backup_enabled.is_(True))
+        .order_by(models.Device.device_id)
+    )
     if data.device_ids:
         devices_query = devices_query.filter(models.Device.device_id.in_(data.device_ids))
     devices = devices_query.all()
@@ -598,6 +593,8 @@ def _run_auto_backups(
     online_devices = 0
     failed_devices = 0
     retry_count = 0
+    checked_devices = 0
+    skipped_device_names = []
 
     update_job(
         db,
@@ -608,7 +605,8 @@ def _run_auto_backups(
 
     for device in devices:
         device_result = None
-        for attempt in range(max_retries + 1):
+        max_attempts = max(max_retries, 1)
+        for attempt in range(max_attempts):
             try:
                 device_result = _run_auto_backup_for_device(
                     db=db,
@@ -621,18 +619,24 @@ def _run_auto_backups(
                 )
                 break
             except Exception as exc:
-                if attempt < max_retries:
+                if attempt < max_attempts - 1:
                     retry_count += 1
                     update_job(
                         db,
                         job,
                         retry_count=retry_count,
-                        message=f"Retrying {device.device_name}: {exc}",
+                        message=(
+                            f"Retrying {device.device_name} "
+                            f"({attempt + 1}/{max_attempts}): {exc}"
+                        ),
                     )
+                    if retry_delay_seconds > 0:
+                        time.sleep(retry_delay_seconds)
                     continue
 
-                failed_devices += 1
                 _mark_device_status(db, device, online=False)
+                _ensure_light_pending_retry(db, device, data.created_by, exc)
+                skipped_device_names.append(_device_label(device))
                 device_result = {
                     "items": [
                         schemas.AutoBackupItemResponse(
@@ -642,12 +646,15 @@ def _run_auto_backups(
                             remote_path=", ".join(remote_paths),
                             online=False,
                             changed=False,
-                            message=f"Auto backup failed after retry: {exc}",
+                            message=(
+                                "Skipped after retries; device marked offline and pending retry will check "
+                                f"again later: {exc}"
+                            ),
                         )
                     ],
                     "online": False,
                     "backup_created": False,
-                    "offline": False,
+                    "offline": True,
                 }
 
         items.extend(device_result["items"])
@@ -657,19 +664,21 @@ def _run_auto_backups(
             skipped_offline += 1
         if device_result["backup_created"]:
             backups_created += 1
+        checked_devices += 1
 
         update_job(
             db,
             job,
-            checked_devices=online_devices + skipped_offline + failed_devices,
+            checked_devices=checked_devices,
             online_devices=online_devices,
             offline_devices=skipped_offline,
             backups_created=backups_created,
             failed_devices=failed_devices,
             retry_count=retry_count,
-            message=(
-                f"Auto backup progress: checked={online_devices + skipped_offline + failed_devices}/"
-                f"{len(devices)}"
+            message=_auto_backup_progress_message(
+                checked_devices=checked_devices,
+                total_devices=len(devices),
+                skipped_device_names=skipped_device_names,
             ),
         )
 
@@ -682,6 +691,56 @@ def _run_auto_backups(
         failed_devices=failed_devices,
         items=items,
     )
+
+
+def _auto_backup_finished_status(response: schemas.AutoBackupResponse) -> int:
+    if response.failed_devices > 0:
+        return constants.JOB_STATUS_FAILED
+    if response.checked_devices > 0 and response.online_devices == 0:
+        return constants.JOB_STATUS_SKIPPED
+    return constants.JOB_STATUS_SUCCESS
+
+
+def _auto_backup_completion_message(response: schemas.AutoBackupResponse) -> str:
+    message = (
+        f"Auto backup completed: checked={response.checked_devices}, "
+        f"online={response.online_devices}, offline={response.skipped_offline}, "
+        f"created={response.backups_created}, failed={response.failed_devices}"
+    )
+    skipped_names = [
+        f"{item.device_name} ({item.ip_address})"
+        for item in response.items
+        if not item.online
+    ]
+    if skipped_names:
+        message = f"{message}; skipped={_compact_device_names(skipped_names)}"
+    return message
+
+
+def _auto_backup_progress_message(
+    checked_devices: int,
+    total_devices: int,
+    skipped_device_names: List[str],
+) -> str:
+    message = f"Auto backup progress: checked={checked_devices}/{total_devices}"
+    if skipped_device_names:
+        message = f"{message}; skipped={_compact_device_names(skipped_device_names)}"
+    return message
+
+
+def _compact_device_names(device_names: List[str], limit: int = 6) -> str:
+    visible_names = device_names[:limit]
+    hidden_count = max(len(device_names) - limit, 0)
+    message = ", ".join(visible_names)
+    if hidden_count:
+        message = f"{message}, +{hidden_count} more"
+    return message
+
+
+def _device_label(device: models.Device) -> str:
+    if device.ip_address:
+        return f"{device.device_name} ({device.ip_address})"
+    return device.device_name
 
 
 def _run_auto_backup_for_device(
@@ -720,29 +779,7 @@ def _run_auto_backup_for_device(
             )
             continue
         except Exception as exc:
-            _mark_device_status(db, device, online=False)
-            ensure_pending_auto_backup_job(
-                db,
-                device_id=device.device_id,
-                requested_by=data.created_by,
-                message=f"Device offline, waiting for hourly retry: {exc}",
-            )
-            return {
-                "items": [
-                    schemas.AutoBackupItemResponse(
-                        device_id=device.device_id,
-                        ip_address=device.ip_address,
-                        device_name=device.device_name,
-                        remote_path=remote_path,
-                        online=False,
-                        changed=False,
-                        message=f"Skipped offline or unreachable device: {exc}",
-                    )
-                ],
-                "online": False,
-                "offline": True,
-                "backup_created": False,
-            }
+            raise RuntimeError(f"SFTP check failed for {remote_path}: {exc}") from exc
 
         changed = _remote_snapshot_changed(snapshot, latest_backup, remote_path)
         path_checks.append((remote_path, snapshot, changed))
@@ -773,7 +810,11 @@ def _run_auto_backup_for_device(
             if database_dump
             else False
         )
-        existing_remote_paths = [remote_path for remote_path, _, _ in path_checks]
+        changed_remote_paths = [
+            remote_path
+            for remote_path, _, changed in path_checks
+            if changed
+        ]
         has_changes = any(changed for _, _, changed in path_checks) or database_changed
 
         backup_created = False
@@ -782,8 +823,8 @@ def _run_auto_backup_for_device(
                 db=db,
                 device=device,
                 created_by=data.created_by,
-                remote_paths=existing_remote_paths,
-                database_dump=database_dump,
+                remote_paths=changed_remote_paths,
+                database_dump=database_dump if database_changed else None,
                 zip_output=data.zip_output,
             )
             backup_created = True
@@ -837,6 +878,26 @@ def _run_auto_backup_for_device(
         "offline": False,
         "backup_created": backup_created,
     }
+
+
+def _ensure_light_pending_retry(
+    db: Session,
+    device: models.Device,
+    requested_by: Optional[int],
+    exc: Exception,
+) -> None:
+    if os.getenv("AUTO_BACKUP_PENDING_ENABLED", "true").lower() != "true":
+        return
+
+    ensure_pending_auto_backup_job(
+        db=db,
+        device_id=device.device_id,
+        requested_by=requested_by,
+        message=(
+            "Device offline after auto backup retries; "
+            f"waiting for lightweight pending retry: {exc}"
+        ),
+    )
 
 
 def backup_history_response(backup: models.Backup) -> schemas.BackupHistoryResponse:

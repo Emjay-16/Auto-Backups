@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import {
   checkDeviceStatus,
-  backupTargetLabelFromPath,
   backupTargetTypeFromPath,
   getBackupTargets,
   listDeviceFiles,
@@ -38,6 +37,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
   const [backupTargets, setBackupTargets] = useState<BackupTarget[]>([]);
   const [browserPath, setBrowserPath] = useState("");
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
+  const [customPathLabel, setCustomPathLabel] = useState("");
   const [customPath, setCustomPath] = useState("");
   const [backupName, setBackupName] = useState("");
   const [isBackupNamePromptOpen, setIsBackupNamePromptOpen] = useState(false);
@@ -83,6 +83,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
     setBackupResult(null);
     setBrowserPath("");
     setSelectedPaths([]);
+    setCustomPathLabel("");
     setCustomPath("");
     setBackupName("");
     setIsBackupNamePromptOpen(false);
@@ -99,6 +100,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
       setLiveStatus(status);
       setBackupTargets(targets);
       setSelectedPaths([]);
+      setCustomPathLabel("");
     } catch (errorResponse) {
       if (deviceRequestIdRef.current !== requestId) return;
       showToast({ tone: "error", title: "Load device status failed", message: getErrorMessage(errorResponse, "Load device status failed") });
@@ -131,6 +133,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
       setBackupResult(null);
       setBrowserPath("");
       setSelectedPaths([]);
+      setCustomPathLabel("");
       setCustomPath("");
       setBackupName("");
       setIsBackupNamePromptOpen(false);
@@ -395,7 +398,15 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
                 </div>
                 <div className={styles.customPathRow}>
                   <label>
-                    Add custom path
+                    Path name
+                    <input
+                      value={customPathLabel}
+                      onChange={(event) => setCustomPathLabel(event.target.value)}
+                      placeholder="เช่น Robot rules"
+                    />
+                  </label>
+                  <label>
+                    Remote path
                     <input
                       value={customPath}
                       onChange={(event) => setCustomPath(event.target.value)}
@@ -587,7 +598,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
     }
     setLoading("addPath");
     try {
-      const savedPath = await saveCustomBackupPath(path);
+      const savedPath = await saveCustomBackupPath(path, customPathLabel);
       setSelectedPaths((current) => uniquePaths([...current, savedPath.path]));
       setBackupTargets((current) => {
         if (current.some((target) => target.path === savedPath.path)) return current;
@@ -596,7 +607,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
           ...current,
           {
             key: `custom_${Date.now()}`,
-            label: backupTargetLabelFromPath(savedPath.path),
+            label: savedPath.label,
             path: savedPath.path,
             target_type: targetType,
             browsable: targetType === "directory",
@@ -605,6 +616,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
           },
         ];
       });
+      setCustomPathLabel("");
       setCustomPath("");
       setError("");
       showToast({

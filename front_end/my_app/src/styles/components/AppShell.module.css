@@ -639,6 +639,17 @@
   color: var(--success);
 }
 
+.statusBox .statusRunning {
+  color: #1d4ed8;
+}
+
+.statusBox:has(.statusRunning) {
+  border-color: #93c5fd;
+  background:
+    radial-gradient(circle at 92% 14%, rgba(37, 99, 235, 0.12), transparent 6rem),
+    linear-gradient(180deg, #eff6ff, #ffffff);
+}
+
 .statusBox .statusUnavailable {
   color: var(--muted-soft);
 }
@@ -693,6 +704,15 @@
   .navItem b {
     display: none;
   }
+
+  .topbar {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .topActions {
+    grid-template-columns: minmax(0, 1fr) 44px minmax(118px, 132px) minmax(132px, 146px);
+  }
 }
 
 @media (max-width: 780px) {
@@ -711,6 +731,14 @@
     box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
   }
 
+  .brand {
+    flex: 0 0 auto;
+  }
+
+  .brand div:last-child {
+    display: none;
+  }
+
   .workspace::before {
     display: none;
   }
@@ -722,6 +750,7 @@
   }
 
   .nav {
+    min-width: 0;
     flex-direction: row;
     gap: 10px;
   }
@@ -734,7 +763,7 @@
   .topbar {
     grid-template-columns: 1fr;
     position: static;
-    margin: 14px 18px 18px;
+    margin: 12px 14px 16px;
     padding: 16px;
     border-radius: 20px;
   }
@@ -748,15 +777,56 @@
   .dateBox {
     display: none;
   }
+
+  .notificationPanel {
+    position: fixed;
+    top: 86px;
+    right: 14px;
+    left: 14px;
+    width: auto;
+    max-height: min(520px, calc(100vh - 110px));
+  }
 }
 
 @media (max-width: 520px) {
+  .sidebar {
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .brandMark,
+  .avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+  }
+
+  .nav {
+    gap: 7px;
+  }
+
+  .navGroup {
+    gap: 7px;
+  }
+
+  .navItem {
+    width: 46px;
+    min-height: 44px;
+  }
+
   .topbar h1 {
     font-size: 25px;
   }
 
+  .topbar {
+    margin: 10px 10px 14px;
+    padding: 13px;
+    border-radius: 18px;
+  }
+
   .topActions {
     grid-template-columns: minmax(0, 1fr) 44px;
+    gap: 6px;
   }
 
   .statusBox {

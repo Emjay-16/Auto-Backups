@@ -54,6 +54,7 @@ class DeviceBase(BaseModel):
     device_name: str
     ip_address: str
     device_status: int
+    auto_backup_enabled: bool = True
     last_seen_at: Optional[datetime] = None
 
 
@@ -67,6 +68,7 @@ class DeviceUpdate(BaseModel):
     device_name: Optional[str] = None
     ip_address: Optional[str] = None
     device_status: Optional[int] = None
+    auto_backup_enabled: Optional[bool] = None
     last_seen_at: Optional[datetime] = None
 
 
@@ -122,11 +124,18 @@ class BackupTargetResponse(BaseModel):
 
 class CustomBackupPathRequest(BaseModel):
     path: str
+    label: Optional[str] = None
 
 
 class CustomBackupPathResponse(BaseModel):
     path: str
+    label: str
     message: str
+
+
+class BackupPathLabelRequest(BaseModel):
+    path: str
+    label: str
 
 
 class DeviceSeedResponse(BaseModel):

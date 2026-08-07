@@ -158,6 +158,15 @@ def acquire_job_lock(
         return None
 
     if lock and lock.expires_at > now:
+        if _is_stale_same_host_lock(lock.locked_by):
+            db.delete(lock)
+            db.commit()
+            lock = None
+        else:
+            db.rollback()
+            return None
+
+    if lock and lock.expires_at > now:
         db.rollback()
         return None
 
@@ -195,3 +204,43 @@ def release_job_lock(db: Session, lock_name: str, owner: Optional[str]) -> None:
 
     db.delete(lock)
     db.commit()
+
+
+def is_job_lock_active(db: Session, lock_name: str) -> bool:
+    now = now_local()
+    lock = (
+        db.query(models.JobLock)
+        .filter(models.JobLock.lock_name == lock_name)
+        .first()
+    )
+    if not lock or lock.expires_at <= now:
+        return False
+    if _is_stale_same_host_lock(lock.locked_by):
+        db.delete(lock)
+        db.commit()
+        return False
+    return True
+
+
+def _is_stale_same_host_lock(locked_by: str) -> bool:
+    parts = locked_by.split(":", 2)
+    if len(parts) < 2:
+        return False
+
+    host, pid_text = parts[0], parts[1]
+    if host != socket.gethostname():
+        return False
+
+    try:
+        pid = int(pid_text)
+    except ValueError:
+        return False
+
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return True
+    except PermissionError:
+        return False
+
+    return False

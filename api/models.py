@@ -1,4 +1,4 @@
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, Numeric, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, Numeric, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from api.database import Base
@@ -46,6 +46,7 @@ class Device(Base):
     device_name = Column(Text, nullable=False)
     ip_address = Column(Text, nullable=False)
     device_status = Column(Integer, nullable=False, default=0)
+    auto_backup_enabled = Column(Boolean, nullable=False, default=True)
     last_seen_at = Column(DateTime)
     created_at = Column(DateTime, nullable=False)
     updated_at = Column(DateTime, nullable=False)

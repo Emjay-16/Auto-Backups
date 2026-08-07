@@ -843,7 +843,51 @@
   padding: 12px;
 }
 
-.pathList p {
+.pathPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 12px 0;
+}
+
+.panelGearButton {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #cfe0f4;
+  border-radius: 11px;
+  background: linear-gradient(180deg, #ffffff, #f3f8ff);
+  color: #2563eb;
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.panelGearButton:hover {
+  border-color: #93c5fd;
+  background: #dbeafe;
+}
+
+.pathPanelHeader span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.pathPanelHeader button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.pathList > p {
   overflow: hidden;
   padding: 9px 10px;
   border: 1px solid rgba(220, 231, 243, 0.85);
@@ -858,28 +902,128 @@
 
 .pathItem {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 7px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
   align-items: center;
+  padding: 9px 10px;
+  border: 1px solid rgba(220, 231, 243, 0.85);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
 }
 
 .pathItem p {
   min-width: 0;
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #223149;
+  white-space: normal;
 }
 
-.pathItem button {
-  min-height: 32px;
-  padding: 0 10px;
-  border: 1px solid #fecaca;
-  border-radius: 999px;
-  background: #fff7f7;
-  color: #dc2626;
+.pathItem strong,
+.pathItem span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pathItem strong {
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.pathItem span {
+  color: var(--muted);
   font-size: 11px;
+  font-weight: 760;
+}
+
+.pathManageButton {
+  width: 32px;
+  min-height: 32px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #cfe0f4;
+  border-radius: 10px;
+  background: #f8fbff;
+  color: #2563eb;
+  font-size: 14px;
   font-weight: 900;
 }
 
-.pathItem button:hover {
-  background: #fee2e2;
+.pathManageButton:hover,
+.pathPanelHeader button:hover {
+  border-color: #93c5fd;
+  background: #dbeafe;
+}
+
+.pathForm {
+  grid-template-columns: 1fr;
+}
+
+.pathManager {
+  display: grid;
+  gap: 16px;
+}
+
+.pathManagerList {
+  display: grid;
+  gap: 8px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.pathManagerItem {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 11px 12px;
+  border: 1px solid rgba(220, 231, 243, 0.9);
+  border-radius: 13px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+}
+
+.pathManagerItem div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.pathManagerItem strong,
+.pathManagerItem span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pathManagerItem strong {
+  color: #162235;
+  font-size: 13px;
+  font-weight: 950;
+}
+
+.pathManagerItem span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.pathManagerItem button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: 11px;
+  font-weight: 900;
 }
 
 .fieldHint {
@@ -1150,7 +1294,7 @@
 
 .customPathRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(150px, 0.42fr) minmax(220px, 1fr) auto;
   align-items: end;
   gap: 12px;
 }
@@ -1949,6 +2093,22 @@
 }
 
 @media (max-width: 900px) {
+  .page {
+    grid-template-columns: 1fr;
+  }
+
+  .overviewPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .summaryGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .rightColumn {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .cards {
     grid-template-columns: 1fr;
   }
@@ -1956,7 +2116,25 @@
 
 @media (max-width: 780px) {
   .page {
-    padding: 0 14px 18px;
+    gap: 10px;
+    padding: 0 12px 18px;
+  }
+
+  .rightColumn {
+    grid-template-columns: 1fr;
+  }
+
+  .overviewPanel,
+  .commandPanel {
+    border-radius: 16px;
+  }
+
+  .sectionIntro h2 {
+    font-size: 21px;
+  }
+
+  .summaryGrid {
+    grid-template-columns: 1fr;
   }
 
   .table {
@@ -1991,5 +2169,26 @@
   .fileRow > b {
     grid-column: 2;
     justify-self: start;
+  }
+
+  .modal,
+  .deviceHistoryModal {
+    width: 100%;
+    max-height: calc(100vh - 28px);
+    border-radius: 18px;
+  }
+
+  .modalHeader,
+  .modalActions {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .modalBody,
+  .browserBody,
+  .selectionPanel,
+  .detailBody {
+    padding-right: 16px;
+    padding-left: 16px;
   }
 }

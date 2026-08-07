@@ -1,9 +1,13 @@
+import logging
 import threading
 import time
 from dataclasses import dataclass
 from typing import Optional
 
 from api.services.json_state import JsonStateManager
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -70,7 +74,7 @@ def auto_cleanup_loop(stop_event: threading.Event, cleanup_func) -> None:
             try:
                 cleanup_func(settings)
             except Exception:
-                pass
+                logger.exception("Auto cleanup background loop failed")
 
         sleep_until = time.monotonic() + max(settings.interval_hours, 1) * 60 * 60
         while not stop_event.is_set() and time.monotonic() < sleep_until:

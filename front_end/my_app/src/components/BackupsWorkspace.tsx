@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   backupDownloadUrl,
+  backupTargetTypeFromPath,
   cleanupBackups,
   deleteCustomBackupPath,
   getAutoBackupSettings,
@@ -11,6 +12,7 @@ import {
   getBackupDetail,
   listDeviceFiles,
   runCombinedBackup,
+  saveBackupPathLabel,
   saveCustomBackupPath,
   updateAutoBackupSettings,
   updateAutoCleanupSettings,
@@ -31,7 +33,7 @@ import { Panel } from "./Panel";
 import { StatusBadge } from "./StatusBadge";
 import { useToast } from "./ToastProvider";
 
-type ModalMode = "backup" | "browse" | "cleanup" | "autoBackup" | "detail" | null;
+type ModalMode = "backup" | "browse" | "cleanup" | "autoBackup" | "detail" | "path" | null;
 
 export function BackupsWorkspace({
   backups,
@@ -49,7 +51,9 @@ export function BackupsWorkspace({
   const [deviceId, setDeviceId] = useState(String(usableDevices[0]?.id ?? ""));
   const [backupName, setBackupName] = useState("");
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
+  const [customPathLabel, setCustomPathLabel] = useState("");
   const [customPath, setCustomPath] = useState("");
+  const [addedBackupTargets, setAddedBackupTargets] = useState<BackupTarget[]>([]);
   const [includeDatabase, setIncludeDatabase] = useState(false);
   const [zipOutput, setZipOutput] = useState(false);
   const [browsePath, setBrowsePath] = useState(targets.find((target) => target.browsable)?.path ?? targets[0]?.path ?? "");
@@ -75,8 +79,13 @@ export function BackupsWorkspace({
   const [saving, setSaving] = useState(false);
   const [pendingDeleteBackup, setPendingDeleteBackup] = useState<Backup | null>(null);
   const [pendingDeletePath, setPendingDeletePath] = useState<string | null>(null);
+  const [editingPathTarget, setEditingPathTarget] = useState<BackupTarget | null>(null);
   const [selectedDeviceBackups, setSelectedDeviceBackups] = useState("");
-  const defaultBrowsePath = targets.find((target) => target.browsable)?.path ?? targets[0]?.path ?? "";
+  const backupTargets = useMemo(
+    () => mergeBackupTargets(targets, addedBackupTargets),
+    [targets, addedBackupTargets],
+  );
+  const defaultBrowsePath = backupTargets.find((target) => target.browsable)?.path ?? backupTargets[0]?.path ?? "";
   const backupSelectionCount = selectedPaths.length + (includeDatabase ? 1 : 0);
   const backupStats = useMemo(() => buildBackupStats(backups, usableDevices), [backups, usableDevices]);
   const selectedDeviceBackupSummary = useMemo(
@@ -89,6 +98,8 @@ export function BackupsWorkspace({
       ? "Cleanup old backups"
       : mode === "browse"
         ? "Browse robot files"
+        : mode === "path"
+          ? editingPathTarget ? "Edit backup path" : "Add backup path"
         : mode === "detail"
           ? "Backup detail"
           : "Run backup";
@@ -136,6 +147,7 @@ export function BackupsWorkspace({
   function openBackupModal(databaseOnly = false) {
     setBackupName("");
     setSelectedPaths([]);
+    setCustomPathLabel("");
     setCustomPath("");
     setIncludeDatabase(databaseOnly);
     setZipOutput(false);
@@ -144,12 +156,24 @@ export function BackupsWorkspace({
     openModal("backup");
   }
 
+  function openPathModal(target: BackupTarget | null = null) {
+    setEditingPathTarget(target);
+    setCustomPathLabel(target?.label ?? "");
+    setCustomPath(target?.path ?? "");
+    openModal("path");
+  }
+
   function closeModal() {
     if (saving) return;
     if (mode === "browse") {
       setBrowsePath(defaultBrowsePath);
       setRemoteFiles([]);
       setOpenedPath("");
+    }
+    if (mode === "path") {
+      setEditingPathTarget(null);
+      setCustomPathLabel("");
+      setCustomPath("");
     }
     setMode(null);
     setResult(null);
@@ -378,7 +402,7 @@ export function BackupsWorkspace({
         return current.filter((item) => item !== path);
       }
 
-      const parentFolder = findParentFolder(path, current, targets) ?? findOpenedParentFolder(path, openedPath);
+      const parentFolder = findParentFolder(path, current, backupTargets) ?? findOpenedParentFolder(path, openedPath);
       const next = [
         ...(parentFolder ? current.filter((item) => item !== parentFolder) : current),
         path,
@@ -402,10 +426,10 @@ export function BackupsWorkspace({
   }
 
   function selectAllBackupTargets() {
-    setSelectedPaths(uniquePaths(targets
+    setSelectedPaths(uniquePaths(backupTargets
       .filter((target) => target.backup_api !== "robot_db")
       .map((target) => target.path)));
-    setIncludeDatabase(targets.some((target) => target.backup_api === "robot_db"));
+    setIncludeDatabase(backupTargets.some((target) => target.backup_api === "robot_db"));
   }
 
   function clearBackupTargets() {
@@ -413,23 +437,53 @@ export function BackupsWorkspace({
     setIncludeDatabase(false);
   }
 
-  async function addCustomPath() {
+  async function saveCustomPath() {
     const path = customPath.trim();
     if (!path) return;
-    if (!path.startsWith("/")) {
+    if (!editingPathTarget && !path.startsWith("/")) {
       setError("Custom backup path must start with /");
       return;
     }
+    setSaving(true);
     try {
-      const savedPath = await saveCustomBackupPath(path);
-      setSelectedPaths((current) => uniquePaths([...current, savedPath.path]));
+      const savedPath = editingPathTarget && !editingPathTarget.removable
+        ? await saveBackupPathLabel(path, customPathLabel)
+        : await saveCustomBackupPath(path, customPathLabel);
+      if (!editingPathTarget && savedPath.path.startsWith("/")) {
+        setSelectedPaths((current) => uniquePaths([...current, savedPath.path]));
+      }
+      setAddedBackupTargets((current) => {
+        if (current.some((target) => target.path === savedPath.path)) {
+          return current.map((target) => (
+            target.path === savedPath.path
+              ? { ...target, label: savedPath.label }
+              : target
+          ));
+        }
+
+        const targetType = editingPathTarget?.target_type ?? backupTargetTypeFromPath(savedPath.path);
+        return [
+          ...current,
+          {
+            key: editingPathTarget?.key ?? `custom_${Date.now()}`,
+            label: savedPath.label,
+            path: savedPath.path,
+            target_type: targetType,
+            browsable: editingPathTarget?.browsable ?? targetType === "directory",
+            backup_api: editingPathTarget?.backup_api ?? "file",
+            removable: editingPathTarget?.removable ?? true,
+          },
+        ];
+      });
+      setCustomPathLabel("");
       setCustomPath("");
       setError("");
       showToast({
         tone: "success",
-        title: "Auto backup path added",
-        message: savedPath.path,
+        title: editingPathTarget ? "Backup path renamed" : "Auto backup path added",
+        message: `${savedPath.label}: ${savedPath.path}`,
       });
+      setEditingPathTarget(null);
       router.refresh();
     } catch (errorResponse) {
       showToast({
@@ -437,11 +491,19 @@ export function BackupsWorkspace({
         title: "Save auto backup path failed",
         message: getErrorMessage(errorResponse, "Save auto backup path failed"),
       });
+    } finally {
+      setSaving(false);
     }
   }
 
   function requestDeleteCustomPath(path: string) {
     setPendingDeletePath(path);
+    if (mode === "path") {
+      setMode(null);
+      setEditingPathTarget(null);
+      setCustomPathLabel("");
+      setCustomPath("");
+    }
     setError("");
   }
 
@@ -496,6 +558,7 @@ export function BackupsWorkspace({
       await deleteCustomBackupPath(path);
       setPendingDeletePath(null);
       setSelectedPaths((current) => current.filter((selectedPath) => selectedPath !== path));
+      setAddedBackupTargets((current) => current.filter((target) => target.path !== path));
       showToast({
         tone: "success",
         title: "Auto backup path removed",
@@ -713,17 +776,28 @@ export function BackupsWorkspace({
         </section>
 
         <div className={styles.sideStack}>
-          <Panel title="Backup Paths">
+          <Panel
+            title="Backup Paths"
+            action={(
+              <button
+                aria-label="Manage backup paths"
+                className={styles.panelGearButton}
+                onClick={() => openPathModal()}
+                title="Manage backup paths"
+                type="button"
+              >
+                ⚙
+              </button>
+            )}
+          >
             <div className={styles.pathList}>
-              {targets.length ? (
-                targets.map((target) => (
+              {backupTargets.length ? (
+                backupTargets.map((target) => (
                   <div className={styles.pathItem} key={`${target.backup_api}:${target.path}:${target.key}`}>
-                    <p>{target.label}: {target.path}</p>
-                    {target.removable ? (
-                      <button onClick={() => requestDeleteCustomPath(target.path)} type="button">
-                        Delete
-                      </button>
-                    ) : null}
+                    <p>
+                      <strong>{target.label}</strong>
+                      <span>{target.path}</span>
+                    </p>
                   </div>
                 ))
               ) : (
@@ -774,6 +848,16 @@ export function BackupsWorkspace({
                 </button>
               ) : null}
               {mode === "browse" ? <button onClick={browseFiles} disabled={saving} type="button">{saving ? "Loading..." : "Load files"}</button> : null}
+              {mode === "path" && editingPathTarget?.removable ? (
+                <button className={styles.dangerButton} onClick={() => requestDeleteCustomPath(editingPathTarget.path)} disabled={saving} type="button">
+                  Delete path
+                </button>
+              ) : null}
+              {mode === "path" ? (
+                <button onClick={() => void saveCustomPath()} disabled={saving || !customPath.trim()} type="button">
+                  {saving ? "Saving..." : editingPathTarget ? "Save name" : "Save path"}
+                </button>
+              ) : null}
               {mode === "autoBackup" ? <button onClick={saveAutoBackupSettings} disabled={saving} type="button">{saving ? "Saving..." : "Save settings"}</button> : null}
               {mode === "cleanup" ? <button onClick={saveCleanupSettings} disabled={saving} type="button">{saving ? "Saving..." : "Save settings"}</button> : null}
               {mode === "cleanup" ? <button onClick={submitCleanup} disabled={saving} type="button">{saving ? "Cleaning..." : "Run cleanup"}</button> : null}
@@ -883,6 +967,61 @@ export function BackupsWorkspace({
                 Keep latest per device
               </label>
             </div>
+          ) : mode === "path" ? (
+            <div className={styles.pathManager}>
+              <div className={`${styles.formGrid} ${styles.pathForm}`}>
+                <label>
+                  Path name
+                  <input
+                    value={customPathLabel}
+                    onChange={(event) => setCustomPathLabel(event.target.value)}
+                    placeholder="เช่น Robot rules"
+                  />
+                  <span className={styles.fieldHint}>
+                    ชื่อนี้จะแสดงใน Backup Paths และรายการ selection
+                  </span>
+                </label>
+                <label>
+                  Remote path
+                  <input
+                    value={customPath}
+                    onChange={(event) => setCustomPath(event.target.value)}
+                    disabled={Boolean(editingPathTarget)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void saveCustomPath();
+                      }
+                    }}
+                    placeholder="/home/matrix/path/to/file-or-folder"
+                  />
+                  <span className={styles.fieldHint}>
+                    {editingPathTarget ? "แก้ path ไม่ได้ ถ้าต้องการเปลี่ยน path ให้ลบแล้วเพิ่มใหม่" : "เพิ่ม custom path ใหม่สำหรับ auto backup"}
+                  </span>
+                </label>
+              </div>
+
+              <div className={styles.pathManagerList}>
+                {backupTargets.map((target) => (
+                  <article className={styles.pathManagerItem} key={`${target.backup_api}:${target.path}:${target.key}`}>
+                    <div>
+                      <strong>{target.label}</strong>
+                      <span>{target.path}</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setEditingPathTarget(target);
+                        setCustomPathLabel(target.label);
+                        setCustomPath(target.path);
+                      }}
+                      type="button"
+                    >
+                      Edit
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </div>
           ) : (
             <div className={mode === "backup" ? `${styles.formGrid} ${styles.backupForm}` : styles.formGrid}>
               <label>
@@ -933,12 +1072,13 @@ export function BackupsWorkspace({
                         <span>{backupSelectionCount} selected</span>
                       </div>
                       <div className={styles.selectionActions}>
+                        <button onClick={() => openPathModal()} type="button">Add path</button>
                         <button onClick={selectAllBackupTargets} type="button">Select all</button>
                         <button disabled={!backupSelectionCount} onClick={clearBackupTargets} type="button">Clear</button>
                       </div>
                     </div>
                     <div className={styles.targetList}>
-                      {targets.length ? targets.map((target) => (
+                      {backupTargets.length ? backupTargets.map((target) => (
                         <label key={`${target.backup_api}:${target.path}:${target.key}`}>
                           <input
                             checked={target.backup_api === "robot_db" ? includeDatabase : selectedPaths.includes(target.path)}
@@ -971,23 +1111,6 @@ export function BackupsWorkspace({
                         <p className={styles.emptyText}>No backup targets configured</p>
                       )}
                     </div>
-                  </div>
-                  <div className={styles.customPathRow}>
-                    <label>
-                      Add custom path
-                      <input
-                        value={customPath}
-                        onChange={(event) => setCustomPath(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            void addCustomPath();
-                          }
-                        }}
-                        placeholder="/home/matrix/path/to/file-or-folder"
-                      />
-                    </label>
-                    <button onClick={() => void addCustomPath()} type="button">Add path</button>
                   </div>
                   {backupSelectionCount ? (
                     <div className={styles.selectedPathList} aria-label="Selected backup targets">
@@ -1288,6 +1411,13 @@ function normalizeZipFilename(filename: string): string {
   const fallback = "backup";
   const name = safeName || fallback;
   return name.toLowerCase().endsWith(".zip") ? name : `${name}.zip`;
+}
+
+function mergeBackupTargets(baseTargets: BackupTarget[], addedTargets: BackupTarget[]): BackupTarget[] {
+  const targetByPath = new Map<string, BackupTarget>();
+  baseTargets.forEach((target) => targetByPath.set(target.path, target));
+  addedTargets.forEach((target) => targetByPath.set(target.path, target));
+  return Array.from(targetByPath.values());
 }
 
 function findParentFolder(path: string, selectedPaths: string[], targets: BackupTarget[]): string | null {

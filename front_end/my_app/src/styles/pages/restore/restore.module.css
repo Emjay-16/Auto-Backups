@@ -757,7 +757,7 @@
 
 @media (max-width: 780px) {
   .page {
-    padding: 0 14px 18px;
+    padding: 0 12px 18px;
   }
 
   .restoreHeader {
@@ -770,14 +770,43 @@
   }
 
   .dialogBackdrop {
+    align-items: start;
     padding: 12px;
+  }
+
+  .dialog {
+    width: 100%;
+    max-height: calc(100vh - 24px);
+    border-radius: 18px;
   }
 
   .dialogHeader,
   .dialogFooter,
   .dialogActions,
   .files {
-    padding-right: 12px;
-    padding-left: 12px;
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .fileRow span,
+  .fileRow strong,
+  .targetPathField input {
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .targetPathField {
+    min-width: 0;
+  }
+
+  .dialogActions,
+  .dialogActions div,
+  .dialogFooter {
+    flex-wrap: wrap;
+  }
+
+  .dialogActions button,
+  .dialogFooter button {
+    flex: 1 1 150px;
   }
 }

@@ -12,7 +12,7 @@ from api.services.cleanup_state import (
     update_auto_cleanup_settings,
 )
 from api.services.auto_backup_state import get_auto_backup_settings, update_auto_backup_settings
-from api.services.backup_targets import add_custom_auto_backup_path, delete_custom_auto_backup_path
+from api.services.backup_targets import add_custom_auto_backup_path, delete_custom_auto_backup_path, save_backup_path_label
 from api.services.backup_service import (
     cleanup_old_backups,
     delete_backup,
@@ -135,7 +135,7 @@ def add_auto_backup_path(
     data: schemas.CustomBackupPathRequest,
 ):
     try:
-        path = add_custom_auto_backup_path(data.path)
+        target = add_custom_auto_backup_path(data.path, data.label)
     except ValueError as exc:
         raise api_exception(
             400,
@@ -144,7 +144,8 @@ def add_auto_backup_path(
         )
 
     return schemas.CustomBackupPathResponse(
-        path=path,
+        path=target.path,
+        label=target.label,
         message="Custom auto backup path saved",
     )
 
@@ -169,7 +170,28 @@ def delete_auto_backup_path(path: str):
 
     return schemas.CustomBackupPathResponse(
         path=path,
+        label=path,
         message="Custom auto backup path deleted",
+    )
+
+
+@router.put("/auto-path-label", response_model=schemas.CustomBackupPathResponse)
+def update_auto_backup_path_label(
+    data: schemas.BackupPathLabelRequest,
+):
+    try:
+        target = save_backup_path_label(data.path, data.label)
+    except ValueError as exc:
+        raise api_exception(
+            400,
+            "INVALID_BACKUP_PATH_LABEL",
+            str(exc),
+        )
+
+    return schemas.CustomBackupPathResponse(
+        path=target.path,
+        label=target.label,
+        message="Backup path label saved",
     )
 
 

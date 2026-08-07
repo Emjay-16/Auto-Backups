@@ -7,6 +7,7 @@ export type Device = {
   groupId?: number;
   code?: string;
   rawStatus?: number;
+  autoBackupEnabled: boolean;
   name: string;
   group: "AMR" | "SMR" | "SMRL";
   ip: string;

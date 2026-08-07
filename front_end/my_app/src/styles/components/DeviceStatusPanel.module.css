@@ -424,7 +424,7 @@
 
 .customPathRow {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 116px;
+  grid-template-columns: minmax(150px, 0.42fr) minmax(220px, 1fr) 116px;
   align-items: end;
   gap: 12px;
   padding: 12px;
@@ -970,11 +970,82 @@
   }
 
   .overlay {
-    padding: 18px 14px;
+    align-items: start;
+    padding: 12px;
   }
 
   .modal {
-    max-height: calc(100vh - 36px);
+    width: 100%;
+    max-height: calc(100vh - 24px);
+    border-radius: 18px;
+  }
+
+  .modalHeader,
+  .modalBody,
+  .actions {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .modalHeader {
+    gap: 12px;
+  }
+
+  .modalHeader h2 {
+    font-size: 22px;
+  }
+
+  .targetRow,
+  .fileRow,
+  .selectedPathItem {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .targetMeta,
+  .targetRow button,
+  .fileRow button,
+  .fileRow b {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .targetRow span,
+  .fileRow span,
+  .selectedPathItem span {
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .actions {
+    flex-wrap: wrap;
+  }
+
+  .actions button {
+    flex: 1 1 150px;
+  }
+}
+
+@media (max-width: 520px) {
+  .card {
+    min-height: 174px;
+  }
+
+  .modalHeader {
+    padding-top: 18px;
+    padding-bottom: 18px;
+  }
+
+  .namePrompt {
+    padding: 12px;
+  }
+
+  .namePromptActions {
+    flex-direction: column-reverse;
+  }
+
+  .namePromptActions button {
+    width: 100%;
+    justify-content: center;
   }
 }
 

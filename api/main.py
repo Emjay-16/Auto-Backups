@@ -143,12 +143,12 @@ def stop_background_jobs():
     _backup_stop_event.set()
     _cleanup_stop_event.set()
     _pending_backup_stop_event.set()
-    if _pending_backup_thread:
-        _pending_backup_thread.join(timeout=5)
     if _backup_thread:
         _backup_thread.join(timeout=5)
     if _cleanup_thread:
         _cleanup_thread.join(timeout=5)
+    if _pending_backup_thread:
+        _pending_backup_thread.join(timeout=5)
 
 
 @app.get("/")

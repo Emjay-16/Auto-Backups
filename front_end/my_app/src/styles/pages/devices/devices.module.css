@@ -212,6 +212,28 @@
   font-size: 12px;
 }
 
+.deviceCell small {
+  width: fit-content;
+  display: block;
+  margin-top: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.autoOn {
+  border: 1px solid #bbf7d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.autoOff {
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #64748b;
+}
+
 .mono {
   color: #53647a;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
@@ -548,7 +570,7 @@
 .customPathRow {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(150px, 0.42fr) minmax(220px, 1fr) auto;
   align-items: end;
   gap: 12px;
 }
@@ -963,6 +985,14 @@
   .panelActions {
     justify-content: flex-start;
   }
+
+  .actionForm {
+    grid-template-columns: 1fr;
+  }
+
+  .backupSelectionSummary {
+    justify-content: start;
+  }
 }
 
 @media (max-width: 780px) {
@@ -975,7 +1005,23 @@
   }
 
   .overlay {
-    padding: 14px;
+    align-items: start;
+    padding: 12px;
+  }
+
+  .modal {
+    width: 100%;
+    max-height: calc(100vh - 24px);
+    border-radius: 18px;
+  }
+
+  .modalHeader,
+  .formGrid,
+  .actionForm,
+  .fileList,
+  .modalActions {
+    padding-right: 16px;
+    padding-left: 16px;
   }
 
   .formGrid {
@@ -987,5 +1033,48 @@
   .targetList label,
   .fileRow {
     grid-template-columns: 1fr;
+  }
+
+  .targetList span,
+  .fileRow span,
+  .browserHeader strong,
+  .fileList span {
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .targetList b,
+  .fileRow b,
+  .targetList button,
+  .fileRow button {
+    justify-self: start;
+  }
+
+  .modalActions {
+    flex-wrap: wrap;
+  }
+
+  .modalActions button {
+    flex: 1 1 140px;
+  }
+}
+
+@media (max-width: 520px) {
+  .overview {
+    grid-template-columns: 1fr;
+  }
+
+  .modalHeader {
+    gap: 10px;
+    padding-top: 18px;
+    padding-bottom: 18px;
+  }
+
+  .modalHeader h2 {
+    font-size: 21px;
+  }
+
+  .checkboxField {
+    width: 100%;
   }
 }

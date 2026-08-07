@@ -378,6 +378,15 @@ def _ensure_remote_directory(sftp, remote_path: str) -> None:
 
 
 def build_backup_directory(base_path: str, device_name: str) -> Path:
-    timestamp = now_local().strftime("%Y%m%d_%H%M%S")
+    timestamp = now_local().strftime("%Y%m%d_%H%M%S_%f")
     safe_device_name = device_name.replace("/", "_").replace("\\", "_").replace(" ", "_")
-    return Path(base_path) / safe_device_name / timestamp
+    backup_directory = Path(base_path) / safe_device_name / timestamp
+    if not backup_directory.exists():
+        return backup_directory
+
+    for index in range(1, 1000):
+        candidate = backup_directory.with_name(f"{backup_directory.name}_{index}")
+        if not candidate.exists():
+            return candidate
+
+    raise RuntimeError("Unable to create unique backup directory")

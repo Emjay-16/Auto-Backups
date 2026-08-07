@@ -64,9 +64,9 @@ const TIMING = {
   deviceFetchTimeoutMs: 5000,
   deviceRefreshDelayMs: 1000,
   deviceRefreshTimeoutMs: 20000,
-  jobsFetchTimeoutMs: 1500,
-  jobsInitialDelayMs: 1500,
-  jobsPollIntervalMs: 30000,
+  jobsFetchTimeoutMs: 5000,
+  jobsInitialDelayMs: 500,
+  jobsPollIntervalMs: 10000,
   clockTickMs: 1000,
   notificationsInitialDelayMs: 2500,
   notificationsPollIntervalMs: 60000,
@@ -74,6 +74,10 @@ const TIMING = {
 
 type NotificationTone = "fail" | "wait" | "info";
 const KNOWN_NOTIFICATION_TONES: readonly NotificationTone[] = ["fail", "wait", "info"];
+type ShellJob = {
+  job_status: number;
+  job_type?: string;
+};
 
 function toneClassName(tone: string): string {
   return KNOWN_NOTIFICATION_TONES.includes(tone as NotificationTone)
@@ -90,6 +94,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [deviceCount, setDeviceCount] = useState({ online: 0, total: 0 });
   const [devicesUnavailable, setDevicesUnavailable] = useState(false);
   const [activeJobCount, setActiveJobCount] = useState(0);
+  const [activeAutoBackupCount, setActiveAutoBackupCount] = useState(0);
   const [now, setNow] = useState<Date | null>(null);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
@@ -153,12 +158,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         cache: "no-store",
         signal: controller.signal,
       })
-        .then((response) => (response.ok ? response.json() as Promise<{ job_status: number }[]> : []))
+        .then((response) => (response.ok ? response.json() as Promise<ShellJob[]> : []))
         .then((jobs) => {
-          setActiveJobCount(jobs.filter((job) => job.job_status === 0 || job.job_status === 4).length);
+          const activeJobs = jobs.filter((job) => isActiveJob(job));
+          setActiveJobCount(activeJobs.length);
+          setActiveAutoBackupCount(activeJobs.filter((job) => job.job_type === "auto_backup").length);
         })
         .catch(() => {
           setActiveJobCount(0);
+          setActiveAutoBackupCount(0);
         })
         .finally(() => window.clearTimeout(timeoutId));
     }
@@ -382,10 +390,10 @@ export function AppShell({ children }: { children: ReactNode }) {
               ) : null}
             </div>
             <div className={styles.statusBox}>
-              <strong className={devicesUnavailable ? styles.statusUnavailable : undefined}>
-                {devicesUnavailable ? "—" : `${deviceCount.online} / ${deviceCount.total}`}
+              <strong className={activeAutoBackupCount ? styles.statusRunning : devicesUnavailable ? styles.statusUnavailable : undefined}>
+                {activeAutoBackupCount ? `${activeAutoBackupCount} running` : devicesUnavailable ? "—" : `${deviceCount.online} / ${deviceCount.total}`}
               </strong>
-              <span>{devicesUnavailable ? "status unavailable" : "online devices"}</span>
+              <span>{activeAutoBackupCount ? "auto backup" : devicesUnavailable ? "status unavailable" : "online devices"}</span>
             </div>
             <div className={styles.dateBox}>
               <strong>{dateText}</strong>
@@ -413,6 +421,10 @@ function saveStoredIds(key: string, ids: string[]): string[] {
   const uniqueIds = Array.from(new Set(ids)).slice(-300);
   window.localStorage.setItem(key, JSON.stringify(uniqueIds));
   return uniqueIds;
+}
+
+function isActiveJob(job: ShellJob): boolean {
+  return job.job_status === 0 || job.job_status === 4;
 }
 
 function BellIcon() {

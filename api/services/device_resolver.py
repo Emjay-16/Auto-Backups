@@ -98,15 +98,12 @@ def resolve_user(db: Session, user_id: Optional[int]) -> models.User:
     if user:
         return user
 
-    user = models.User(
-        user_name=user_name,
-        password=os.getenv("SYSTEM_USER_PASSWORD", "system"),
-        role=constants.ROLE_ADMIN,
+    raise api_exception(
+        status.HTTP_500_INTERNAL_SERVER_ERROR,
+        "SYSTEM_USER_NOT_CONFIGURED",
+        "System user is not configured",
+        {"user_name": user_name},
     )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    return user
 
 
 def map_device_name(ip_address: str) -> str:

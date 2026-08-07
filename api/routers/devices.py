@@ -22,7 +22,7 @@ from api.schemas import (
     RemotePathCheckResponse,
     RemoteFileResponse,
 )
-from api.services.backup_targets import get_custom_auto_backup_paths
+from api.services.backup_targets import get_backup_path_label, get_custom_auto_backup_targets
 from api.services.device_resolver import map_device_name
 from api.services.sftp_backup import RemotePathNotFound, list_remote_path
 from api.services.ssh_credentials import require_ssh_credentials
@@ -80,7 +80,7 @@ def get_backup_targets():
         targets.append(
             BackupTargetResponse(
                 key="flows",
-                label="Node-RED flows",
+                label=get_backup_path_label(flow_path, "Node-RED flows"),
                 path=flow_path,
                 target_type="file",
                 browsable=False,
@@ -92,7 +92,7 @@ def get_backup_targets():
         targets.append(
             BackupTargetResponse(
                 key="maps",
-                label="Maps folder",
+                label=get_backup_path_label(maps_path, "Maps folder"),
                 path=maps_path,
                 target_type="directory",
                 browsable=True,
@@ -100,13 +100,13 @@ def get_backup_targets():
             )
         )
 
-    for index, custom_path in enumerate(get_custom_auto_backup_paths(), start=1):
-        target_type = _backup_target_type_from_path(custom_path)
+    for index, custom_target in enumerate(get_custom_auto_backup_targets(), start=1):
+        target_type = _backup_target_type_from_path(custom_target.path)
         targets.append(
             BackupTargetResponse(
                 key=f"custom_{index}",
-                label=_backup_target_label_from_path(custom_path),
-                path=custom_path,
+                label=custom_target.label,
+                path=custom_target.path,
                 target_type=target_type,
                 browsable=target_type == "directory",
                 backup_api="file",
@@ -115,11 +115,12 @@ def get_backup_targets():
         )
 
     if db_name and db_table:
+        database_path = f"{db_name}.{db_table}"
         targets.append(
             BackupTargetResponse(
                 key="robot_db",
-                label=f"{db_name}.{db_table} -> JSON",
-                path=f"{db_name}.{db_table}",
+                label=get_backup_path_label(database_path, f"{db_name}.{db_table} -> JSON"),
+                path=database_path,
                 target_type="database",
                 browsable=False,
                 backup_api="robot_db",
@@ -383,6 +384,7 @@ def create_device(
         device_name=data.device_name,
         ip_address=data.ip_address,
         device_status=data.device_status,
+        auto_backup_enabled=data.auto_backup_enabled,
         last_seen_at=data.last_seen_at,
         created_at=now,
         updated_at=now,
@@ -561,11 +563,6 @@ def _default_browse_paths() -> List[str]:
         )
         if path
     ]
-
-
-def _backup_target_label_from_path(path: str) -> str:
-    normalized_path = path.rstrip("/")
-    return os.path.basename(normalized_path) or normalized_path
 
 
 def _backup_target_type_from_path(path: str) -> str:

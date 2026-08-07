@@ -53,6 +53,9 @@ export function PaginatedDevicesTable({
                   <div>
                     <strong>{device.name}</strong>
                     <span>{device.code || "Robot unit"}</span>
+                    <small className={device.autoBackupEnabled ? styles.autoOn : styles.autoOff}>
+                      {device.autoBackupEnabled ? "Auto backup" : "Manual only"}
+                    </small>
                   </div>
                 </td>
                 <td>

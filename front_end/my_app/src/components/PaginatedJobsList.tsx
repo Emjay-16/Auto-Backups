@@ -26,7 +26,7 @@ export function PaginatedJobsList({ jobs }: { jobs: Job[] }) {
               <strong>{job.device}</strong>
               <span>{job.type}</span>
             </div>
-            <p>{job.target}</p>
+            <p title={job.target}>{job.target}</p>
             <div className={styles.progress}>
               <span style={{ width: `${job.progress}%` }} />
             </div>

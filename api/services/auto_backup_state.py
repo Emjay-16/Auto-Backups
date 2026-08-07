@@ -1,7 +1,14 @@
+import logging
+import os
 import threading
+import time
 from dataclasses import dataclass
+from typing import Optional
 
 from api.services.json_state import JsonStateManager
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -33,6 +40,7 @@ _manager = JsonStateManager(
     },
     coerce=_coerce_settings,
 )
+_settings_changed_event = threading.Event()
 
 
 def get_auto_backup_settings() -> AutoBackupSettings:
@@ -40,17 +48,19 @@ def get_auto_backup_settings() -> AutoBackupSettings:
 
 
 def update_auto_backup_settings(
-    enabled: bool = None,
-    interval_hours: int = None,
-    zip_output: bool = None,
-    run_on_startup: bool = None,
+    enabled: Optional[bool] = None,
+    interval_hours: Optional[int] = None,
+    zip_output: Optional[bool] = None,
+    run_on_startup: Optional[bool] = None,
 ) -> AutoBackupSettings:
-    return _manager.update(
+    settings = _manager.update(
         enabled=enabled,
         interval_hours=interval_hours,
         zip_output=zip_output,
         run_on_startup=run_on_startup,
     )
+    _settings_changed_event.set()
+    return settings
 
 
 def auto_backup_loop(stop_event: threading.Event, backup_func) -> None:
@@ -58,11 +68,9 @@ def auto_backup_loop(stop_event: threading.Event, backup_func) -> None:
 
     while not stop_event.is_set():
         settings = get_auto_backup_settings()
-        sleep_seconds = max(settings.interval_hours, 1) * 60 * 60
-
         if first_run and not settings.run_on_startup:
             first_run = False
-            stop_event.wait(sleep_seconds)
+            _wait_for_next_auto_backup_tick(stop_event, settings.interval_hours)
             continue
 
         first_run = False
@@ -70,21 +78,49 @@ def auto_backup_loop(stop_event: threading.Event, backup_func) -> None:
             try:
                 backup_func(settings)
             except Exception:
-                pass
+                logger.exception("Auto backup background loop failed")
 
-        stop_event.wait(sleep_seconds)
+        _wait_for_next_auto_backup_tick(stop_event, settings.interval_hours)
+
+
+def _wait_for_next_auto_backup_tick(stop_event: threading.Event, interval_hours: int) -> None:
+    sleep_until = time.monotonic() + max(interval_hours, 1) * 60 * 60
+    while not stop_event.is_set() and time.monotonic() < sleep_until:
+        wait_seconds = min(1, max(sleep_until - time.monotonic(), 0))
+        if _settings_changed_event.wait(wait_seconds):
+            _settings_changed_event.clear()
+            break
 
 
 def pending_backup_loop(stop_event: threading.Event, pending_func) -> None:
-    import os
+    if os.getenv("AUTO_BACKUP_PENDING_ENABLED", "true").lower() != "true":
+        return
 
-    interval_minutes = int(os.getenv("AUTO_BACKUP_PENDING_INTERVAL_MINUTES", "60"))
+    interval_minutes = _pending_interval_minutes()
     sleep_seconds = max(interval_minutes, 1) * 60
 
     while not stop_event.is_set():
+        if os.getenv("AUTO_BACKUP_PENDING_ENABLED", "true").lower() != "true":
+            stop_event.wait(sleep_seconds)
+            continue
+
         try:
             pending_func()
         except Exception:
-            pass
+            logger.exception("Pending auto backup background loop failed")
 
+        interval_minutes = _pending_interval_minutes()
+        sleep_seconds = max(interval_minutes, 1) * 60
         stop_event.wait(sleep_seconds)
+
+
+def _pending_interval_minutes() -> int:
+    raw_value = os.getenv("AUTO_BACKUP_PENDING_INTERVAL_MINUTES", "60")
+    try:
+        return max(int(raw_value), 1)
+    except ValueError:
+        logger.exception(
+            "Invalid AUTO_BACKUP_PENDING_INTERVAL_MINUTES=%r; using 60 minute(s)",
+            raw_value,
+        )
+        return 60

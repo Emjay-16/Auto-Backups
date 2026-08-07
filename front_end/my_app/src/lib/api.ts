@@ -18,6 +18,7 @@ type ApiDevice = {
   device_name: string;
   ip_address: string;
   device_status: number;
+  auto_backup_enabled?: boolean;
   last_seen_at: string | null;
 };
 
@@ -27,6 +28,7 @@ export type DeviceFormPayload = {
   device_name: string;
   ip_address: string;
   device_status: number;
+  auto_backup_enabled: boolean;
 };
 
 export type DeviceGroupOption = {
@@ -64,6 +66,7 @@ export type BackupTarget = {
 
 export type CustomBackupPathResult = {
   path: string;
+  label: string;
   message: string;
 };
 
@@ -339,8 +342,8 @@ export async function getBackupTargets(): Promise<BackupTarget[]> {
   return getJson<BackupTarget[]>("/devices/backup-targets", 5000);
 }
 
-export async function saveCustomBackupPath(path: string): Promise<CustomBackupPathResult> {
-  const result = await postCustomBackupPath("/backups/auto-paths", path);
+export async function saveCustomBackupPath(path: string, label = ""): Promise<CustomBackupPathResult> {
+  const result = await postCustomBackupPath("/backups/auto-paths", path, label);
   if (result.ok) return result.data;
 
   throw new Error(result.message);
@@ -356,6 +359,10 @@ export async function deleteCustomBackupPath(path: string): Promise<CustomBackup
   }
 
   return response.json() as Promise<CustomBackupPathResult>;
+}
+
+export async function saveBackupPathLabel(path: string, label: string): Promise<CustomBackupPathResult> {
+  return sendJson<CustomBackupPathResult>("/backups/auto-path-label", "PUT", { path, label });
 }
 
 export function backupTargetLabelFromPath(path: string): string {
@@ -472,7 +479,7 @@ async function sendJson<T = void>(path: string, method: "POST" | "PUT", payload:
   return response.json() as Promise<T>;
 }
 
-async function postCustomBackupPath(path: string, remotePath: string): Promise<
+async function postCustomBackupPath(path: string, remotePath: string, label: string): Promise<
   | { ok: true; data: CustomBackupPathResult }
   | { ok: false; status: number; message: string }
 > {
@@ -481,7 +488,7 @@ async function postCustomBackupPath(path: string, remotePath: string): Promise<
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ path: remotePath }),
+    body: JSON.stringify({ path: remotePath, label: label.trim() || undefined }),
   });
 
   if (response.ok) {
@@ -547,6 +554,7 @@ function mapDevice(device: ApiDevice, pendingDeviceIds: Set<number>): Device {
     groupId: device.group_id,
     code: device.device_code,
     rawStatus: device.device_status,
+    autoBackupEnabled: device.auto_backup_enabled ?? true,
     name: device.device_name,
     group: inferDeviceGroup(device.device_name, device.device_code),
     ip: device.ip_address,
