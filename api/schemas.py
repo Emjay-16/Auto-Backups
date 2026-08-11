@@ -172,17 +172,6 @@ class BackupHistoryResponse(BackupResponse):
     ip_address: Optional[str] = None
 
 
-class BackupRunRequest(BaseModel):
-    device_id: Optional[int] = None
-    ip_address: Optional[str] = None
-    device_name: Optional[str] = None
-    remote_paths: List[str]
-    created_by: Optional[int] = None
-    backup_name: Optional[str] = None
-    backup_type: int = constants.BACKUP_TYPE_SELECTED
-    zip_output: bool = False
-
-
 class BackupRunResponse(BaseModel):
     backup_id: Optional[int] = None
     backup_name: str
@@ -307,17 +296,6 @@ class AutoCleanupSettingsResponse(BaseModel):
     older_than_hours: int
     interval_hours: int
     keep_latest_per_device: bool
-
-
-class RobotDatabaseBackupRequest(BaseModel):
-    device_id: Optional[int] = None
-    ip_address: Optional[str] = None
-    device_name: Optional[str] = None
-    created_by: Optional[int] = None
-    backup_name: Optional[str] = None
-    database_name: Optional[str] = None
-    table_name: Optional[str] = None
-    backup_type: int = constants.BACKUP_TYPE_SELECTED
 
 
 class CombinedBackupRequest(BaseModel):

@@ -21,8 +21,6 @@ from api.services.backup_service import (
     get_backup_history,
     run_auto_backups,
     run_combined_backup,
-    run_file_backup,
-    run_robot_database_backup,
     safe_download_filename,
 )
 
@@ -38,11 +36,13 @@ def list_backups(
     limit: int = 50,
     db: Session = Depends(get_db),
 ):
+    """แสดงรายการสำรองข้อมูลทั้งหมด"""
     return get_backup_history(db, limit)
 
 
 @router.get("/cleanup/settings", response_model=schemas.AutoCleanupSettingsResponse)
 def get_cleanup_settings():
+    """แสดงการตั้งค่าการล้างข้อมูลอัตโนมัติ"""
     return get_auto_cleanup_settings()
 
 
@@ -50,6 +50,7 @@ def get_cleanup_settings():
 def update_cleanup_settings(
     data: schemas.AutoCleanupSettingsRequest,
 ):
+    """อัปเดตการตั้งค่าการล้างข้อมูลอัตโนมัติ"""
     return update_auto_cleanup_settings(
         enabled=data.enabled,
         older_than_days=data.older_than_days,
@@ -58,47 +59,26 @@ def update_cleanup_settings(
         keep_latest_per_device=data.keep_latest_per_device,
     )
 
-
-@router.put("/cleanup/every-6-hours", response_model=schemas.AutoCleanupSettingsResponse)
-def enable_cleanup_every_six_hours(
-    older_than_days: Optional[int] = None,
-    older_than_hours: Optional[int] = None,
-    keep_latest_per_device: Optional[bool] = None,
-):
-    return update_auto_cleanup_settings(
-        enabled=True,
-        older_than_days=older_than_days,
-        older_than_hours=older_than_hours,
-        interval_hours=6,
-        keep_latest_per_device=keep_latest_per_device,
-    )
-
 @router.post("/cleanup", response_model=schemas.BackupCleanupResponse)
 def cleanup_backups(
     data: schemas.BackupCleanupRequest,
     db: Session = Depends(get_db),
 ):
+    """ล้างข้อมูลสำรองเก่า"""
     return cleanup_old_backups(data, db)
-
-
-@router.post("/run", response_model=schemas.BackupRunResponse)
-def run_backup(
-    data: schemas.BackupRunRequest,
-    db: Session = Depends(get_db),
-):
-    return run_file_backup(data, db)
-
 
 @router.post("/auto", response_model=schemas.AutoBackupResponse)
 def auto_backup(
     data: schemas.AutoBackupRequest,
     db: Session = Depends(get_db),
 ):
+    """เรียกใช้การสำรองข้อมูลอัตโนมัติ"""
     return run_auto_backups(data, db)
 
 
 @router.get("/auto/settings", response_model=schemas.AutoBackupSettingsResponse)
 def get_auto_backup_rule_settings():
+    """แสดงการตั้งค่ากฎการสำรองข้อมูลอัตโนมัติ"""
     return get_auto_backup_settings()
 
 
@@ -106,6 +86,7 @@ def get_auto_backup_rule_settings():
 def update_auto_backup_rule_settings(
     data: schemas.AutoBackupSettingsRequest,
 ):
+    """อัปเดตการตั้งค่ากฎการสำรองข้อมูลอัตโนมัติ"""
     return update_auto_backup_settings(
         enabled=data.enabled,
         interval_hours=data.interval_hours,
@@ -114,19 +95,12 @@ def update_auto_backup_rule_settings(
     )
 
 
-@router.post("/robot-db", response_model=schemas.BackupRunResponse)
-def backup_robot_database(
-    data: schemas.RobotDatabaseBackupRequest,
-    db: Session = Depends(get_db),
-):
-    return run_robot_database_backup(data, db)
-
-
 @router.post("/combined", response_model=schemas.BackupRunResponse)
 def combined_backup(
     data: schemas.CombinedBackupRequest,
     db: Session = Depends(get_db),
 ):
+    """สำรองข้อมูล"""
     return run_combined_backup(data, db)
 
 
@@ -134,6 +108,7 @@ def combined_backup(
 def add_auto_backup_path(
     data: schemas.CustomBackupPathRequest,
 ):
+    """เพิ่ม path สำหรับสำรองข้อมูล"""
     try:
         target = add_custom_auto_backup_path(data.path, data.label)
     except ValueError as exc:
@@ -152,6 +127,7 @@ def add_auto_backup_path(
 
 @router.delete("/auto-paths", response_model=schemas.CustomBackupPathResponse)
 def delete_auto_backup_path(path: str):
+    """ลบ path สำหรับสำรองข้อมูล"""
     try:
         deleted = delete_custom_auto_backup_path(path)
     except ValueError as exc:
@@ -179,6 +155,7 @@ def delete_auto_backup_path(path: str):
 def update_auto_backup_path_label(
     data: schemas.BackupPathLabelRequest,
 ):
+    """อัปเดตชื่อของ path สำหรับสำรองข้อมูล"""
     try:
         target = save_backup_path_label(data.path, data.label)
     except ValueError as exc:
@@ -200,6 +177,7 @@ def get_backup(
     backup_id: int,
     db: Session = Depends(get_db),
 ):
+    """แสดงรายละเอียดของสำรองข้อมูล"""
     return get_backup_detail(backup_id, db)
 
 
@@ -210,6 +188,7 @@ def download_backup(
     filename: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
+    """ดาวน์โหลดไฟล์สำรองข้อมูล"""
     zip_file = get_backup_download_zip(backup_id, db, file_ids)
     return FileResponse(
         path=str(zip_file),
@@ -223,4 +202,5 @@ def remove_backup(
     backup_id: int,
     db: Session = Depends(get_db),
 ):
+    """ลบสำรองข้อมูล"""
     return delete_backup(backup_id, db)

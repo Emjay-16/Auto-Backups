@@ -222,6 +222,23 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [isLoginPage, router, sessionStatus]);
 
   useEffect(() => {
+    if (isLoginPage || sessionStatus !== "authenticated" || !session?.expires) return;
+
+    const expiresAt = Date.parse(session.expires);
+    if (!Number.isFinite(expiresAt)) return;
+
+    const delayMs = Math.max(expiresAt - Date.now(), 0);
+    const timeoutId = window.setTimeout(() => {
+      void signOut({ redirect: false }).finally(() => {
+        router.replace("/login");
+        router.refresh();
+      });
+    }, delayMs);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isLoginPage, router, session?.expires, sessionStatus]);
+
+  useEffect(() => {
     if (!showNotifications) return;
 
     function handlePointerDown(event: MouseEvent) {

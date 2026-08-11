@@ -70,16 +70,13 @@ export type CustomBackupPathResult = {
   message: string;
 };
 
-export type BackupRunPayload = {
+export type CombinedBackupPayload = {
   device_id: number;
   remote_paths: string[];
+  include_database: boolean;
   backup_name?: string;
   zip_output?: boolean;
   created_by?: number;
-};
-
-export type CombinedBackupPayload = BackupRunPayload & {
-  include_database: boolean;
 };
 
 export type BackupRunResult = {
@@ -383,10 +380,6 @@ export async function listDeviceFiles(deviceId: number, path?: string): Promise<
 
 export async function checkDeviceStatus(deviceId: number): Promise<DeviceStatusResult> {
   return getJson<DeviceStatusResult>(`/devices/${deviceId}/status`, 8000);
-}
-
-export async function runSelectedBackup(payload: BackupRunPayload): Promise<BackupRunResult> {
-  return sendJson<BackupRunResult>("/backups/run", "POST", payload);
 }
 
 export async function runCombinedBackup(payload: CombinedBackupPayload): Promise<BackupRunResult> {
