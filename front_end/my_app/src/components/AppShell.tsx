@@ -100,6 +100,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [readNotificationIds, setReadNotificationIds] = useState<string[]>([]);
   const [clearedNotificationIds, setClearedNotificationIds] = useState<string[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const notificationWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -243,9 +244,13 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const query = String(formData.get("q") ?? "").trim();
+    const query = searchQuery.trim();
     router.push(query ? `${pathname}?q=${encodeURIComponent(query)}` : pathname);
+  }
+
+  function clearSearch() {
+    setSearchQuery("");
+    router.push(pathname);
   }
 
   function openNotifications() {
@@ -350,7 +355,18 @@ export function AppShell({ children }: { children: ReactNode }) {
                 name="q"
                 aria-label="ค้นหาอุปกรณ์, backup หรือ job"
                 placeholder="ค้นหาอุปกรณ์, backup, job..."
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
               />
+              <button
+                aria-label="ล้างคำค้นหา"
+                className={styles.clearSearch}
+                disabled={!searchQuery}
+                onClick={clearSearch}
+                type="button"
+              >
+                ×
+              </button>
             </form>
             <div className={styles.notificationWrap} ref={notificationWrapRef}>
               <button

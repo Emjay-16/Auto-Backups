@@ -1,18 +1,15 @@
 .panel {
   overflow: hidden;
-  border: 1px solid rgba(196, 212, 231, 0.72);
+  border: 1px solid var(--line);
   border-radius: var(--radius-panel);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(248, 251, 255, 0.9)),
-    var(--surface);
-  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.075);
-  backdrop-filter: blur(12px);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .panel:hover {
-  border-color: rgba(147, 197, 253, 0.55);
-  box-shadow: 0 22px 54px rgba(15, 23, 42, 0.09);
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-sm);
 }
 
 .header {
@@ -22,16 +19,14 @@
   justify-content: space-between;
   gap: 12px;
   padding: 0 20px;
-  border-bottom: 1px solid rgba(220, 231, 243, 0.82);
-  background:
-    linear-gradient(90deg, rgba(37, 99, 235, 0.055), transparent 44%),
-    rgba(255, 255, 255, 0.64);
+  border-bottom: 1px solid var(--line);
+  background: #fbfcfe;
 }
 
 .header h2 {
   color: #0f172a;
   font-size: 16px;
-  font-weight: 900;
+  font-weight: 760;
   letter-spacing: 0;
 }
 
@@ -43,14 +38,14 @@
   padding: 0 10px;
   border: 0;
   border-radius: 9px;
-  background: rgba(37, 99, 235, 0.075);
+  background: #eef4ff;
   color: var(--primary);
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .header a:hover,
 .header button:hover {
-  background: rgba(37, 99, 235, 0.12);
+  background: #e2ecff;
   color: var(--primary-strong);
 }

@@ -1,7 +1,7 @@
 .page {
   display: grid;
-  gap: 22px;
-  padding: 0 30px 30px;
+  gap: 16px;
+  padding: 0 28px 28px;
 }
 
 .restoreBoard {
@@ -10,7 +10,7 @@
 
 .restoreWorkspace {
   display: grid;
-  gap: 20px;
+  gap: 16px;
   min-width: 0;
 }
 
@@ -19,20 +19,18 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px 22px;
-  border: 1px solid rgba(196, 212, 231, 0.86);
-  border-radius: 22px;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(248, 251, 255, 0.82)),
-    radial-gradient(circle at 12% 0%, rgba(37, 99, 235, 0.08), transparent 32%);
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.065);
+  padding: 18px 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: var(--shadow-sm);
 }
 
 .restoreHeader p {
   margin: 0 0 4px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 760;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -48,10 +46,10 @@
   display: flex;
   gap: 6px;
   padding: 4px;
-  border: 1px solid #dbe6f2;
-  border-radius: 16px;
-  background: rgba(248, 251, 255, 0.92);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.78);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-soft);
+  box-shadow: none;
 }
 
 .modeSwitch button {
@@ -62,19 +60,19 @@
   background: transparent;
   color: var(--muted);
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 760;
   transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .modeSwitch .activeMode {
-  background: linear-gradient(135deg, #2563eb, #0891b2);
+  background: var(--primary);
   color: #ffffff;
-  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
+  box-shadow: none;
 }
 
 .modeSwitch button:not(.activeMode):hover {
-  background: #eef6ff;
-  color: #1d4ed8;
+  background: var(--background);
+  color: var(--primary);
 }
 
 .restoreGrid {
@@ -102,17 +100,17 @@
 .libraryHeader span {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 760;
 }
 
 .libraryHeader b {
   padding: 6px 10px;
-  border: 1px solid #dbeafe;
+  border: 1px solid var(--primary-soft);
   border-radius: 999px;
   background: #f8fbff;
-  color: #1d4ed8;
+  color: var(--primary-strong);
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .snapshots {
@@ -132,18 +130,16 @@
   padding: 14px 15px;
   border: 1px solid #e0eaf6;
   border-radius: 17px;
-  background: linear-gradient(180deg, #ffffff, #fbfdff);
+  background: #ffffff;
   color: inherit;
   text-align: left;
   transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .snapshot.selected {
-  border-color: #60a5fa;
-  background:
-    radial-gradient(circle at 96% 16%, rgba(37, 99, 235, 0.09), transparent 8rem),
-    linear-gradient(135deg, #eff6ff, #f8fbff);
-  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.12);
+  border-color: var(--accent);
+  background: #f4f8ff;
+  box-shadow: none;
 }
 
 .snapshot.selected::before {
@@ -152,13 +148,13 @@
   inset: 11px auto 11px 0;
   width: 4px;
   border-radius: 0 999px 999px 0;
-  background: linear-gradient(180deg, #2563eb, #0891b2);
+  background: var(--primary);
 }
 
 .snapshot:not(:disabled):hover {
-  border-color: #bfdbfe;
+  border-color: var(--line-strong);
   background: #f8fbff;
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .selectionCheck {
@@ -168,8 +164,8 @@
   place-items: center;
   border: 1.5px solid #bfd0e5;
   border-radius: 999px;
-  background: linear-gradient(180deg, #ffffff, #f8fbff);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 6px rgba(15, 23, 42, 0.05);
+  background: #ffffff;
+  box-shadow: none;
   transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
 }
 
@@ -178,17 +174,15 @@
   width: 100%;
   height: 100%;
   border-radius: 999px;
-  background:
-    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.58), transparent 34%),
-    linear-gradient(135deg, #2563eb, #0891b2);
+  background: var(--primary);
   transform: scale(0);
   transition: transform 0.14s ease;
 }
 
 .selectionCheck.checked {
-  border-color: #2563eb;
+  border-color: var(--primary);
   background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12), 0 8px 18px rgba(37, 99, 235, 0.16);
+  box-shadow: 0 0 0 3px rgba(47, 126, 164, 0.1);
 }
 
 .selectionCheck.checked::before {
@@ -199,7 +193,7 @@
 .snapshot b {
   color: #162235;
   font-size: 13px;
-  font-weight: 950;
+  font-weight: 760;
 }
 
 .snapshot p {
@@ -214,10 +208,10 @@
 
 .snapshot b {
   padding: 5px 8px;
-  border: 1px solid #dbeafe;
+  border: 1px solid var(--primary-soft);
   border-radius: 999px;
   background: #f8fbff;
-  color: #1d4ed8;
+  color: var(--primary-strong);
   font-size: 10px;
   text-transform: uppercase;
 }
@@ -234,14 +228,12 @@
   gap: 10px;
   min-height: 220px;
   padding: 24px;
-  border: 1.5px dashed #93c5fd;
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.08), transparent 12rem),
-    linear-gradient(135deg, #eff6ff, #f8fbff);
-  color: #1d4ed8;
+  border: 1.5px dashed #c8d7e8;
+  border-radius: 16px;
+  background: #fbfcfe;
+  color: var(--primary);
   text-align: center;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
+  box-shadow: none;
 }
 
 .uploadDropzone strong {
@@ -252,7 +244,7 @@
 .uploadDropzone span {
   color: var(--muted);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 760;
 }
 
 .uploadDropzone input {
@@ -269,20 +261,20 @@
   max-width: 100%;
   overflow: hidden;
   padding: 7px 10px;
-  border: 1px solid #dbeafe;
+  border: 1px solid var(--line);
   border-radius: 999px;
   background: #ffffff;
-  color: #315c98;
+  color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 760;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .target {
   display: grid;
-  gap: 16px;
-  padding: 22px 24px 24px;
+  gap: 14px;
+  padding: 20px 22px 22px;
 }
 
 .target label {
@@ -290,7 +282,7 @@
   gap: 8px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 760;
   line-height: 1.35;
 }
 
@@ -299,22 +291,21 @@
 .targetPathField input {
   min-width: 0;
   width: 100%;
-  height: 44px;
+  height: 42px;
   padding: 0 12px;
   border: 1px solid var(--control-border);
-  border-radius: 12px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), var(--control-bg));
+  border-radius: 10px;
+  background: #ffffff;
   color: #162235;
   font-size: 13px;
-  font-weight: 760;
+  font-weight: 720;
 }
 
 .target input:focus,
 .target select:focus,
 .targetPathField input:focus {
-  border-color: #93c5fd;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+  border-color: var(--accent);
+  box-shadow: var(--control-focus);
   outline: 0;
 }
 
@@ -323,12 +314,10 @@
   display: grid;
   gap: 8px;
   padding: 16px;
-  border: 1px solid #dbeafe;
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at 94% 0%, rgba(37, 99, 235, 0.07), transparent 9rem),
-    linear-gradient(135deg, #f8fbff, #ffffff);
-  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.065);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: none;
 }
 
 .selectedBackupCard span,
@@ -336,7 +325,7 @@
 .filePickerSummary span {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 760;
 }
 
 .selectedBackupCard strong,
@@ -344,7 +333,7 @@
   display: block;
   overflow: hidden;
   color: #162235;
-  font-weight: 950;
+  font-weight: 760;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -374,30 +363,29 @@
 .target button,
 .dialogFooter button:last-child {
   min-height: 44px;
-  border: 1px solid #2563eb;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #2563eb, #0891b2);
+  border: 1px solid var(--primary);
+  border-radius: 10px;
+  background: var(--primary);
   color: #ffffff;
   font-size: 13px;
-  font-weight: 900;
-  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
-  transition: box-shadow 0.15s ease, filter 0.15s ease, transform 0.15s ease;
+  font-weight: 760;
+  box-shadow: 0 10px 22px rgba(47, 126, 164, 0.16);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .primaryAction:not(:disabled):hover,
 .target button:not(:disabled):hover,
 .dialogFooter button:last-child:not(:disabled):hover {
-  filter: saturate(1.08);
-  transform: translateY(-1px);
-  box-shadow: 0 16px 30px rgba(37, 99, 235, 0.24);
+  background: var(--primary-strong);
+  box-shadow: 0 12px 26px rgba(47, 126, 164, 0.2);
 }
 
 .target .filePickerSummary button {
   min-height: 36px;
   padding: 0 13px;
-  border-color: #bfdbfe;
+  border-color: var(--line-strong);
   background: #ffffff;
-  color: #1d4ed8;
+  color: var(--primary-strong);
   box-shadow: none;
 }
 
@@ -415,7 +403,7 @@
   padding: 12px 14px;
   border-radius: 14px;
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 760;
   line-height: 1.45;
 }
 
@@ -424,7 +412,7 @@
   background:
     radial-gradient(circle at 98% 0%, rgba(220, 38, 38, 0.07), transparent 10rem),
     linear-gradient(180deg, #fff7f7, #ffffff);
-  color: #b91c1c;
+  color: var(--danger);
 }
 
 .success {
@@ -443,7 +431,7 @@
   background: rgba(248, 251, 255, 0.72);
   color: var(--muted);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 760;
   text-align: center;
 }
 
@@ -455,7 +443,7 @@
   place-items: center;
   padding: 24px;
   background:
-    radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.14), transparent 34rem),
+    radial-gradient(circle at 50% 0%, rgba(47, 126, 164, 0.14), transparent 34rem),
     rgba(15, 23, 42, 0.46);
   backdrop-filter: blur(6px);
 }
@@ -466,12 +454,10 @@
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   overflow: hidden;
-  border: 1px solid rgba(200, 215, 232, 0.95);
-  border-radius: 24px;
-  background:
-    radial-gradient(circle at 92% 0%, rgba(8, 145, 178, 0.065), transparent 17rem),
-    linear-gradient(180deg, #ffffff, #f8fbff);
-  box-shadow: 0 34px 100px rgba(15, 23, 42, 0.28);
+  border: 1px solid var(--line-strong);
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 28px 86px rgba(15, 23, 42, 0.24);
 }
 
 .dialogHeader,
@@ -486,9 +472,7 @@
 
 .dialogHeader {
   border-bottom: 1px solid #e6edf5;
-  background:
-    linear-gradient(135deg, #ffffff, #f8fbff),
-    radial-gradient(circle at 0% 0%, rgba(37, 99, 235, 0.08), transparent 30%);
+  background: #fbfcfe;
 }
 
 .dialogHeader h2 {
@@ -512,13 +496,13 @@
   background: #ffffff;
   color: #223149;
   font-size: 20px;
-  font-weight: 800;
+  font-weight: 760;
 }
 
 .dialogHeader button:hover {
-  border-color: #bfdbfe;
-  background: #eff6ff;
-  color: #1d4ed8;
+  border-color: var(--line-strong);
+  background: var(--primary-soft);
+  color: var(--primary-strong);
 }
 
 .dialogActions {
@@ -540,20 +524,20 @@
   background: #ffffff;
   color: #223149;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .dialogActions button:not(:disabled):hover,
 .dialogFooter button:not(:disabled):first-child:hover {
-  border-color: #bfdbfe;
-  background: #eff6ff;
-  color: #1d4ed8;
+  border-color: var(--line-strong);
+  background: var(--primary-soft);
+  color: var(--primary-strong);
 }
 
 .dialogActions span {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .files {
@@ -562,9 +546,7 @@
   max-height: min(58vh, 560px);
   overflow: auto;
   padding: 14px 20px;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(37, 99, 235, 0.05), transparent 12rem),
-    #f8fbff;
+  background: var(--surface-soft);
 }
 
 .fileRow {
@@ -576,28 +558,25 @@
 
 .fileRow {
   padding: 14px;
-  border: 1px solid rgba(220, 231, 243, 0.95);
-  border-radius: 16px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.88));
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.025);
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #ffffff;
+  box-shadow: none;
   transition: transform 0.15s var(--ease-out-expo), border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .fileRow:hover {
-  border-color: #bfdbfe;
+  border-color: var(--line-strong);
   background: #f8fbff;
-  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.06);
-  transform: translateY(-1px);
+  box-shadow: none;
+  transform: none;
 }
 
 .selectedFile,
 .fileRow:has(input:checked) {
-  border-color: #93c5fd;
-  background:
-    radial-gradient(circle at 94% 18%, rgba(37, 99, 235, 0.08), transparent 8rem),
-    linear-gradient(180deg, rgba(239, 246, 255, 0.94), rgba(248, 251, 255, 0.98));
-  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.08);
+  border-color: var(--accent);
+  background: #f4f8ff;
+  box-shadow: none;
 }
 
 .fileRow label {
@@ -616,8 +595,8 @@
   flex: 0 0 auto;
   border: 1.5px solid #bfd0e5;
   border-radius: 999px;
-  background: linear-gradient(180deg, #ffffff, #f8fbff);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 6px rgba(15, 23, 42, 0.05);
+  background: #ffffff;
+  box-shadow: none;
   transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
 }
 
@@ -633,9 +612,9 @@
 }
 
 .fileRow label input:checked {
-  border-color: #2563eb;
-  background: linear-gradient(135deg, #2563eb, #0891b2);
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12), 0 8px 18px rgba(37, 99, 235, 0.16);
+  border-color: var(--primary);
+  background: var(--primary);
+  box-shadow: 0 0 0 3px rgba(47, 126, 164, 0.1);
 }
 
 .fileRow label input:checked::before {
@@ -644,7 +623,7 @@
 
 .fileRow label input:focus-visible {
   outline: 0;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
+  box-shadow: var(--control-focus);
 }
 
 .fileRow label input:active {
@@ -655,16 +634,14 @@
   width: 100%;
   height: 100%;
   border-radius: 999px;
-  background:
-    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.58), transparent 34%),
-    linear-gradient(135deg, #2563eb, #0891b2);
+  background: var(--primary);
   transform: scale(0);
 }
 
 .fileRow label input:checked {
-  border-color: #2563eb;
+  border-color: var(--primary);
   background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12), 0 8px 18px rgba(37, 99, 235, 0.16);
+  box-shadow: 0 0 0 3px rgba(47, 126, 164, 0.1);
 }
 
 .fileRow label input:checked::before {
@@ -704,7 +681,7 @@
 .targetPathField span {
   color: #47709f;
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 760;
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
@@ -726,23 +703,21 @@
   border: 1.5px solid #bfd0e5;
   border-radius: 999px;
   background: #ffffff;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 6px rgba(15, 23, 42, 0.05);
+  box-shadow: none;
 }
 
 .fileRow label input::before {
   width: 100%;
   height: 100%;
   border-radius: 999px;
-  background:
-    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.58), transparent 34%),
-    linear-gradient(135deg, #2563eb, #0891b2);
+  background: var(--primary);
   transform: scale(0);
 }
 
 .fileRow label input:checked {
-  border-color: #2563eb;
+  border-color: var(--primary);
   background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12), 0 8px 18px rgba(37, 99, 235, 0.16);
+  box-shadow: 0 0 0 3px rgba(47, 126, 164, 0.1);
 }
 
 .fileRow label input:checked::before {

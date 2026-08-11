@@ -1,17 +1,17 @@
 .page {
   display: grid;
-  gap: 20px;
-  padding: 0 30px 30px;
+  gap: 16px;
+  padding: 0 28px 28px;
 }
 
 .tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: 9px;
+  gap: 7px;
   padding: 4px;
-  border: 1px solid rgba(220, 231, 243, 0.82);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: #ffffff;
   width: fit-content;
   max-width: 100%;
 }
@@ -20,22 +20,23 @@
   --tab-main: var(--muted);
   --tab-soft: #ffffff;
   --tab-line: var(--line);
-  min-height: 36px;
+  min-height: 34px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 0 14px;
   border: 1px solid var(--tab-line);
-  border-radius: 13px;
+  border-radius: 11px;
   background: var(--tab-soft);
   color: var(--tab-main);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 760;
   transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .tabs button:hover {
-  transform: translateY(-1px);
+  background: var(--surface-soft);
+  transform: none;
 }
 
 .tabs button b {
@@ -54,15 +55,15 @@
 
 .tabs .active {
   border-color: var(--tab-main);
-  background: color-mix(in srgb, var(--tab-main) 12%, #ffffff);
+  background: color-mix(in srgb, var(--tab-main) 9%, #ffffff);
   color: var(--tab-main);
-  box-shadow: 0 8px 18px color-mix(in srgb, var(--tab-main) 12%, transparent);
+  box-shadow: none;
 }
 
 .tabs .running {
-  --tab-main: #2563eb;
-  --tab-soft: #eff6ff;
-  --tab-line: #bfdbfe;
+  --tab-main: var(--primary);
+  --tab-soft: #ffffff;
+  --tab-line: var(--line);
 }
 
 .tabs .pending {
@@ -72,21 +73,21 @@
 }
 
 .tabs .skipped {
-  --tab-main: #7c3aed;
-  --tab-soft: #f5f3ff;
-  --tab-line: #ddd6fe;
+  --tab-main: #6474ad;
+  --tab-soft: #ffffff;
+  --tab-line: var(--line);
 }
 
 .tabs .failed {
-  --tab-main: #dc2626;
+  --tab-main: var(--danger);
   --tab-soft: #fef2f2;
   --tab-line: #fecaca;
 }
 
 .tabs .success {
-  --tab-main: #059669;
-  --tab-soft: #ecfdf5;
-  --tab-line: #99f6e4;
+  --tab-main: var(--success);
+  --tab-soft: #ffffff;
+  --tab-line: var(--line);
 }
 
 .jobs {
@@ -99,22 +100,21 @@
   display: grid;
   grid-template-columns: 180px minmax(0, 1fr) 160px auto 48px;
   align-items: center;
-  gap: 15px;
-  padding: 14px 15px;
-  border: 1px solid rgba(220, 231, 243, 0.92);
-  border-radius: 16px;
-  background:
-    radial-gradient(circle at 94% 18%, rgba(37, 99, 235, 0.045), transparent 8rem),
-    rgba(255, 255, 255, 0.82);
+  gap: 14px;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #ffffff;
   color: inherit;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+  box-shadow: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .job:hover {
-  border-color: #bfdbfe;
-  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.08);
-  transform: translateY(-1px);
+  border-color: var(--line-strong);
+  background: var(--surface-soft);
+  box-shadow: none;
+  transform: none;
 }
 
 .job strong {
@@ -155,7 +155,7 @@
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--primary), var(--accent));
+  background: var(--primary);
 }
 
 .emptyJobs {
@@ -163,10 +163,10 @@
   padding: 34px 20px;
   border: 1px dashed #c8d7e8;
   border-radius: 16px;
-  background: rgba(248, 251, 255, 0.78);
+  background: #ffffff;
   color: #64748b;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 760;
   text-align: center;
 }
 

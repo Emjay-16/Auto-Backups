@@ -7,7 +7,7 @@
   border: 1px solid transparent;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 760;
   line-height: 1;
   text-transform: capitalize;
 }
@@ -17,53 +17,53 @@
   height: 8px;
   display: inline-block;
   border-radius: 50%;
-  background: #94a3b8;
+  background: var(--muted-soft);
 }
 
 .success,
 .online {
-  border-color: #b8efd1;
-  background: #e8fff2;
-  color: #15803d;
+  border-color: #a8d8d1;
+  background: #e2f4f1;
+  color: var(--success);
 }
 
 .dot.online {
-  background: #10b981;
+  background: var(--success);
 }
 
 .failed,
 .offline {
-  border-color: #fecaca;
-  background: #fff1f1;
-  color: #b91c1c;
+  border-color: #ecb5b8;
+  background: #fff1f2;
+  color: var(--danger);
 }
 
 .dot.offline {
-  background: #ef4444;
+  background: var(--danger);
 }
 
 .pending {
-  border-color: #fde68a;
-  background: #fff8dd;
-  color: #92400e;
+  border-color: #e3c785;
+  background: #fff6dc;
+  color: var(--warning);
 }
 
 .dot.pending {
-  background: #f59e0b;
+  background: var(--warning);
 }
 
 .running {
-  border-color: #bfdbfe;
-  background: #eef6ff;
-  color: #1d4ed8;
+  border-color: #bbe1fa;
+  background: var(--primary-soft);
+  color: var(--primary-strong);
 }
 
 .skipped {
-  border-color: #ddd6fe;
-  background: #f6f2ff;
-  color: #6d28d9;
+  border-color: #bed0e8;
+  background: #e7eef7;
+  color: #4d6598;
 }
 
 .dot.skipped {
-  background: #8b5cf6;
+  background: #526fa3;
 }

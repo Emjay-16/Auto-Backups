@@ -483,6 +483,7 @@ def process_pending_auto_backups(db: Session, limit: int = 20) -> int:
     if is_job_lock_active(db, "auto_backup"):
         return 0
 
+    max_pending_retries = _pending_max_retries()
     pending_jobs = (
         db.query(models.BackupJob)
         .filter(
@@ -516,20 +517,24 @@ def process_pending_auto_backups(db: Session, limit: int = 20) -> int:
                 db,
             )
         except HTTPException as exc:
-            update_job(
-                db,
-                pending_job,
+            _update_pending_retry_job(
+                db=db,
+                pending_job=pending_job,
                 retry_count=pending_job.retry_count + 1,
-                message=f"Pending retry skipped: {exc.detail}",
+                max_pending_retries=max_pending_retries,
+                waiting_message=f"Pending retry skipped: {exc.detail}",
+                skipped_message=f"Pending retry skipped after {max_pending_retries} check(s): {exc.detail}",
             )
             processed += 1
             continue
         except Exception as exc:
-            update_job(
-                db,
-                pending_job,
+            _update_pending_retry_job(
+                db=db,
+                pending_job=pending_job,
                 retry_count=pending_job.retry_count + 1,
-                message=f"Pending retry failed: {exc}",
+                max_pending_retries=max_pending_retries,
+                waiting_message=f"Pending retry failed: {exc}",
+                skipped_message=f"Pending retry failed after {max_pending_retries} check(s): {exc}",
             )
             processed += 1
             continue
@@ -548,17 +553,61 @@ def process_pending_auto_backups(db: Session, limit: int = 20) -> int:
                 finished=True,
             )
         else:
-            update_job(
-                db,
-                pending_job,
-                checked_devices=pending_job.checked_devices + 1,
-                offline_devices=1,
+            _update_pending_retry_job(
+                db=db,
+                pending_job=pending_job,
                 retry_count=pending_job.retry_count + 1,
-                message="Device still offline, waiting for next pending retry",
+                max_pending_retries=max_pending_retries,
+                checked_devices=pending_job.checked_devices + 1,
+                waiting_message="Device still offline, waiting for next pending retry",
+                skipped_message=f"Device still offline after {max_pending_retries} pending check(s), skipped",
             )
         processed += 1
 
     return processed
+
+
+def _pending_max_retries() -> int:
+    raw_value = os.getenv("AUTO_BACKUP_PENDING_MAX_RETRIES", "3")
+    try:
+        return max(int(raw_value), 1)
+    except ValueError:
+        return 3
+
+
+def _update_pending_retry_job(
+    *,
+    db: Session,
+    pending_job: models.BackupJob,
+    retry_count: int,
+    max_pending_retries: int,
+    waiting_message: str,
+    skipped_message: str,
+    checked_devices: Optional[int] = None,
+) -> None:
+    if retry_count >= max_pending_retries:
+        if pending_job.device:
+            _mark_device_status(db, pending_job.device, online=False)
+        update_job(
+            db,
+            pending_job,
+            status=constants.JOB_STATUS_SKIPPED,
+            checked_devices=checked_devices,
+            offline_devices=1,
+            retry_count=retry_count,
+            message=skipped_message,
+            finished=True,
+        )
+        return
+
+    update_job(
+        db,
+        pending_job,
+        checked_devices=checked_devices,
+        offline_devices=1,
+        retry_count=retry_count,
+        message=waiting_message,
+    )
 
 
 def _run_auto_backups(
@@ -1351,6 +1400,9 @@ def _backup_cleanup_skip_reason(
     db: Session,
     keep_latest_per_device: bool,
 ) -> Optional[str]:
+    if backup.backup_type != constants.BACKUP_TYPE_AUTO:
+        return "Manual backup is protected"
+
     if keep_latest_per_device and _is_latest_backup_for_device(backup, db):
         return "Latest backup for this device"
 

@@ -1,31 +1,29 @@
 .page {
   display: grid;
-  gap: 20px;
-  padding: 0 30px 30px;
+  gap: 16px;
+  padding: 0 28px 28px;
 }
 
 .summaryGrid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 18px;
+  gap: 12px;
 }
 
 .summaryGrid article {
   display: grid;
   gap: 8px;
-  padding: 17px 18px;
-  border: 1px solid rgba(196, 212, 231, 0.78);
-  border-radius: var(--radius-panel);
-  background:
-    radial-gradient(circle at 88% 16%, rgba(37, 99, 235, 0.06), transparent 8rem),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.92));
-  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.065);
+  padding: 16px 17px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: var(--shadow-sm);
 }
 
 .summaryGrid span {
   color: #64748b;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .summaryGrid strong {
@@ -34,14 +32,14 @@
   line-height: 1;
 }
 
-.summaryGrid .success strong { color: #059669; }
-.summaryGrid .failed strong { color: #dc2626; }
-.summaryGrid .running strong { color: #2563eb; }
+.summaryGrid .success strong { color: var(--success); }
+.summaryGrid .failed strong { color: var(--danger); }
+.summaryGrid .running strong { color: var(--primary); }
 
 .logs {
   display: grid;
-  gap: 10px;
-  padding: 14px;
+  gap: 8px;
+  padding: 12px;
 }
 
 .log {
@@ -49,21 +47,20 @@
   display: grid;
   grid-template-columns: 40px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 15px;
-  padding: 14px 15px;
-  border: 1px solid rgba(220, 231, 243, 0.92);
-  border-radius: 16px;
-  background:
-    radial-gradient(circle at 94% 18%, rgba(37, 99, 235, 0.045), transparent 8rem),
-    rgba(255, 255, 255, 0.82);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.04);
+  gap: 14px;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #ffffff;
+  box-shadow: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .log:hover {
-  border-color: #bfdbfe;
-  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.08);
-  transform: translateY(-1px);
+  border-color: var(--line-strong);
+  background: var(--surface-soft);
+  box-shadow: none;
+  transform: none;
 }
 
 .icon {
@@ -71,20 +68,20 @@
   height: 36px;
   display: grid;
   place-items: center;
-  border-radius: 11px;
-  font-weight: 900;
+  border-radius: 10px;
+  font-weight: 760;
 }
 
 .icon.ok,
 .statusPill.ok {
   background: #dcfce7;
-  color: #15803d;
+  color: var(--success);
 }
 
 .icon.run,
 .statusPill.run {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: var(--primary-soft);
+  color: var(--primary-strong);
 }
 
 .icon.wait,
@@ -96,7 +93,7 @@
 .icon.fail,
 .statusPill.fail {
   background: #fee2e2;
-  color: #b91c1c;
+  color: var(--danger);
 }
 
 .logMain {
@@ -116,7 +113,7 @@
   overflow: hidden;
   color: #0f172a;
   font-size: 14px;
-  font-weight: 900;
+  font-weight: 760;
   text-overflow: ellipsis;
   text-transform: capitalize;
   white-space: nowrap;
@@ -139,7 +136,7 @@
   padding: 0 10px;
   border-radius: 999px;
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .logMeta {
@@ -150,14 +147,15 @@
   gap: 10px;
   color: #7a89a0;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 760;
 }
 
 .logMeta span,
 .logMeta time {
   padding: 5px 9px;
-  border-radius: 999px;
-  background: #f1f6fb;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface-soft);
   white-space: nowrap;
 }
 
@@ -166,10 +164,10 @@
   padding: 34px 20px;
   border: 1px dashed #c8d7e8;
   border-radius: 16px;
-  background: rgba(248, 251, 255, 0.78);
+  background: #ffffff;
   color: #64748b;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 760;
   text-align: center;
 }
 

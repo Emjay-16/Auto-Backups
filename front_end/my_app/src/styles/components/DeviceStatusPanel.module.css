@@ -6,8 +6,8 @@
 }
 
 .card {
-  --card-accent: #94a3b8;
-  --card-border: #dbe4ee;
+  --card-accent: var(--muted-soft);
+  --card-border: var(--line-strong);
   min-width: 0;
   position: relative;
   overflow: hidden;
@@ -19,43 +19,42 @@
   border: 2px solid var(--card-border);
   border-radius: 20px;
   background:
-    radial-gradient(circle at 82% 12%, color-mix(in srgb, var(--card-accent) 7%, transparent), transparent 9rem),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(249, 252, 255, 0.94) 100%);
+    linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%);
   color: inherit;
   text-align: left;
-  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.07);
+  box-shadow: var(--shadow-sm);
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .card.amr {
-  --card-accent: #2563eb;
-  --card-border: #bfdbfe;
+  --card-accent: var(--primary);
+  --card-border: #bbe1fa;
 }
 
 .card.smr {
-  --card-accent: #059669;
-  --card-border: #99f6e4;
+  --card-accent: var(--success);
+  --card-border: #a8d8d1;
 }
 
 .card.smrl {
-  --card-accent: #7c3aed;
-  --card-border: #ddd6fe;
+  --card-accent: #526fa3;
+  --card-border: #bed0e8;
 }
 
 .card.defaultTone {
-  --card-accent: #64748b;
-  --card-border: #dbe4ee;
+  --card-accent: var(--muted);
+  --card-border: var(--line-strong);
 }
 
 .card:hover {
   border-color: color-mix(in srgb, var(--card-accent) 56%, var(--card-border));
-  box-shadow: 0 26px 58px color-mix(in srgb, var(--card-accent) 13%, rgba(15, 23, 42, 0.08));
-  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+  transform: none;
 }
 
 .card:active {
   transform: translateY(0);
-  box-shadow: 0 12px 28px color-mix(in srgb, var(--card-accent) 13%, rgba(15, 23, 42, 0.08));
+  box-shadow: var(--shadow-sm);
 }
 
 .card:focus-visible {
@@ -86,8 +85,8 @@
   width: 15px;
   height: 15px;
   border-radius: 50%;
-  border: 2px solid color-mix(in srgb, var(--card-accent, #2563eb) 28%, transparent);
-  border-top-color: var(--card-accent, #2563eb);
+  border: 2px solid color-mix(in srgb, var(--card-accent, var(--primary)) 28%, transparent);
+  border-top-color: var(--card-accent, var(--primary));
   animation: spin 0.65s linear infinite;
   flex: none;
 }
@@ -102,7 +101,7 @@
   display: block;
   color: #111827;
   font-size: 17px;
-  font-weight: 950;
+  font-weight: 760;
   line-height: 1.2;
 }
 
@@ -132,7 +131,7 @@
   border: 1px solid transparent;
   border-radius: 999px;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 760;
   line-height: 1;
   white-space: nowrap;
 }
@@ -140,7 +139,7 @@
 .onlinePill {
   border-color: rgba(134, 239, 172, 0.72);
   background: rgba(236, 253, 245, 0.84);
-  color: #059669;
+  color: var(--success);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
 }
 
@@ -148,14 +147,14 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #22c55e;
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.14);
+  background: var(--success);
+  box-shadow: 0 0 0 3px rgba(15, 143, 122, 0.14);
 }
 
 .timePill {
   border-color: rgba(191, 219, 254, 0.82);
   background: rgba(239, 246, 255, 0.82);
-  color: #315c98;
+  color: var(--primary-strong);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
 }
 
@@ -174,7 +173,7 @@
   border: 1px dashed #c8d7e8;
   border-radius: 16px;
   background:
-    radial-gradient(circle at 92% 0%, rgba(37, 99, 235, 0.06), transparent 10rem),
+    radial-gradient(circle at 92% 0%, rgba(47, 126, 164, 0.06), transparent 10rem),
     #f8fbff;
   text-align: center;
 }
@@ -257,11 +256,10 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid rgba(196, 212, 231, 0.86);
-  border-radius: 22px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.96));
-  box-shadow: 0 34px 90px rgba(15, 23, 42, 0.28);
+  border: 1px solid var(--line-strong);
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 28px 86px rgba(15, 23, 42, 0.24);
 }
 
 .modalBody {
@@ -277,10 +275,8 @@
   justify-content: space-between;
   gap: 16px;
   padding: 16px 24px;
-  border-bottom: 1px solid rgba(220, 231, 243, 0.9);
-  background:
-    radial-gradient(circle at 8% 12%, rgba(37, 99, 235, 0.08), transparent 18rem),
-    linear-gradient(180deg, #ffffff, #f8fbff);
+  border-bottom: 1px solid var(--line);
+  background: #fbfcfe;
 }
 
 .modalTitle {
@@ -297,7 +293,7 @@
 .modalHeader p {
   color: #66758a;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 760;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -317,7 +313,7 @@
   height: 36px;
   border: 1px solid #dbe4ee;
   border-radius: 12px;
-  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  background: linear-gradient(180deg, #ffffff, var(--surface-soft));
   color: #53647a;
   font-size: 22px;
   line-height: 1;
@@ -334,7 +330,7 @@
 }
 
 .close:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 
@@ -359,7 +355,7 @@
   margin-bottom: 6px;
   color: #8a99ac;
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 760;
   text-transform: uppercase;
 }
 
@@ -380,7 +376,7 @@
   border: 1px solid rgba(220, 231, 243, 0.9);
   border-radius: 18px;
   background:
-    radial-gradient(circle at 96% 0%, rgba(37, 99, 235, 0.055), transparent 10rem),
+    radial-gradient(circle at 96% 0%, rgba(47, 126, 164, 0.055), transparent 10rem),
     linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(248, 251, 255, 0.86));
 }
 
@@ -402,12 +398,12 @@
   display: inline-flex;
   align-items: center;
   padding: 0 10px;
-  border: 1px solid #dbeafe;
+  border: 1px solid var(--primary-soft);
   border-radius: 999px;
-  background: #eff6ff;
-  color: #315c98;
+  background: var(--primary-soft);
+  color: var(--primary-strong);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .targetList,
@@ -438,7 +434,7 @@
   gap: 8px;
   color: #66758a;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 760;
   line-height: 1.35;
 }
 
@@ -453,25 +449,25 @@
   color: #162235;
   padding: 0 12px;
   font-size: 13px;
-  font-weight: 760;
+  font-weight: 720;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 
 .customPathRow input:focus-visible {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(47, 126, 164, 0.14);
 }
 
 .customPathRow button {
   min-height: 40px;
   padding: 0 14px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid var(--line-strong);
   border-radius: 12px;
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: var(--primary-soft);
+  color: var(--primary-strong);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .selectedPathList {
@@ -496,12 +492,12 @@
   gap: 10px;
   min-height: 32px;
   padding: 0 9px;
-  border: 1px solid #dbeafe;
+  border: 1px solid var(--primary-soft);
   border-radius: 999px;
   background: #f8fbff;
   color: #53647a;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 760;
   text-align: left;
 }
 
@@ -512,7 +508,7 @@
 }
 
 .selectedPathList b {
-  color: #dc2626;
+  color: var(--danger);
 }
 
 .targetRow,
@@ -529,16 +525,16 @@
   background: rgba(255, 255, 255, 0.82);
   color: #53647a;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 760;
 }
 
 .targetRow:has(input:checked),
 .fileRow:has(input:checked) {
-  border-color: #93c5fd;
+  border-color: var(--accent);
   background:
-    radial-gradient(circle at 94% 18%, rgba(37, 99, 235, 0.08), transparent 8rem),
+    radial-gradient(circle at 94% 18%, rgba(47, 126, 164, 0.08), transparent 8rem),
     linear-gradient(180deg, rgba(239, 246, 255, 0.94), rgba(248, 251, 255, 0.98));
-  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 10px 22px rgba(47, 126, 164, 0.08);
 }
 
 .targetRow input,
@@ -569,9 +565,9 @@
 
 .targetRow input:checked,
 .fileRow input:checked {
-  border-color: #2563eb;
-  background: linear-gradient(135deg, #2563eb, #0891b2);
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12), 0 8px 18px rgba(37, 99, 235, 0.16);
+  border-color: var(--primary);
+  background: var(--primary);
+  box-shadow: 0 0 0 3px rgba(47, 126, 164, 0.1);
 }
 
 .targetRow input:checked::before,
@@ -583,7 +579,7 @@
 .fileRow input:focus-visible,
 .customPathRow input:focus-visible {
   outline: 0;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
+  box-shadow: var(--control-focus);
 }
 
 .targetRow input:active,
@@ -596,17 +592,15 @@
   width: 100%;
   height: 100%;
   border-radius: 999px;
-  background:
-    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.58), transparent 34%),
-    linear-gradient(135deg, #2563eb, #0891b2);
+  background: var(--primary);
   transform: scale(0);
 }
 
 .targetRow input:checked,
 .fileRow input:checked {
-  border-color: #2563eb;
+  border-color: var(--primary);
   background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12), 0 8px 18px rgba(37, 99, 235, 0.16);
+  box-shadow: 0 0 0 3px rgba(47, 126, 164, 0.1);
 }
 
 .targetRow input:checked::before,
@@ -621,11 +615,11 @@
 
 .targetRow:has(input:checked),
 .fileRow:has(input:checked) {
-  border-color: #93c5fd;
+  border-color: var(--accent);
   background:
-    radial-gradient(circle at 94% 18%, rgba(37, 99, 235, 0.08), transparent 8rem),
+    radial-gradient(circle at 94% 18%, rgba(47, 126, 164, 0.08), transparent 8rem),
     linear-gradient(180deg, rgba(239, 246, 255, 0.94), rgba(248, 251, 255, 0.98));
-  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.08);
+  box-shadow: 0 10px 22px rgba(47, 126, 164, 0.08);
 }
 
 .targetRow span,
@@ -645,19 +639,19 @@
   gap: 6px;
   min-height: 28px;
   padding: 0 10px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: var(--primary-soft);
+  color: var(--primary-strong);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 760;
   transition: background 0.12s ease, border-color 0.12s ease;
 }
 
 .targetRow button:hover:not(:disabled),
 .fileRow button:hover:not(:disabled),
 .browserHeader button:hover:not(:disabled) {
-  background: #dbeafe;
+  background: var(--primary-soft);
 }
 
 .targetRow button:focus-visible,
@@ -666,7 +660,7 @@
 .customPathRow button:focus-visible,
 .selectedPathList button:focus-visible,
 .actions button:focus-visible {
-  outline: 2px solid #2563eb;
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
 
@@ -677,7 +671,7 @@
   background: #eef2ff;
   color: #3730a3;
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .browser {
@@ -715,7 +709,7 @@
   padding: 10px 12px;
   border-radius: 8px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 760;
   animation: bannerIn 0.15s ease both;
 }
 
@@ -761,7 +755,7 @@
   align-self: center;
   color: #66758a;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 760;
   content: "Select targets, then run backup";
 }
 
@@ -776,7 +770,7 @@
   background: #ffffff;
   color: #223149;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 760;
   transition: border-color 0.12s ease, background 0.12s ease, transform 0.12s ease;
 }
 
@@ -789,8 +783,8 @@
 }
 
 .actions button:first-child {
-  border-color: #2563eb;
-  background: #2563eb;
+  border-color: var(--primary);
+  background: var(--primary);
   color: #ffffff;
 }
 
@@ -802,8 +796,8 @@
 }
 
 .actions button:first-child:hover:not(:disabled) {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
+  background: var(--primary-strong);
+  border-color: var(--primary-strong);
 }
 
 .actions button:first-child .spinner {
@@ -832,9 +826,7 @@
   position: absolute;
   inset: 0;
   border: 0;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(37, 99, 235, 0.12), transparent 28rem),
-    rgba(15, 23, 42, 0.28);
+  background: rgba(15, 23, 42, 0.28);
   backdrop-filter: blur(4px);
 }
 
@@ -845,12 +837,10 @@
   display: grid;
   gap: 16px;
   padding: 22px;
-  border: 1px solid rgba(191, 219, 254, 0.9);
-  border-radius: 22px;
-  background:
-    radial-gradient(circle at 94% 0%, rgba(8, 145, 178, 0.08), transparent 12rem),
-    linear-gradient(180deg, #ffffff, #f8fbff);
-  box-shadow: 0 28px 82px rgba(15, 23, 42, 0.26);
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
 }
 
 .namePromptHeader {
@@ -862,7 +852,7 @@
   margin: 0;
   color: #66758a;
   font-size: 12px;
-  font-weight: 950;
+  font-weight: 760;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -877,7 +867,7 @@
 .namePromptHeader span {
   color: #66758a;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 760;
 }
 
 .namePromptField {
@@ -885,27 +875,26 @@
   gap: 8px;
   color: #66758a;
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .namePromptField input {
   min-width: 0;
   width: 100%;
-  height: 44px;
+  height: 42px;
   border: 1px solid var(--control-border);
-  border-radius: 13px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), var(--control-bg));
+  border-radius: 10px;
+  background: #ffffff;
   color: #162235;
   padding: 0 13px;
   font-size: 13px;
-  font-weight: 760;
+  font-weight: 720;
 }
 
 .namePromptField input:focus-visible {
   outline: 0;
-  border-color: #93c5fd;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1);
+  border-color: var(--accent);
+  box-shadow: var(--control-focus);
 }
 
 .namePromptActions {
@@ -925,27 +914,27 @@
   background: #ffffff;
   color: #223149;
   font-size: 13px;
-  font-weight: 850;
+  font-weight: 760;
   transition: transform 0.15s var(--ease-out-expo), border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .namePromptActions button:hover:not(:disabled) {
-  border-color: #bfdbfe;
+  border-color: var(--line-strong);
   background: #f8fbff;
-  transform: translateY(-1px);
+  transform: none;
 }
 
 .namePromptActions button:last-child {
-  border-color: #2563eb;
-  background: linear-gradient(135deg, #2563eb, #0891b2);
+  border-color: var(--primary);
+  background: var(--primary);
   color: #ffffff;
-  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
+  box-shadow: 0 10px 22px rgba(47, 126, 164, 0.16);
 }
 
 .namePromptActions button:last-child:hover:not(:disabled) {
-  border-color: #1d4ed8;
-  background: linear-gradient(135deg, #1d4ed8, #0e7490);
-  box-shadow: 0 16px 30px rgba(37, 99, 235, 0.24);
+  border-color: var(--primary-strong);
+  background: var(--primary-strong);
+  box-shadow: 0 12px 26px rgba(47, 126, 164, 0.2);
 }
 
 .namePromptActions button:last-child .spinner {

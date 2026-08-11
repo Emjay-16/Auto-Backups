@@ -21,12 +21,10 @@
 .overviewPanel,
 .commandPanel {
   min-width: 0;
-  border: 1px solid rgba(196, 212, 231, 0.78);
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at 94% 8%, rgba(37, 99, 235, 0.055), transparent 12rem),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.94));
-  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.045);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: var(--shadow-sm);
 }
 
 .overviewPanel {
@@ -36,11 +34,8 @@
   align-items: center;
   gap: 16px;
   padding: 16px 18px;
-  border-color: rgba(186, 208, 234, 0.9);
-  background:
-    radial-gradient(circle at 12% 0%, rgba(37, 99, 235, 0.07), transparent 13rem),
-    radial-gradient(circle at 92% 10%, rgba(8, 145, 178, 0.055), transparent 14rem),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 251, 255, 0.94));
+  border-color: var(--line);
+  background: #ffffff;
 }
 
 .sectionIntro {
@@ -53,8 +48,8 @@
 .commandHeader span {
   color: #75869d;
   font-size: 11px;
-  font-weight: 950;
-  letter-spacing: 0.05em;
+  font-weight: 760;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
@@ -65,19 +60,13 @@
 }
 
 .sectionIntro h2::after {
-  display: block;
-  width: 42px;
-  height: 3px;
-  margin-top: 9px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #2563eb, #06b6d4);
-  content: "";
+  display: none;
 }
 
 .sectionIntro p {
   color: var(--muted);
   font-size: 13px;
-  font-weight: 760;
+  font-weight: 720;
   line-height: 1.55;
 }
 
@@ -99,7 +88,7 @@
 .commandHeader strong {
   color: #0f172a;
   font-size: 18px;
-  font-weight: 950;
+  font-weight: 760;
 }
 
 .summaryGrid {
@@ -114,18 +103,16 @@
   gap: 3px;
   min-height: 68px;
   padding: 11px 12px;
-  border: 1px solid rgba(196, 212, 231, 0.78);
-  border-radius: 13px;
-  background:
-    radial-gradient(circle at 94% 8%, rgba(37, 99, 235, 0.055), transparent 8rem),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.92));
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfcfe;
+  box-shadow: none;
 }
 
 .summaryCard span {
   color: #75869d;
   font-size: 11px;
-  font-weight: 950;
+  font-weight: 760;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -143,7 +130,7 @@
   overflow: hidden;
   color: var(--muted);
   font-size: 10.5px;
-  font-weight: 800;
+  font-weight: 760;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -167,27 +154,25 @@
   align-items: center;
   gap: 10px;
   padding: 10px;
-  border: 1px solid rgba(196, 212, 231, 0.78);
-  border-radius: 14px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.92));
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #ffffff;
   color: var(--foreground);
   text-align: left;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+  box-shadow: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .actionCard:hover {
-  border-color: #bfdbfe;
-  box-shadow: 0 24px 54px rgba(37, 99, 235, 0.11);
-  transform: translateY(-1px);
+  border-color: var(--line-strong);
+  background: var(--surface-soft);
+  box-shadow: none;
+  transform: none;
 }
 
 .primaryAction {
-  border-width: 2px;
-  border-color: #60a5fa;
-  background:
-    radial-gradient(circle at 92% 0%, rgba(8, 145, 178, 0.16), transparent 9rem),
-    linear-gradient(135deg, #eff6ff, #ffffff 58%);
+  border-color: var(--primary);
+  background: var(--surface-soft);
 }
 
 .actionCard > span {
@@ -195,9 +180,9 @@
   height: 34px;
   display: grid;
   place-items: center;
-  border: 1px solid #bfdbfe;
+  border: 1px solid var(--line);
   border-radius: 11px;
-  background: #eff6ff;
+  background: #f2f6fb;
   color: var(--primary);
 }
 
@@ -240,7 +225,7 @@
   padding: 3px 7px;
   border-radius: 999px;
   font-size: 9px;
-  font-weight: 950;
+  font-weight: 760;
   letter-spacing: 0.04em;
 }
 
@@ -265,9 +250,9 @@
   background:
     radial-gradient(circle at 98% 0%, rgba(220, 38, 38, 0.07), transparent 10rem),
     linear-gradient(180deg, #fff7f7, #ffffff);
-  color: #b91c1c;
+  color: var(--danger);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 760;
   line-height: 1.45;
 }
 
@@ -316,7 +301,7 @@
   background: rgba(248, 251, 255, 0.92);
   color: #8494aa;
   font-size: 11px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.045em;
   text-transform: uppercase;
 }
 
@@ -351,7 +336,7 @@
   border: 0;
   background: transparent;
   font: inherit;
-  font-weight: 800;
+  font-weight: 760;
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -381,7 +366,7 @@
   background: linear-gradient(180deg, #ffffff, #f8fbff);
   color: #5b6b82;
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 760;
   box-shadow: 0 4px 10px rgba(15, 23, 42, 0.035);
   transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
@@ -392,10 +377,10 @@
 }
 
 .actions button:hover {
-  border-color: #93c5fd;
-  background: #eff6ff;
+  border-color: var(--accent);
+  background: var(--primary-soft);
   color: var(--primary);
-  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.11);
+  box-shadow: 0 8px 16px rgba(47, 126, 164, 0.11);
   transform: translateY(-1px);
 }
 
@@ -431,7 +416,7 @@
   margin-top: 6px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 760;
 }
 
 .type {
@@ -443,7 +428,7 @@
   background: #ecfeff;
   color: #0e7490;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 760;
 }
 
 .deviceBackupGrid {
@@ -460,32 +445,27 @@
   display: grid;
   gap: 13px;
   padding: 15px;
-  border: 2px solid rgba(191, 219, 254, 0.85);
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at 96% 0%, rgba(37, 99, 235, 0.08), transparent 9rem),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.92));
-  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.055);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .hasBackup {
   border-color: rgba(5, 150, 105, 0.34);
-  background:
-    radial-gradient(circle at 96% 0%, rgba(5, 150, 105, 0.08), transparent 9rem),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 255, 252, 0.92));
+  background: #ffffff;
 }
 
 .noBackup {
-  border-color: rgba(245, 158, 11, 0.34);
-  background:
-    radial-gradient(circle at 96% 0%, rgba(245, 158, 11, 0.08), transparent 9rem),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 251, 235, 0.92));
+  border-color: rgba(217, 119, 6, 0.28);
+  background: #ffffff;
 }
 
 .deviceBackupCard:hover {
-  box-shadow: 0 18px 38px rgba(37, 99, 235, 0.1);
-  transform: translateY(-2px);
+  border-color: var(--line-strong);
+  box-shadow: none;
+  transform: none;
 }
 
 .deviceBackupHeader {
@@ -505,7 +485,7 @@
   overflow: hidden;
   color: #0f172a;
   font-size: 17px;
-  font-weight: 950;
+  font-weight: 760;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -515,7 +495,7 @@
   margin-top: 2px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 760;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -526,12 +506,12 @@
   display: grid;
   place-items: center;
   padding: 0 10px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid var(--line-strong);
   border-radius: 13px;
-  background: #eff6ff;
+  background: var(--primary-soft);
   color: var(--primary);
   font-size: 12px;
-  font-weight: 950;
+  font-weight: 760;
 }
 
 .hasBackup .groupPill {
@@ -562,7 +542,7 @@
   background: rgba(255, 255, 255, 0.78);
   color: var(--muted);
   font-size: 11px;
-  font-weight: 850;
+  font-weight: 760;
 }
 
 .deviceBackupMetrics b {
@@ -587,7 +567,7 @@
   padding: 5px 8px;
   border-radius: 999px;
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 760;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -607,16 +587,16 @@
 .deviceBackupFooter button {
   min-height: 34px;
   padding: 0 13px;
-  border: 1px solid #93c5fd;
+  border: 1px solid var(--accent);
   border-radius: 999px;
-  background: linear-gradient(180deg, #ffffff, #eff6ff);
+  background: linear-gradient(180deg, #ffffff, var(--primary-soft));
   color: var(--primary);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .deviceBackupFooter button:hover:not(:disabled) {
-  background: #dbeafe;
+  background: var(--primary-soft);
 }
 
 .deviceBackupFooter button:disabled {
@@ -650,11 +630,11 @@
   border: 1px solid rgba(220, 231, 243, 0.9);
   border-radius: 14px;
   background:
-    radial-gradient(circle at 96% 0%, rgba(37, 99, 235, 0.055), transparent 8rem),
+    radial-gradient(circle at 96% 0%, rgba(47, 126, 164, 0.055), transparent 8rem),
     rgba(255, 255, 255, 0.78);
   color: var(--muted);
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 760;
 }
 
 .deviceHistorySummary b {
@@ -686,7 +666,7 @@
   padding: 14px 16px;
   border-bottom: 1px solid rgba(220, 231, 243, 0.86);
   background:
-    linear-gradient(90deg, rgba(37, 99, 235, 0.06), transparent 52%),
+    linear-gradient(90deg, rgba(47, 126, 164, 0.06), transparent 52%),
     rgba(248, 251, 255, 0.86);
 }
 
@@ -695,9 +675,9 @@
   height: 38px;
   display: grid;
   place-items: center;
-  border: 1px solid #bfdbfe;
+  border: 1px solid var(--line-strong);
   border-radius: 12px;
-  background: #eff6ff;
+  background: var(--primary-soft);
   color: var(--primary);
 }
 
@@ -715,7 +695,7 @@
   overflow: hidden;
   color: #0f172a;
   font-size: 15px;
-  font-weight: 950;
+  font-weight: 760;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -724,7 +704,7 @@
   margin-top: 3px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 760;
 }
 
 .backupRoundList {
@@ -769,7 +749,7 @@
   overflow: hidden;
   color: #162235;
   font-size: 13px;
-  font-weight: 950;
+  font-weight: 760;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -778,7 +758,7 @@
   overflow: hidden;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 760;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -787,7 +767,7 @@
   padding: 18px;
   color: var(--muted);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 760;
 }
 
 @media (max-width: 980px) {
@@ -859,32 +839,32 @@
   border: 1px solid #cfe0f4;
   border-radius: 11px;
   background: linear-gradient(180deg, #ffffff, #f3f8ff);
-  color: #2563eb;
+  color: var(--primary);
   font-size: 15px;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .panelGearButton:hover {
-  border-color: #93c5fd;
-  background: #dbeafe;
+  border-color: var(--accent);
+  background: var(--primary-soft);
 }
 
 .pathPanelHeader span {
   color: var(--muted);
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 760;
   text-transform: uppercase;
 }
 
 .pathPanelHeader button {
   min-height: 32px;
   padding: 0 12px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid var(--line-strong);
   border-radius: 999px;
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: var(--primary-soft);
+  color: var(--primary-strong);
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .pathList > p {
@@ -895,7 +875,7 @@
   background: linear-gradient(180deg, #ffffff, #f8fbff);
   color: #223149;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 760;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -933,49 +913,119 @@
 
 .pathItem strong {
   font-size: 12px;
-  font-weight: 950;
+  font-weight: 760;
 }
 
 .pathItem span {
   color: var(--muted);
   font-size: 11px;
-  font-weight: 760;
+  font-weight: 720;
 }
 
-.pathManageButton {
-  width: 32px;
-  min-height: 32px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 1px solid #cfe0f4;
-  border-radius: 10px;
-  background: #f8fbff;
-  color: #2563eb;
-  font-size: 14px;
-  font-weight: 900;
-}
-
-.pathManageButton:hover,
 .pathPanelHeader button:hover {
-  border-color: #93c5fd;
-  background: #dbeafe;
-}
-
-.pathForm {
-  grid-template-columns: 1fr;
+  border-color: var(--accent);
+  background: var(--primary-soft);
 }
 
 .pathManager {
   display: grid;
-  gap: 16px;
+  gap: 12px;
+  padding: 18px 20px 20px;
+}
+
+.pathModal {
+  width: min(980px, 100%);
+}
+
+.pathManagerIntro {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 0;
+  border-radius: 17px;
+  background: var(--surface-soft);
+  box-shadow:
+    inset 0 0 0 1px var(--line),
+    0 8px 18px rgba(15, 23, 42, 0.035);
+}
+
+.pathManagerIntro div,
+.pathFormTitle {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.pathManagerIntro span,
+.pathFormTitle span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 760;
+}
+
+.pathManagerIntro strong,
+.pathFormTitle strong {
+  color: #162235;
+  font-size: 15px;
+  font-weight: 760;
+}
+
+.pathManagerIntro b {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 760;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.pathForm {
+  grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1fr) minmax(0, 1.45fr);
+  align-items: start;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.pathFormTitle {
+  height: 100%;
+  padding: 2px 8px 2px 2px;
+  align-content: center;
+}
+
+.pathFormTitle button {
+  width: max-content;
+  min-height: 30px;
+  margin-top: 5px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 999px;
+  background: #f2f6fb;
+  color: var(--primary-strong);
+  font-size: 11px;
+  font-weight: 760;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.pathFormTitle button:hover {
+  background: #e8eef7;
 }
 
 .pathManagerList {
   display: grid;
-  gap: 8px;
-  max-height: 320px;
+  gap: 7px;
+  max-height: 330px;
   overflow: auto;
+  padding: 2px;
 }
 
 .pathManagerItem {
@@ -983,10 +1033,22 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: center;
-  padding: 11px 12px;
-  border: 1px solid rgba(220, 231, 243, 0.9);
-  border-radius: 13px;
-  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  padding: 12px;
+  border-radius: 15px;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px var(--line);
+  transition: box-shadow 0.15s ease, transform 0.15s ease, background 0.15s ease;
+}
+
+.pathManagerItem:hover {
+  background: var(--surface-soft);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+  transform: none;
+}
+
+.pathManagerItem.isEditing {
+  background: #f4f8ff;
+  box-shadow: inset 0 0 0 2px rgba(47, 126, 164, 0.38);
 }
 
 .pathManagerItem div {
@@ -1004,26 +1066,44 @@
 }
 
 .pathManagerItem strong {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   color: #162235;
   font-size: 13px;
-  font-weight: 950;
+  font-weight: 760;
 }
 
 .pathManagerItem span {
   color: var(--muted);
   font-size: 11px;
-  font-weight: 760;
+  font-weight: 720;
 }
 
 .pathManagerItem button {
   min-height: 34px;
   padding: 0 12px;
-  border: 1px solid #bfdbfe;
+  border: 0;
   border-radius: 999px;
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: #f2f6fb;
+  color: var(--primary-strong);
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 760;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.pathManagerItem button:hover {
+  background: #e8eef7;
+}
+
+.pathTypeBadge {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 760;
+  line-height: 1;
+  text-transform: uppercase;
 }
 
 .fieldHint {
@@ -1074,14 +1154,14 @@
   padding: 22px 24px;
   border-bottom: 1px solid rgba(220, 231, 243, 0.9);
   background:
-    radial-gradient(circle at 8% 12%, rgba(37, 99, 235, 0.08), transparent 18rem),
+    radial-gradient(circle at 8% 12%, rgba(47, 126, 164, 0.08), transparent 18rem),
     linear-gradient(180deg, #ffffff, #f8fbff);
 }
 
 .modalHeader p {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 760;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -1098,7 +1178,7 @@
   height: 38px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  background: linear-gradient(180deg, #ffffff, var(--surface-soft));
   color: var(--muted);
   font-size: 22px;
   line-height: 1;
@@ -1108,10 +1188,10 @@
   min-height: 0;
   flex: 1 1 auto;
   display: grid;
-  gap: 16px;
+  gap: 14px;
   max-height: none;
   overflow: auto;
-  padding: 22px 24px 24px;
+  padding: 20px 22px 22px;
 }
 
 .backupForm {
@@ -1120,7 +1200,6 @@
 }
 
 .backupForm .selectionPanel,
-.backupForm .customPathRow,
 .backupForm .selectedPathList,
 .backupForm .browser,
 .backupForm .checkRow {
@@ -1132,7 +1211,7 @@
   gap: 8px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 760;
   line-height: 1.35;
 }
 
@@ -1140,23 +1219,21 @@
 .formGrid select {
   min-width: 0;
   width: 100%;
-  height: 44px;
+  height: 42px;
   border: 1px solid var(--control-border);
-  border-radius: 12px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), var(--control-bg));
+  border-radius: 10px;
+  background: #ffffff;
   color: var(--foreground);
   padding: 0 12px;
   font-size: 13px;
-  font-weight: 760;
+  font-weight: 720;
 }
 
 .formGrid input:focus,
 .formGrid select:focus,
-.customPathRow input:focus,
 .downloadNameField input:focus {
-  border-color: #93c5fd;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
+  border-color: var(--accent);
+  box-shadow: var(--control-focus);
   outline: 0;
 }
 
@@ -1165,14 +1242,14 @@
   align-items: center;
   gap: 10px !important;
   width: fit-content;
-  min-height: 40px;
-  padding: 0 14px;
-  border: 1px solid rgba(207, 224, 243, 0.95);
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 251, 255, 0.86));
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #ffffff;
   color: #40546d;
-  font-weight: 900;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.04);
+  font-weight: 760;
+  box-shadow: none;
 }
 
 .checkRow input {
@@ -1183,8 +1260,8 @@
   place-items: center;
   border: 1.5px solid #b7c9df;
   border-radius: 999px;
-  background: linear-gradient(180deg, #ffffff, #f8fbff);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 6px rgba(15, 23, 42, 0.05);
+  background: #ffffff;
+  box-shadow: none;
   transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
 }
 
@@ -1200,9 +1277,9 @@
 }
 
 .checkRow input:checked {
-  border-color: #2563eb;
-  background: linear-gradient(135deg, #2563eb, #0891b2);
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12), 0 8px 18px rgba(37, 99, 235, 0.16);
+  border-color: var(--primary);
+  background: var(--primary);
+  box-shadow: 0 0 0 3px rgba(47, 126, 164, 0.1);
 }
 
 .checkRow input:checked::before {
@@ -1211,7 +1288,7 @@
 
 .checkRow input:focus-visible {
   outline: 0;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
+  box-shadow: var(--control-focus);
 }
 
 .checkRow input:active {
@@ -1232,12 +1309,10 @@
   display: grid;
   gap: 12px;
   padding: 15px;
-  border: 1px solid rgba(191, 219, 254, 0.72);
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at 92% 0%, rgba(37, 99, 235, 0.07), transparent 11rem),
-    linear-gradient(180deg, rgba(248, 251, 255, 0.96), rgba(255, 255, 255, 0.86));
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 12px 28px rgba(15, 23, 42, 0.04);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fbfcfe;
+  box-shadow: none;
 }
 
 .selectionHeader {
@@ -1256,13 +1331,13 @@
 .selectionHeader strong {
   color: #162235;
   font-size: 14px;
-  font-weight: 950;
+  font-weight: 760;
 }
 
 .selectionHeader span {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 760;
 }
 
 .selectionActions {
@@ -1275,16 +1350,16 @@
 .selectionActions button {
   min-height: 32px;
   padding: 0 12px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid var(--line-strong);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.88);
+  background: #ffffff;
   color: var(--primary);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .selectionActions button:hover:not(:disabled) {
-  background: #eff6ff;
+  background: #f2f6fb;
 }
 
 .selectionActions button:disabled {
@@ -1292,64 +1367,14 @@
   opacity: 0.45;
 }
 
-.customPathRow {
-  display: grid;
-  grid-template-columns: minmax(150px, 0.42fr) minmax(220px, 1fr) auto;
-  align-items: end;
-  gap: 12px;
-}
-
-.customPathRow label {
-  display: grid;
-  gap: 8px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.customPathRow input {
-  min-width: 0;
-  width: 100%;
-  height: 44px;
-  border: 1px solid var(--control-border);
-  border-radius: 12px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), var(--control-bg));
-  color: var(--foreground);
-  padding: 0 12px;
-  font-size: 13px;
-  font-weight: 760;
-}
-
-.customPathRow button {
-  min-height: 44px;
-  padding: 0 15px;
-  border: 1px solid #bfdbfe;
-  border-radius: 12px;
-  background: linear-gradient(180deg, #eff6ff, #dbeafe);
-  color: var(--primary);
-  font-size: 12px;
-  font-weight: 900;
-  transition: transform 0.15s var(--ease-out-expo), border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
-}
-
-.customPathRow button:hover {
-  border-color: #93c5fd;
-  background: #dbeafe;
-  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.1);
-  transform: translateY(-1px);
-}
-
 .selectedPathList {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
   padding: 12px;
-  border: 1px solid rgba(191, 219, 254, 0.74);
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(37, 99, 235, 0.06), transparent 11rem),
-    rgba(255, 255, 255, 0.82);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
 }
 
 .selectedPathList button {
@@ -1361,18 +1386,18 @@
   gap: 9px;
   min-height: 32px;
   padding: 0 8px 0 12px;
-  border: 1px solid #dbeafe;
+  border: 1px solid var(--line);
   border-radius: 999px;
-  background: linear-gradient(180deg, #eff6ff, #f8fbff);
-  color: #315c98;
+  background: var(--surface-soft);
+  color: var(--primary-strong);
   font-size: 12px;
-  font-weight: 850;
+  font-weight: 760;
   text-align: left;
 }
 
 .selectedPathList button:hover {
-  border-color: #93c5fd;
-  background: #dbeafe;
+  border-color: var(--line-strong);
+  background: #eef4fb;
 }
 
 .selectedPathList span {
@@ -1401,32 +1426,29 @@
   align-items: center;
   gap: 13px;
   padding: 13px 14px;
-  border: 1px solid rgba(220, 231, 243, 0.95);
-  border-radius: 16px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.88));
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #ffffff;
   color: #53647a;
   font-size: 12px;
-  font-weight: 800;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.025);
+  font-weight: 760;
+  box-shadow: none;
   transition: transform 0.15s var(--ease-out-expo), border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .targetList label:hover,
 .fileRow:hover {
-  border-color: #bfdbfe;
+  border-color: var(--line-strong);
   background: #f8fbff;
-  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.06);
-  transform: translateY(-1px);
+  box-shadow: none;
+  transform: none;
 }
 
 .targetList label:has(input:checked),
 .fileRow:has(input:checked) {
-  border-color: #60a5fa;
-  background:
-    radial-gradient(circle at 94% 18%, rgba(37, 99, 235, 0.08), transparent 8rem),
-    linear-gradient(180deg, rgba(239, 246, 255, 0.94), rgba(248, 251, 255, 0.98));
-  box-shadow: 0 12px 26px rgba(37, 99, 235, 0.1);
+  border-color: var(--accent);
+  background: #f4f8ff;
+  box-shadow: none;
 }
 
 .targetList input,
@@ -1438,10 +1460,10 @@
   place-items: center;
   border: 1.5px solid #bfd0e5;
   border-radius: 999px;
-  background: linear-gradient(180deg, #ffffff, #f8fbff);
+  background: #ffffff;
   color: #ffffff;
   flex: 0 0 auto;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 6px rgba(15, 23, 42, 0.05);
+  box-shadow: none;
   transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
 }
 
@@ -1459,9 +1481,9 @@
 
 .targetList input:checked,
 .fileRow input:checked {
-  border-color: #2563eb;
-  background: linear-gradient(135deg, #2563eb, #0891b2);
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12), 0 8px 18px rgba(37, 99, 235, 0.16);
+  border-color: var(--primary);
+  background: var(--primary);
+  box-shadow: 0 0 0 3px rgba(47, 126, 164, 0.1);
 }
 
 .targetList input:checked::before,
@@ -1472,7 +1494,7 @@
 .targetList input:focus-visible,
 .fileRow input:focus-visible {
   outline: 0;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
+  box-shadow: var(--control-focus);
 }
 
 .targetList input:active,
@@ -1508,21 +1530,21 @@
   min-width: 72px;
   justify-self: end;
   padding: 5px 8px;
-  border: 1px solid #dbeafe;
+  border: 1px solid var(--primary-soft);
   border-radius: 999px;
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: var(--primary-soft);
+  color: var(--primary-strong);
   font-size: 10px;
-  font-weight: 950;
+  font-weight: 760;
   line-height: 1;
   text-align: center;
   text-transform: uppercase;
 }
 
 .fileMeta {
-  border-color: #dbeafe;
-  background: #eff6ff;
-  color: #1d4ed8;
+  border-color: var(--primary-soft);
+  background: var(--primary-soft);
+  color: var(--primary-strong);
 }
 
 .directoryMeta {
@@ -1560,7 +1582,7 @@
   border: 1px solid rgba(191, 219, 254, 0.82);
   border-radius: 16px;
   background:
-    radial-gradient(circle at 92% 0%, rgba(37, 99, 235, 0.06), transparent 8rem),
+    radial-gradient(circle at 92% 0%, rgba(47, 126, 164, 0.06), transparent 8rem),
     linear-gradient(180deg, #ffffff, #f8fbff);
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.045);
 }
@@ -1570,7 +1592,7 @@
   gap: 8px;
   color: var(--muted);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .downloadNameField input {
@@ -1583,29 +1605,29 @@
   color: var(--foreground);
   padding: 0 12px;
   font-size: 13px;
-  font-weight: 760;
+  font-weight: 720;
 }
 
 .fileToolbar button {
   min-height: 36px;
   padding: 0 14px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid var(--line-strong);
   border-radius: 999px;
-  background: linear-gradient(180deg, #ffffff, #eff6ff);
+  background: linear-gradient(180deg, #ffffff, var(--primary-soft));
   color: var(--primary);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .fileToolbar button:hover {
-  border-color: #93c5fd;
-  background: #dbeafe;
+  border-color: var(--accent);
+  background: var(--primary-soft);
 }
 
 .fileToolbar span {
   color: var(--muted);
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 760;
 }
 
 .fileList button {
@@ -1649,9 +1671,9 @@
 }
 
 .fileList input:checked {
-  border-color: #2563eb;
-  background: linear-gradient(135deg, #2563eb, #0891b2);
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12), 0 8px 18px rgba(37, 99, 235, 0.16);
+  border-color: var(--primary);
+  background: var(--primary);
+  box-shadow: 0 0 0 3px rgba(47, 126, 164, 0.1);
 }
 
 .fileList input:checked::before {
@@ -1660,7 +1682,7 @@
 
 .fileList input:focus-visible {
   outline: 0;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
+  box-shadow: var(--control-focus);
 }
 
 .fileList input:active {
@@ -1674,9 +1696,7 @@
   width: 100%;
   height: 100%;
   border-radius: 999px;
-  background:
-    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.58), transparent 34%),
-    linear-gradient(135deg, #2563eb, #0891b2);
+  background: var(--primary);
   transform: scale(0);
 }
 
@@ -1684,9 +1704,9 @@
 .targetList input:checked,
 .fileRow input:checked,
 .fileList input:checked {
-  border-color: #2563eb;
+  border-color: var(--primary);
   background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12), 0 8px 18px rgba(37, 99, 235, 0.16);
+  box-shadow: 0 0 0 3px rgba(47, 126, 164, 0.1);
 }
 
 .checkRow input:checked::before,
@@ -1697,23 +1717,23 @@
 }
 
 .fileList .selectedFile {
-  border-color: #93c5fd;
+  border-color: var(--accent);
   background:
-    radial-gradient(circle at 94% 18%, rgba(37, 99, 235, 0.08), transparent 8rem),
+    radial-gradient(circle at 94% 18%, rgba(47, 126, 164, 0.08), transparent 8rem),
     linear-gradient(180deg, rgba(239, 246, 255, 0.94), rgba(248, 251, 255, 0.98));
-  color: #315c98;
-  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.08);
+  color: var(--primary-strong);
+  box-shadow: 0 10px 22px rgba(47, 126, 164, 0.08);
 }
 
 .fileList b,
 .fileRow b {
   padding: 5px 9px;
   border-radius: 999px;
-  border: 1px solid #dbeafe;
+  border: 1px solid var(--primary-soft);
   background: #f8fbff;
-  color: #315c98;
+  color: var(--primary-strong);
   font-size: 11px;
-  font-weight: 950;
+  font-weight: 760;
 }
 
 .targetList button,
@@ -1721,19 +1741,19 @@
 .browserHeader button {
   min-height: 28px;
   padding: 0 10px;
-  border: 1px solid #bfdbfe;
+  border: 1px solid var(--line-strong);
   border-radius: 8px;
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: var(--primary-soft);
+  color: var(--primary-strong);
   font-size: 12px;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .targetList button:hover,
 .fileRow button:hover,
 .browserHeader button:hover {
-  border-color: #93c5fd;
-  background: #dbeafe;
+  border-color: var(--accent);
+  background: var(--primary-soft);
   color: #1e40af;
 }
 
@@ -1753,7 +1773,7 @@
   border: 1px solid rgba(191, 219, 254, 0.82);
   border-radius: 18px;
   background:
-    radial-gradient(circle at 100% 0%, rgba(37, 99, 235, 0.05), transparent 10rem),
+    radial-gradient(circle at 100% 0%, rgba(47, 126, 164, 0.05), transparent 10rem),
     rgba(248, 251, 255, 0.9);
 }
 
@@ -1770,12 +1790,10 @@
   justify-content: space-between;
   gap: 16px;
   padding: 17px 18px;
-  border: 1px solid rgba(147, 197, 253, 0.78);
-  border-radius: 18px;
-  background:
-    radial-gradient(circle at 92% 8%, rgba(37, 99, 235, 0.11), transparent 10rem),
-    linear-gradient(135deg, #f8fbff, #ffffff);
-  box-shadow: 0 14px 30px rgba(37, 99, 235, 0.075);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: none;
 }
 
 .detailSummary strong {
@@ -1793,7 +1811,7 @@
   margin-bottom: 4px;
   color: var(--muted);
   font-size: 11px;
-  font-weight: 950;
+  font-weight: 760;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -1810,12 +1828,12 @@
   max-width: 180px;
   overflow: hidden;
   padding: 7px 10px;
-  border: 1px solid #dbeafe;
+  border: 1px solid var(--primary-soft);
   border-radius: 999px;
   background: #ffffff;
-  color: #315c98;
+  color: var(--primary-strong);
   font-size: 11px;
-  font-weight: 950;
+  font-weight: 760;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1889,7 +1907,7 @@
   border: 1.5px solid #bfd0e5;
   border-radius: 999px;
   background: #ffffff;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 6px rgba(15, 23, 42, 0.05);
+  box-shadow: none;
 }
 
 .checkRow input::before,
@@ -1899,9 +1917,7 @@
   width: 100%;
   height: 100%;
   border-radius: 999px;
-  background:
-    radial-gradient(circle at 35% 28%, rgba(255, 255, 255, 0.58), transparent 34%),
-    linear-gradient(135deg, #2563eb, #0891b2);
+  background: var(--primary);
   transform: scale(0);
 }
 
@@ -1909,9 +1925,9 @@
 .targetList input:checked,
 .fileRow input:checked,
 .fileList input:checked {
-  border-color: #2563eb;
+  border-color: var(--primary);
   background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12), 0 8px 18px rgba(37, 99, 235, 0.16);
+  box-shadow: 0 0 0 3px rgba(47, 126, 164, 0.1);
 }
 
 .checkRow input:checked::before,
@@ -1929,14 +1945,14 @@
   background: #ffffff;
   color: #223149;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 760;
 }
 
 .modalActions button:last-child {
-  border-color: #2563eb;
-  background: linear-gradient(135deg, #2563eb, #0891b2);
+  border-color: var(--primary);
+  background: var(--primary);
   color: #ffffff;
-  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18);
+  box-shadow: 0 10px 22px rgba(47, 126, 164, 0.16);
 }
 
 .modalActions button:disabled {
@@ -1949,26 +1965,26 @@
   margin-right: auto;
   border-color: #fecaca;
   background: #fff1f1;
-  color: #b91c1c;
+  color: var(--danger);
   box-shadow: none;
 }
 
 .modalActions .dangerButton:hover {
-  border-color: #b91c1c;
-  background: #b91c1c;
+  border-color: var(--danger);
+  background: var(--danger);
 }
 
 .dangerButton {
   margin-right: auto;
   border-color: #fecaca !important;
   background: #fff1f1 !important;
-  color: #b91c1c !important;
+  color: var(--danger) !important;
   box-shadow: none !important;
 }
 
 .dangerButton:hover {
-  border-color: #b91c1c !important;
-  background: #b91c1c !important;
+  border-color: var(--danger) !important;
+  background: var(--danger) !important;
   color: #ffffff !important;
 }
 
@@ -1997,19 +2013,15 @@
   gap: 15px;
   padding: 24px;
   border: 1px solid #fecaca;
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at 92% 0%, rgba(220, 38, 38, 0.06), transparent 12rem),
-    linear-gradient(180deg, #ffffff, #f8fbff);
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.3);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
 }
 
 .downloadDialog {
-  border-color: #bfdbfe;
-  background:
-    radial-gradient(circle at 92% 0%, rgba(37, 99, 235, 0.06), transparent 12rem),
-    linear-gradient(180deg, #ffffff, #f8fbff);
-  box-shadow: 0 24px 70px rgba(37, 99, 235, 0.18);
+  border-color: var(--line-strong);
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.2);
 }
 
 .confirmIcon {
@@ -2019,14 +2031,14 @@
   place-items: center;
   border-radius: 12px;
   background: #fef2f2;
-  color: #dc2626;
+  color: var(--danger);
   font-size: 20px;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .downloadIcon {
-  background: #eff6ff;
-  color: #2563eb;
+  background: var(--primary-soft);
+  color: var(--primary);
 }
 
 .confirmContent {
@@ -2067,24 +2079,24 @@
   background: #ffffff;
   color: #223149;
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 760;
 }
 
 .confirmActions button:last-child {
-  border-color: #dc2626;
-  background: linear-gradient(135deg, #dc2626, #b91c1c);
+  border-color: var(--danger);
+  background: linear-gradient(135deg, var(--danger), var(--danger));
   color: #ffffff;
 }
 
 .downloadActions button:last-child {
-  border-color: #2563eb;
-  background: linear-gradient(135deg, #2563eb, #0891b2);
+  border-color: var(--primary);
+  background: var(--primary);
   color: #ffffff;
 }
 
 .downloadActions button:last-child:hover {
-  border-color: #1d4ed8;
-  background: #1d4ed8;
+  border-color: var(--primary-strong);
+  background: var(--primary-strong);
 }
 
 .confirmActions button:disabled {
@@ -2141,10 +2153,6 @@
     min-width: 820px;
   }
 
-  .customPathRow {
-    grid-template-columns: 1fr;
-  }
-
   .backupForm {
     grid-template-columns: 1fr;
   }
@@ -2190,5 +2198,26 @@
   .detailBody {
     padding-right: 16px;
     padding-left: 16px;
+  }
+
+  .pathManagerIntro {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pathManagerIntro b {
+    width: max-content;
+  }
+
+  .pathForm {
+    grid-template-columns: 1fr;
+  }
+
+  .pathManagerItem {
+    grid-template-columns: 1fr;
+  }
+
+  .pathManagerItem button {
+    width: 100%;
   }
 }

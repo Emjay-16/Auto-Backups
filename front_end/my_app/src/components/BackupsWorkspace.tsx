@@ -99,7 +99,7 @@ export function BackupsWorkspace({
       : mode === "browse"
         ? "Browse robot files"
         : mode === "path"
-          ? editingPathTarget ? "Edit backup path" : "Add backup path"
+          ? "Manage backup paths"
         : mode === "detail"
           ? "Backup detail"
           : "Run backup";
@@ -813,7 +813,7 @@ export function BackupsWorkspace({
           eyebrow="Backups API"
           title={modalTitle}
           onClose={closeModal}
-          className={mode === "detail" ? styles.detailModal : ""}
+          className={mode === "detail" ? styles.detailModal : mode === "path" ? styles.pathModal : ""}
           footer={(
             <>
               {mode === "detail" && backupDetail ? (
@@ -969,7 +969,30 @@ export function BackupsWorkspace({
             </div>
           ) : mode === "path" ? (
             <div className={styles.pathManager}>
+              <div className={styles.pathManagerIntro}>
+                <div>
+                  <span>Backup target manager</span>
+                  <strong>ตั้งชื่อ path ที่ใช้ backup และจัดการ custom path</strong>
+                </div>
+                <b>{backupTargets.length} path(s)</b>
+              </div>
               <div className={`${styles.formGrid} ${styles.pathForm}`}>
+                <div className={styles.pathFormTitle}>
+                  <span>{editingPathTarget ? "Editing path" : "Add custom path"}</span>
+                  <strong>{editingPathTarget ? editingPathTarget.label : "เพิ่ม path ใหม่สำหรับ auto backup"}</strong>
+                  {editingPathTarget ? (
+                    <button
+                      onClick={() => {
+                        setEditingPathTarget(null);
+                        setCustomPathLabel("");
+                        setCustomPath("");
+                      }}
+                      type="button"
+                    >
+                      Cancel edit
+                    </button>
+                  ) : null}
+                </div>
                 <label>
                   Path name
                   <input
@@ -1003,9 +1026,17 @@ export function BackupsWorkspace({
 
               <div className={styles.pathManagerList}>
                 {backupTargets.map((target) => (
-                  <article className={styles.pathManagerItem} key={`${target.backup_api}:${target.path}:${target.key}`}>
+                  <article
+                    className={`${styles.pathManagerItem} ${editingPathTarget?.path === target.path ? styles.isEditing : ""}`}
+                    key={`${target.backup_api}:${target.path}:${target.key}`}
+                  >
                     <div>
-                      <strong>{target.label}</strong>
+                      <strong>
+                        {target.label}
+                        <b className={`${styles.pathTypeBadge} ${targetToneClass(target)}`}>
+                          {target.backup_api === "robot_db" ? "DB" : target.target_type}
+                        </b>
+                      </strong>
                       <span>{target.path}</span>
                     </div>
                     <button
@@ -1072,7 +1103,6 @@ export function BackupsWorkspace({
                         <span>{backupSelectionCount} selected</span>
                       </div>
                       <div className={styles.selectionActions}>
-                        <button onClick={() => openPathModal()} type="button">Add path</button>
                         <button onClick={selectAllBackupTargets} type="button">Select all</button>
                         <button disabled={!backupSelectionCount} onClick={clearBackupTargets} type="button">Clear</button>
                       </div>
