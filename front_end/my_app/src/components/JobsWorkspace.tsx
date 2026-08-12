@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import type { Job, JobStatus } from "@/lib/types";
 import styles from "@/styles/pages/jobs/jobs.module.css";
 import { Panel } from "./Panel";
@@ -17,7 +18,7 @@ const filters: Array<{ key: JobFilter; label: string }> = [
   { key: "success", label: "Success" },
 ];
 
-export function JobsWorkspace({ jobs }: { jobs: Job[] }) {
+export function JobsWorkspace({ jobs, action }: { jobs: Job[]; action?: ReactNode }) {
   const [activeFilter, setActiveFilter] = useState<JobFilter>("all");
   const filteredJobs = useMemo(
     () => activeFilter === "all" ? jobs : jobs.filter((job) => job.status === activeFilter),
@@ -45,7 +46,7 @@ export function JobsWorkspace({ jobs }: { jobs: Job[] }) {
         ))}
       </section>
 
-      <Panel title="Job Queue">
+      <Panel title="Job Queue" action={action}>
         <PaginatedJobsList key={activeFilter} jobs={filteredJobs} />
       </Panel>
     </>

@@ -293,13 +293,17 @@ export async function getBackupsForUi(): Promise<Backup[]> {
   return apiBackups.map(mapBackup);
 }
 
-export async function getJobsForUi(): Promise<Job[]> {
-  const apiJobs = await getJson<ApiJob[]>("/jobs/?limit=100");
+export async function getJobsForUi(date?: string): Promise<Job[]> {
+  const params = new URLSearchParams({ limit: "100" });
+  if (date) params.set("date", date);
+  const apiJobs = await getJson<ApiJob[]>(`/jobs/?${params.toString()}`);
   return apiJobs.map(mapJob);
 }
 
-export async function getActivitiesForUi(): Promise<Activity[]> {
-  const apiActivities = await getJson<ApiActivity[]>("/logs/?limit=100");
+export async function getActivitiesForUi(date?: string): Promise<Activity[]> {
+  const params = new URLSearchParams({ limit: "100" });
+  if (date) params.set("date", date);
+  const apiActivities = await getJson<ApiActivity[]>(`/logs/?${params.toString()}`);
   return apiActivities.map(mapActivity);
 }
 

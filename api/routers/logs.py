@@ -1,3 +1,5 @@
+from datetime import date as date_type
+from datetime import datetime, time, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends
@@ -22,6 +24,7 @@ def get_activity_logs(
     backup_id: Optional[int] = None,
     action: Optional[str] = None,
     activity_status: Optional[int] = None,
+    date: Optional[date_type] = None,
     limit: int = 100,
     db: Session = Depends(get_db),
 ):
@@ -38,6 +41,13 @@ def get_activity_logs(
         query = query.filter(ActivityLog.action == action)
     if activity_status is not None:
         query = query.filter(ActivityLog.activity_status == activity_status)
+    if date is not None:
+        start_at = datetime.combine(date, time.min)
+        end_at = start_at + timedelta(days=1)
+        query = query.filter(
+            ActivityLog.created_at >= start_at,
+            ActivityLog.created_at < end_at,
+        )
 
     return (
         query.order_by(ActivityLog.created_at.desc(), ActivityLog.log_id.desc())

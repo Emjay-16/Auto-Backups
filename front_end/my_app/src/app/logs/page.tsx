@@ -1,16 +1,20 @@
+import { DateFilter } from "@/components/DateFilter";
 import { Panel } from "@/components/Panel";
 import { PaginatedLogsList } from "@/components/PaginatedLogsList";
 import { getActivitiesForUi } from "@/lib/api";
+import { todayDateInputValue } from "@/lib/date";
 import { matchesQuery } from "@/lib/search";
 import styles from "@/styles/pages/logs/logs.module.css";
 
 type LogsPageProps = {
-  searchParams?: Promise<{ q?: string }>;
+  searchParams?: Promise<{ q?: string; date?: string }>;
 };
 
 export default async function LogsPage({ searchParams }: LogsPageProps) {
-  const query = (await searchParams)?.q ?? "";
-  const activities = await getActivitiesForUi();
+  const params = await searchParams;
+  const query = params?.q ?? "";
+  const selectedDate = params?.date || todayDateInputValue();
+  const activities = await getActivitiesForUi(selectedDate);
   const filteredActivities = activities.filter((activity) =>
     matchesQuery(query, [activity.kind, activity.text, activity.meta, activity.time]),
   );
@@ -38,7 +42,7 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
           <strong>{runningCount}</strong>
         </article>
       </section>
-      <Panel title="Activity Timeline">
+      <Panel title="Activity Timeline" action={<DateFilter value={selectedDate} label="เลือกวันที่" />}>
         <PaginatedLogsList activities={filteredActivities} />
       </Panel>
     </div>

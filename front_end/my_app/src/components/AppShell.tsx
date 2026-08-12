@@ -262,12 +262,22 @@ export function AppShell({ children }: { children: ReactNode }) {
   function submitSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const query = searchQuery.trim();
-    router.push(query ? `${pathname}?q=${encodeURIComponent(query)}` : pathname);
+    const params = new URLSearchParams(window.location.search);
+    if (query) {
+      params.set("q", query);
+    } else {
+      params.delete("q");
+    }
+    const nextQuery = params.toString();
+    router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname);
   }
 
   function clearSearch() {
     setSearchQuery("");
-    router.push(pathname);
+    const params = new URLSearchParams(window.location.search);
+    params.delete("q");
+    const nextQuery = params.toString();
+    router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname);
   }
 
   function openNotifications() {

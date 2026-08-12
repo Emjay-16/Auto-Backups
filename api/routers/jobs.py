@@ -1,3 +1,5 @@
+from datetime import date as date_type
+from datetime import datetime, time, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends
@@ -19,6 +21,7 @@ def list_jobs(
     job_type: Optional[str] = None,
     job_status: Optional[int] = None,
     device_id: Optional[int] = None,
+    date: Optional[date_type] = None,
     limit: int = 100,
     db: Session = Depends(get_db),
 ):
@@ -31,6 +34,13 @@ def list_jobs(
         query = query.filter(models.BackupJob.job_status == job_status)
     if device_id is not None:
         query = query.filter(models.BackupJob.device_id == device_id)
+    if date is not None:
+        start_at = datetime.combine(date, time.min)
+        end_at = start_at + timedelta(days=1)
+        query = query.filter(
+            models.BackupJob.started_at >= start_at,
+            models.BackupJob.started_at < end_at,
+        )
 
     return (
         query.order_by(models.BackupJob.started_at.desc(), models.BackupJob.job_id.desc())

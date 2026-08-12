@@ -1,0 +1,114 @@
+.dateFilter {
+  width: fit-content;
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px;
+  border: 1px solid #cfe0ef;
+  border-radius: 15px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(247, 251, 255, 0.96)),
+    #ffffff;
+  box-shadow: 0 8px 18px rgba(15, 76, 117, 0.06);
+}
+
+.dateText {
+  display: grid;
+  gap: 2px;
+  padding: 0 5px 0 8px;
+}
+
+.dateFilter span {
+  color: #55708a;
+  font-size: 12px;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.dateFilter small {
+  color: #7d91a6;
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.dateInputGroup {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dateInputGroup input[type="text"] {
+  width: 124px;
+  min-height: 36px;
+  padding: 0 11px;
+  border: 1px solid #d8e6f2;
+  border-radius: 11px;
+  background: #f7fbff;
+  color: var(--foreground);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 760;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.dateInputGroup input[type="text"]:focus {
+  border-color: var(--primary);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(187, 225, 250, 0.65);
+}
+
+.dateInputGroup button {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #b9d7ef;
+  border-radius: 11px;
+  background: #eef7ff;
+  color: var(--primary-strong);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 820;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.dateInputGroup button:hover {
+  border-color: var(--primary);
+  background: #e2f1fd;
+  color: var(--foreground);
+}
+
+.nativeDateInput {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .dateFilter {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+
+  .dateText {
+    width: 100%;
+  }
+
+  .dateInputGroup {
+    width: 100%;
+  }
+
+  .dateInputGroup input[type="text"] {
+    flex: 1;
+    width: auto;
+  }
+}

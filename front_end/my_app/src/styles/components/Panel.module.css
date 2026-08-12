@@ -13,20 +13,21 @@
 }
 
 .header {
-  min-height: 58px;
+  min-height: 62px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 0 20px;
+  gap: 14px;
+  padding: 10px 16px 10px 20px;
   border-bottom: 1px solid var(--line);
-  background: #fbfcfe;
+  background: linear-gradient(180deg, #ffffff, #f8fbfe);
 }
 
 .header h2 {
-  color: #0f172a;
+  margin: 0;
+  color: var(--foreground);
   font-size: 16px;
-  font-weight: 760;
+  font-weight: 820;
   letter-spacing: 0;
 }
 
@@ -48,4 +49,11 @@
 .header button:hover {
   background: #e2ecff;
   color: var(--primary-strong);
+}
+
+@media (max-width: 720px) {
+  .header {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
