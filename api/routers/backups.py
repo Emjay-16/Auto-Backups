@@ -12,7 +12,12 @@ from api.services.cleanup_state import (
     update_auto_cleanup_settings,
 )
 from api.services.auto_backup_state import get_auto_backup_settings, update_auto_backup_settings
-from api.services.backup_targets import add_custom_auto_backup_path, delete_custom_auto_backup_path, save_backup_path_label
+from api.services.backup_targets import (
+    add_custom_auto_backup_path,
+    delete_custom_auto_backup_path,
+    get_custom_auto_backup_targets,
+    save_backup_path_label,
+)
 from api.services.backup_service import (
     cleanup_old_backups,
     delete_backup,
@@ -123,6 +128,19 @@ def add_auto_backup_path(
         label=target.label,
         message="Custom auto backup path saved",
     )
+
+
+@router.get("/auto-paths", response_model=List[schemas.CustomBackupPathResponse])
+def list_auto_backup_paths():
+    """แสดง path สำรองข้อมูลที่เพิ่มเอง"""
+    return [
+        schemas.CustomBackupPathResponse(
+            path=target.path,
+            label=target.label,
+            message="Custom auto backup path",
+        )
+        for target in get_custom_auto_backup_targets()
+    ]
 
 
 @router.delete("/auto-paths", response_model=schemas.CustomBackupPathResponse)

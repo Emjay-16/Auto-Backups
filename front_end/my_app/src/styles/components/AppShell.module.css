@@ -4,8 +4,9 @@
   grid-template-columns: 270px minmax(0, 1fr);
   color: var(--foreground);
   background:
-    radial-gradient(circle at 100% 0%, rgba(187, 225, 250, 0.48), transparent 24rem),
-    linear-gradient(180deg, #f8fcff 0%, #dcecf5 100%);
+    radial-gradient(circle at 100% 0%, rgba(50, 130, 184, 0.24), transparent 24rem),
+    radial-gradient(circle at 0% 18rem, rgba(15, 76, 117, 0.13), transparent 28rem),
+    linear-gradient(180deg, #edf6fb 0%, #c7dce8 100%);
 }
 
 .sidebar {
@@ -17,7 +18,7 @@
   flex-direction: column;
   gap: 20px;
   padding: 18px 16px 16px;
-  background: #1b262c;
+  background: linear-gradient(180deg, #142027, #0d171d);
   color: #f0f8fc;
   border-right: 1px solid rgba(187, 225, 250, 0.12);
   box-shadow: 14px 0 36px rgba(27, 38, 44, 0.14);
@@ -46,7 +47,7 @@
   padding: 13px;
   border: 1px solid rgba(226, 232, 240, 0.16);
   border-radius: 20px;
-  background: rgba(187, 225, 250, 0.075);
+  background: rgba(187, 225, 250, 0.095);
   box-shadow: none;
 }
 
@@ -181,7 +182,7 @@
 
 .navItem.active {
   border-color: rgba(187, 225, 250, 0.32);
-  background: var(--primary-strong);
+  background: linear-gradient(135deg, var(--primary-strong), #12384f);
   color: #ffffff;
   box-shadow: 0 10px 22px rgba(15, 76, 117, 0.16);
 }
@@ -199,7 +200,7 @@
   padding: 13px;
   border: 1px solid rgba(226, 232, 240, 0.13);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.065);
+  background: rgba(187, 225, 250, 0.075);
   box-shadow: none;
 }
 

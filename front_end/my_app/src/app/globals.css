@@ -1,29 +1,29 @@
 :root {
-  --background: #eaf3f8;
-  --foreground: #1b262c;
-  --surface: #ffffff;
-  --surface-soft: #f4f9fc;
-  --surface-glass: rgba(255, 255, 255, 0.86);
-  --line: #d5e5ee;
-  --line-strong: #9ec7df;
-  --muted: #587182;
-  --muted-soft: #86a1b1;
+  --background: #d8e6ef;
+  --foreground: #132029;
+  --surface: #f9fcff;
+  --surface-soft: #edf5fa;
+  --surface-glass: rgba(249, 252, 255, 0.88);
+  --line: #bfd3df;
+  --line-strong: #7fa9bf;
+  --muted: #465d6c;
+  --muted-soft: #708a9b;
   --primary: #3282b8;
   --primary-strong: #0f4c75;
-  --primary-soft: #e0f2fc;
+  --primary-soft: #d4edf9;
   --accent: #bbe1fa;
-  --accent-soft: #edf8ff;
+  --accent-soft: #e2f2fb;
   --success: #0b7f74;
   --warning: #a86b16;
   --danger: #ba4248;
   --radius-panel: 16px;
   --radius-control: 11px;
-  --shadow-sm: 0 8px 22px rgba(27, 38, 44, 0.055);
-  --shadow-md: 0 18px 46px rgba(27, 38, 44, 0.1);
-  --shadow-lg: 0 26px 74px rgba(27, 38, 44, 0.17);
+  --shadow-sm: 0 10px 26px rgba(15, 38, 52, 0.09);
+  --shadow-md: 0 20px 52px rgba(15, 38, 52, 0.14);
+  --shadow-lg: 0 28px 78px rgba(15, 38, 52, 0.22);
   --control-height: 44px;
   --control-border: rgba(158, 199, 223, 0.96);
-  --control-bg: #ffffff;
+  --control-bg: #fbfdff;
   --control-focus: 0 0 0 3px rgba(50, 130, 184, 0.16);
   --font-display: "Inter", Arial, Helvetica, sans-serif;
   --font-body: "Inter", Arial, Helvetica, sans-serif;
@@ -49,8 +49,9 @@ body {
   flex-direction: column;
   color: var(--foreground);
   background:
-    radial-gradient(circle at 100% 0%, rgba(187, 225, 250, 0.48), transparent 24rem),
-    linear-gradient(180deg, #f8fcff 0%, var(--background) 24rem, #dcecf5 100%);
+    radial-gradient(circle at 100% 0%, rgba(50, 130, 184, 0.22), transparent 24rem),
+    radial-gradient(circle at 0% 16rem, rgba(15, 76, 117, 0.13), transparent 28rem),
+    linear-gradient(180deg, #edf6fb 0%, var(--background) 22rem, #c7dce8 100%);
   font-family: var(--font-body);
   font-size: 14px;
   line-height: 1.45;
@@ -152,7 +153,7 @@ input[type="checkbox"] {
   place-items: center;
   border: 1.5px solid #b7c8d2;
   border-radius: 999px;
-  background: #ffffff;
+  background: var(--surface);
   box-shadow: none;
   vertical-align: middle;
   transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
@@ -171,7 +172,7 @@ input[type="checkbox"]::before {
 
 input[type="checkbox"]:checked {
   border-color: var(--primary);
-  background: #ffffff;
+  background: var(--surface);
   box-shadow: 0 0 0 3px rgba(50, 130, 184, 0.13);
 }
 

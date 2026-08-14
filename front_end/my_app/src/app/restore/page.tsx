@@ -128,11 +128,16 @@ export default function RestorePage() {
       setError("Please select at least one backup file.");
       return;
     }
-
     const items = selectedFileIds.map((backupFileId) => ({
       backup_file_id: backupFileId,
-      target_path: targetPaths[backupFileId] || fallbackTargetPath,
+      target_path: (targetPaths[backupFileId] || fallbackTargetPath).trim(),
     }));
+    const selectedFiles = backupDetail.files.filter((file) => selectedFileIds.includes(file.backup_file_id));
+    const missingTargetFile = selectedFiles.find((file) => !isLikelyDatabaseBackupFile(file) && !items.find((item) => item.backup_file_id === file.backup_file_id)?.target_path);
+    if (missingTargetFile) {
+      setError(`Please enter restore target path for ${missingTargetFile.file_name}.`);
+      return;
+    }
 
     setSaving(true);
     setError("");
@@ -317,6 +322,10 @@ export default function RestorePage() {
                       <strong>{selectedBackup?.name ?? "Choose a backup"}</strong>
                       <small>{selectedBackup ? `${selectedBackup.device} · ${selectedBackup.files} file(s) · ${selectedBackup.size}` : "Select from Backup Library"}</small>
                     </div>
+                    <div className={styles.lockedTargetCard}>
+                      <span>Destination device</span>
+                      <strong>{selectedBackup?.device ?? "Locked to backup owner"}</strong>
+                    </div>
                     <label>
                       Default target path (optional)
                       <input value={fallbackTargetPath} onChange={(event) => setFallbackTargetPath(event.target.value)} placeholder="ใช้เมื่อไฟล์ใน popup ไม่ได้กำหนด Restore to" />
@@ -376,32 +385,49 @@ export default function RestorePage() {
             <div className={styles.files}>
               {backupDetail ? (
                 <>
-                  {backupDetail.files.map((file) => (
-                    <article
-                      className={`${styles.fileRow} ${selectedFileIds.includes(file.backup_file_id) ? styles.selectedFile : ""}`}
-                      key={file.backup_file_id}
-                    >
-                      <label>
-                        <input
-                          checked={selectedFileIds.includes(file.backup_file_id)}
-                          onChange={() => toggleFile(file.backup_file_id)}
-                          type="checkbox"
-                        />
-                        <span>
-                          <strong>{file.file_name}</strong>
-                          <small>{Number(file.file_size_mb).toFixed(2)} MB · {file.file_type}</small>
-                        </span>
-                      </label>
-                      <div className={styles.targetPathField}>
-                        <span>Restore to</span>
-                        <input
-                          value={targetPaths[file.backup_file_id] ?? fallbackTargetPath}
-                          onChange={(event) => setTargetPaths({ ...targetPaths, [file.backup_file_id]: event.target.value })}
-                          placeholder="Path ปลายทางของไฟล์นี้"
-                        />
-                      </div>
-                    </article>
-                  ))}
+                  {backupDetail.files.map((file) => {
+                    const isDatabase = isLikelyDatabaseBackupFile(file);
+                    const isZip = isZipBackupFile(file);
+                    return (
+                      <article
+                        className={`${styles.fileRow} ${selectedFileIds.includes(file.backup_file_id) ? styles.selectedFile : ""}`}
+                        key={file.backup_file_id}
+                      >
+                        <label>
+                          <input
+                            checked={selectedFileIds.includes(file.backup_file_id)}
+                            onChange={() => toggleFile(file.backup_file_id)}
+                            type="checkbox"
+                          />
+                          <span className={styles.fileMeta}>
+                            <span className={styles.fileTitleLine}>
+                              <strong>{file.file_name}</strong>
+                              <b className={`${styles.fileTypeBadge} ${isDatabase ? styles.databaseBadge : ""} ${isZip ? styles.zipBadge : ""}`}>
+                                {restoreFileKindLabel(file)}
+                              </b>
+                            </span>
+                            <small>{Number(file.file_size_mb).toFixed(2)} MB · {file.file_type}</small>
+                          </span>
+                        </label>
+                        {isDatabase ? (
+                          <div className={`${styles.targetPathField} ${styles.databaseTarget}`}>
+                            <span>Database restore</span>
+                            <p>ใช้ค่า MySQL ของหุ่นตัวนี้ ไม่ต้องใส่ path ไฟล์</p>
+                          </div>
+                        ) : (
+                          <div className={styles.targetPathField}>
+                            <span>{isZip ? "Target folder" : "Restore to"}</span>
+                            <input
+                              value={targetPaths[file.backup_file_id] ?? fallbackTargetPath}
+                              onChange={(event) => setTargetPaths({ ...targetPaths, [file.backup_file_id]: event.target.value })}
+                              placeholder={isZip ? "/remote/folder/on/robot" : "Path ปลายทางของไฟล์นี้"}
+                            />
+                            {isZip ? <p>ถ้า zip มีหลายไฟล์ ต้องใส่ path เป็นโฟลเดอร์ปลายทาง</p> : null}
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
                 </>
               ) : (
                 <p className={styles.empty}>{saving ? "Loading backup files..." : "Select a backup to restore."}</p>
@@ -424,8 +450,12 @@ export default function RestorePage() {
 }
 
 function inferRestoreTarget(file: BackupFileDetail): string {
+  if (isLikelyDatabaseBackupFile(file)) return "";
+  if (file.remote_path) return file.remote_path;
   if (file.file_name === "flows.json") return "/home/matrix/node-red-dev/node-red-user/flows.json";
   const mapsRoot = "/home/matrix/public_web/ist_web_release/writable/uploads/maps";
+  if (isZipBackupFile(file) && file.file_name.toLowerCase().includes("maps")) return mapsRoot;
+  if (isZipBackupFile(file)) return "";
   const mapsMarker = "/maps/";
   const mapsIndex = file.file_path.indexOf(mapsMarker);
   if (mapsIndex >= 0) {
@@ -435,6 +465,21 @@ function inferRestoreTarget(file: BackupFileDetail): string {
     return mapsRoot;
   }
   return file.file_name;
+}
+
+function isLikelyDatabaseBackupFile(file: BackupFileDetail): boolean {
+  const name = file.file_name.toLowerCase();
+  return name.endsWith(".json") && (name.includes("ros_maps") || name.includes("istuvd_ros_maps"));
+}
+
+function isZipBackupFile(file: BackupFileDetail): boolean {
+  return file.file_name.toLowerCase().endsWith(".zip") || file.file_type.toLowerCase() === "zip";
+}
+
+function restoreFileKindLabel(file: BackupFileDetail): string {
+  if (isLikelyDatabaseBackupFile(file)) return "database";
+  if (isZipBackupFile(file)) return "zip";
+  return "file";
 }
 
 function getErrorMessage(errorResponse: unknown, fallback: string): string {

@@ -1,8 +1,10 @@
 import os
 import posixpath
 import json
+import tempfile
+import zipfile
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
@@ -30,7 +32,7 @@ def restore_backup(
     db: Session = Depends(get_db),
 ):
     backup = _get_backup_or_404(backup_id, db)
-    device = backup.device
+    device = _get_restore_device_or_404(data.device_id, backup, db)
     restorer = resolve_user(db, data.restored_by)
     if not device:
         raise api_exception(
@@ -58,7 +60,7 @@ def restore_backup(
     now = now_local()
     restore_log = models.RestoreLog(
         backup_id=backup.backup_id,
-        device_id=backup.device_id,
+        device_id=device.device_id,
         restored_by=restorer.user_id,
         restore_type=data.restore_type,
         restore_log_status=constants.BACKUP_STATUS_RUNNING,
@@ -81,6 +83,7 @@ def restore_backup(
         resolved_target_path = _resolve_restore_target_path(local_path, item["target_path"])
         item["resolved_target_path"] = resolved_target_path
 
+    temp_restore_dir = None
     try:
         for item in database_restore_items:
             result = _restore_database_backup_file(device, Path(item["file"].file_path))
@@ -88,6 +91,7 @@ def restore_backup(
             item["result_message"] = f"Restored {result.row_count} row(s) into MySQL"
 
         if file_restore_items:
+            temp_restore_dir = tempfile.TemporaryDirectory(prefix="restore-zip-")
             username = os.getenv("ROBOT_SSH_USERNAME")
             password = os.getenv("ROBOT_SSH_PASSWORD")
             port = int(os.getenv("ROBOT_SSH_PORT", "22"))
@@ -100,10 +104,10 @@ def restore_backup(
                 username=username,
                 password=password,
                 port=port,
-                transfers=[
-                    (Path(item["file"].file_path), item["resolved_target_path"])
-                    for item in file_restore_items
-                ],
+                transfers=_build_file_restore_transfers(
+                    file_restore_items,
+                    Path(temp_restore_dir.name),
+                ),
             )
     except RuntimeError as exc:
         restore_log.restore_log_status = constants.BACKUP_STATUS_FAILED
@@ -144,6 +148,9 @@ def restore_backup(
             "SFTP_RESTORE_FAILED",
             message,
         )
+    finally:
+        if temp_restore_dir:
+            temp_restore_dir.cleanup()
 
     for item in restore_items:
         file = item["file"]
@@ -176,7 +183,7 @@ def restore_backup(
     return schemas.RestoreRunResponse(
         restore_id=restore_log.restore_id,
         backup_id=backup.backup_id,
-        device_id=backup.device_id,
+        device_id=device.device_id,
         total_file=len(restore_items),
         message="Restore completed",
     )
@@ -202,10 +209,18 @@ def _build_restore_items(
                     "Backup file not found in this backup",
                     {"backup_file_id": item.backup_file_id},
                 )
+            target_path = item.target_path.strip()
+            if not target_path and not _is_database_backup_file(backup_file):
+                raise api_exception(
+                    status.HTTP_400_BAD_REQUEST,
+                    "TARGET_PATH_REQUIRED",
+                    "target_path is required for file restore",
+                    {"backup_file_id": item.backup_file_id},
+                )
             restore_items.append(
                 {
                     "file": backup_file,
-                    "target_path": item.target_path,
+                    "target_path": target_path,
                 }
             )
 
@@ -237,6 +252,58 @@ def _validate_restore_files_exist(restore_items: List[dict]) -> None:
                 "Backup file missing on server",
                 {"file_path": str(file_path)},
             )
+
+
+def _build_file_restore_transfers(restore_items: List[dict], temp_root: Path):
+    transfers = []
+    for item in restore_items:
+        file_path = Path(item["file"].file_path)
+        target_path = item["resolved_target_path"]
+        if file_path.suffix.lower() != ".zip":
+            transfers.append((file_path, target_path))
+            continue
+
+        extracted_files = _extract_restore_zip(file_path, temp_root / file_path.stem)
+        if not extracted_files:
+            raise RuntimeError(f"Zip backup has no files: {file_path}")
+
+        if len(extracted_files) == 1:
+            transfers.append((extracted_files[0], target_path))
+            continue
+
+        target_root = target_path.rstrip("/")
+        target_name = posixpath.basename(target_root)
+        treat_as_file = "." in target_name
+        if treat_as_file:
+            raise RuntimeError("Restore target must be a directory when zip contains multiple files")
+
+        for extracted_file in extracted_files:
+            relative_path = extracted_file.relative_to(temp_root / file_path.stem).as_posix()
+            transfers.append((extracted_file, posixpath.join(target_root, relative_path)))
+
+    return transfers
+
+
+def _extract_restore_zip(zip_path: Path, extract_root: Path) -> List[Path]:
+    extract_root.mkdir(parents=True, exist_ok=True)
+    extracted_files = []
+    with zipfile.ZipFile(zip_path) as archive:
+        for member in archive.infolist():
+            if member.is_dir():
+                continue
+            if member.filename == ".auto_backup_manifest.json":
+                continue
+            member_path = Path(member.filename)
+            if member_path.is_absolute() or ".." in member_path.parts:
+                raise RuntimeError(f"Unsafe zip member path: {member.filename}")
+
+            output_path = extract_root / member_path
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            with archive.open(member) as source, output_path.open("wb") as target:
+                target.write(source.read())
+            extracted_files.append(output_path)
+
+    return extracted_files
 
 
 def _is_database_backup_file(backup_file: models.BackupFile) -> bool:
@@ -300,9 +367,9 @@ def _restore_database_backup_file(device: models.Device, input_path: Path):
 
 
 def _resolve_restore_target_path(local_path: Path, target_path: str) -> str:
-    normalized_target = target_path.replace("\\", "/").rstrip()
+    normalized_target = target_path.replace("\\", "/").strip()
     if not normalized_target:
-        return local_path.name
+        raise RuntimeError("target_path is required for file restore")
 
     if normalized_target.endswith("/"):
         return posixpath.join(normalized_target, local_path.name)
@@ -327,3 +394,32 @@ def _get_backup_or_404(backup_id: int, db: Session) -> models.Backup:
             "Backup not found",
         )
     return backup
+
+
+def _get_restore_device_or_404(
+    device_id: Optional[int],
+    backup: models.Backup,
+    db: Session,
+) -> models.Device:
+    if device_id is None:
+        if backup.device:
+            return backup.device
+        raise api_exception(
+            status.HTTP_404_NOT_FOUND,
+            "DEVICE_NOT_FOUND",
+            "Device not found",
+        )
+
+    device = (
+        db.query(models.Device)
+        .filter(models.Device.device_id == device_id)
+        .first()
+    )
+    if not device:
+        raise api_exception(
+            status.HTTP_404_NOT_FOUND,
+            "DEVICE_NOT_FOUND",
+            "Destination device not found",
+            {"device_id": device_id},
+        )
+    return device

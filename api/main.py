@@ -39,6 +39,7 @@ app.add_exception_handler(Exception, unhandled_exception_handler)
 default_origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://172.30.39.6:3000",
 ]
 env_origins = [
     origin.strip()

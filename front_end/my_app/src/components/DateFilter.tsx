@@ -78,7 +78,9 @@ function ThaiDateInput({ label, value, onCommit }: { label: string; value: strin
         }}
       />
       <button aria-label="เปิดปฏิทิน" type="button" onClick={openCalendar}>
-        <span aria-hidden="true">🗓</span>
+        <svg aria-hidden="true" viewBox="0 0 24 24">
+          <path d="M7 2a1 1 0 0 1 1 1v1h8V3a1 1 0 1 1 2 0v1h1.5A2.5 2.5 0 0 1 22 6.5v12A2.5 2.5 0 0 1 19.5 21h-15A2.5 2.5 0 0 1 2 18.5v-12A2.5 2.5 0 0 1 4.5 4H6V3a1 1 0 0 1 1-1Zm12.5 8h-15v8.5a.5.5 0 0 0 .5.5h14a.5.5 0 0 0 .5-.5V10ZM5 6a.5.5 0 0 0-.5.5V8h15V6.5A.5.5 0 0 0 19 6H5Z" />
+        </svg>
       </button>
       <input
         ref={nativeInputRef}

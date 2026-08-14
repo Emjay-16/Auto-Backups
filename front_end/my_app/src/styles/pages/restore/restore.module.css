@@ -310,6 +310,7 @@
 }
 
 .selectedBackupCard,
+.lockedTargetCard,
 .filePickerSummary {
   display: grid;
   gap: 8px;
@@ -322,6 +323,8 @@
 
 .selectedBackupCard span,
 .selectedBackupCard small,
+.lockedTargetCard span,
+.lockedTargetCard small,
 .filePickerSummary span {
   color: var(--muted);
   font-size: 12px;
@@ -329,6 +332,7 @@
 }
 
 .selectedBackupCard strong,
+.lockedTargetCard strong,
 .filePickerSummary strong {
   display: block;
   overflow: hidden;
@@ -340,6 +344,16 @@
 
 .selectedBackupCard strong {
   font-size: 16px;
+}
+
+.lockedTargetCard {
+  border-color: #bfdaf4;
+  background: linear-gradient(180deg, #ffffff, #f6fbff);
+}
+
+.lockedTargetCard strong {
+  color: var(--primary-strong);
+  font-size: 15px;
 }
 
 .filePickerSummary {
@@ -589,7 +603,9 @@
 .fileRow label input {
   appearance: none;
   width: 20px;
+  min-width: 20px;
   height: 20px;
+  padding: 0;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
@@ -602,10 +618,10 @@
 
 .fileRow label input::before {
   content: "";
-  width: 10px;
-  height: 10px;
+  width: 100%;
+  height: 100%;
   border-radius: 999px;
-  background: #ffffff;
+  background: var(--primary);
   transform: scale(0);
   transform-origin: center;
   transition: transform 0.14s ease;
@@ -613,7 +629,7 @@
 
 .fileRow label input:checked {
   border-color: var(--primary);
-  background: var(--primary);
+  background: #ffffff;
   box-shadow: 0 0 0 3px rgba(47, 126, 164, 0.1);
 }
 
@@ -630,26 +646,15 @@
   transform: scale(0.94);
 }
 
-.fileRow label input::before {
-  width: 100%;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--primary);
-  transform: scale(0);
-}
-
-.fileRow label input:checked {
-  border-color: var(--primary);
-  background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(47, 126, 164, 0.1);
-}
-
-.fileRow label input:checked::before {
-  transform: scale(1);
-}
-
-.fileRow span {
+.fileMeta {
   min-width: 0;
+}
+
+.fileTitleLine {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .fileRow strong,
@@ -672,6 +677,31 @@
   font-weight: 700;
 }
 
+.fileTypeBadge {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border: 1px solid #d9e5f1;
+  border-radius: 999px;
+  background: #f8fbff;
+  color: #48617c;
+  font-size: 10px;
+  font-weight: 780;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.zipBadge {
+  border-color: #bfdaf4;
+  background: #f0f8ff;
+  color: var(--primary-strong);
+}
+
+.databaseBadge {
+  border-color: #c7d2fe;
+  background: #f3f4ff;
+  color: #3730a3;
+}
+
 .targetPathField {
   min-width: 0;
   display: grid;
@@ -686,42 +716,25 @@
   text-transform: uppercase;
 }
 
+.targetPathField p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.databaseTarget {
+  padding: 12px 14px;
+  border: 1px solid #dce8f5;
+  border-radius: 12px;
+  background: #f8fbff;
+}
+
 .dialogFooter {
   justify-content: flex-end;
   border-top: 1px solid #e6edf5;
   background: #ffffff;
-}
-
-.fileRow label input {
-  appearance: none;
-  width: 20px;
-  min-width: 20px;
-  height: 20px;
-  padding: 0;
-  display: grid;
-  place-items: center;
-  border: 1.5px solid #bfd0e5;
-  border-radius: 999px;
-  background: #ffffff;
-  box-shadow: none;
-}
-
-.fileRow label input::before {
-  width: 100%;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--primary);
-  transform: scale(0);
-}
-
-.fileRow label input:checked {
-  border-color: var(--primary);
-  background: #ffffff;
-  box-shadow: 0 0 0 3px rgba(47, 126, 164, 0.1);
-}
-
-.fileRow label input:checked::before {
-  transform: scale(1);
 }
 
 @media (max-width: 1080px) {

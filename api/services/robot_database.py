@@ -419,7 +419,14 @@ def _database_payload_checksum(database: str, table: str, rows: List[Dict[str, A
     payload = {
         "database": database,
         "table": table,
-        "rows": rows,
+        "rows": _canonical_checksum_rows(rows),
     }
     data = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=_json_default)
     return hashlib.sha256(data.encode("utf-8")).hexdigest()
+
+
+def _canonical_checksum_rows(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return sorted(
+        rows,
+        key=lambda row: json.dumps(row, ensure_ascii=False, sort_keys=True, default=_json_default),
+    )

@@ -317,6 +317,7 @@ class RestoreFileItemRequest(BaseModel):
 
 class RestoreRunRequest(BaseModel):
     restored_by: int
+    device_id: Optional[int] = None
     target_path: Optional[str] = None
     restore_type: int = 1
     items: Optional[List[RestoreFileItemRequest]] = None
@@ -365,6 +366,7 @@ class BackupFileResponse(BackupFileBase):
 
     backup_file_id: int
     created_at: datetime
+    remote_path: Optional[str] = None
 
 
 class BackupDetailResponse(BackupHistoryResponse):

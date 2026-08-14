@@ -31,7 +31,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
   return (
     <div className={styles.page}>
       <section className={styles.metricGrid}>
-        <MetricCard icon={<DeviceIcon />} label="Total Devices" value={`${devices.length}`} detail={`${activeDevices.length} online`} progress={devices.length ? (activeDevices.length / devices.length) * 100 : 0} />
+        <MetricCard icon={<DeviceIcon />} label="Online" value={`${activeDevices.length}`} detail={`${devices.length} Total Devices`} progress={devices.length ? (activeDevices.length / devices.length) * 100 : 0} />
         <MetricCard icon={<BackupIcon />} label="Backups" value={`${backups.length}`} detail={`${successfulBackups} success · ${failedBackups} failed`} progress={backups.length ? (successfulBackups / backups.length) * 100 : 0} />
         <MetricCard
           icon={<RestoreIcon />}

@@ -1,4 +1,4 @@
-#!/home/dev/Documents/auto_backup/.venv/bin/python3.8
+#!/home/dev/Documents/auto_backup/.venv/bin/python3.9
 # -*- coding: utf-8 -*-
 import re
 import sys

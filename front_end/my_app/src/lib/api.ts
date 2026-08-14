@@ -157,6 +157,7 @@ export type BackupFileDetail = {
   checksum?: string | null;
   file_status: number;
   created_at: string;
+  remote_path?: string | null;
 };
 
 export type BackupDetail = {
@@ -177,6 +178,7 @@ export type BackupDetail = {
 
 export type RestoreRunPayload = {
   restored_by: number;
+  device_id?: number;
   target_path?: string;
   restore_type?: number;
   items?: Array<{

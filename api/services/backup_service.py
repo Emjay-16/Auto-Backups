@@ -1,5 +1,7 @@
 import hashlib
+import json
 import os
+import posixpath
 import re
 import shutil
 import tempfile
@@ -9,7 +11,7 @@ import zipfile
 from datetime import timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
@@ -27,7 +29,11 @@ from api.services.job_service import (
     release_job_lock,
     update_job,
 )
-from api.services.robot_database import dump_mysql_table_to_json, dump_mysql_table_via_ssh
+from api.services.robot_database import (
+    _database_payload_checksum,
+    dump_mysql_table_to_json,
+    dump_mysql_table_via_ssh,
+)
 from api.services.sftp_backup import (
     DownloadedFile,
     RemotePathNotFound,
@@ -42,6 +48,7 @@ from api.utils.time import now_local
 
 
 _AUTO_BACKUP_LOCK = threading.Lock()
+_AUTO_BACKUP_MANIFEST_NAME = ".auto_backup_manifest.json"
 
 
 def get_backup_history(db: Session, limit: int) -> List[schemas.BackupHistoryResponse]:
@@ -58,7 +65,7 @@ def get_backup_history(db: Session, limit: int) -> List[schemas.BackupHistoryRes
 def get_backup_detail(backup_id: int, db: Session) -> dict:
     backup = get_backup_or_404(backup_id, db)
     response = backup_history_response(backup).model_dump()
-    response["files"] = backup.files
+    response["files"] = _backup_detail_files(backup)
     return response
 
 
@@ -664,7 +671,8 @@ def _run_auto_backup_for_device(
     port: int,
     data: schemas.AutoBackupRequest,
 ) -> dict:
-    latest_backup = _latest_auto_backup_for_device(db, device.device_id)
+    recent_backups = _recent_auto_backups_for_device(db, device.device_id)
+    latest_backup = recent_backups[0] if recent_backups else None
     path_checks = []
     missing_path_items = []
 
@@ -693,7 +701,7 @@ def _run_auto_backup_for_device(
         except Exception as exc:
             raise RuntimeError(f"SFTP check failed for {remote_path}: {exc}") from exc
 
-        changed = _remote_snapshot_changed(snapshot, latest_backup, remote_path)
+        changed = _remote_snapshot_changed(snapshot, recent_backups, remote_path)
         path_checks.append((remote_path, snapshot, changed))
 
     device_items = missing_path_items
@@ -718,10 +726,11 @@ def _run_auto_backup_for_device(
                 database_dump = None
 
         database_changed = (
-            _database_dump_changed(database_dump, latest_backup)
+            _database_dump_changed(database_dump, recent_backups)
             if database_dump
             else False
         )
+        manifest = _build_auto_backup_manifest(path_checks, database_dump)
         changed_remote_paths = [
             remote_path
             for remote_path, _, changed in path_checks
@@ -738,6 +747,7 @@ def _run_auto_backup_for_device(
                 remote_paths=changed_remote_paths,
                 database_dump=database_dump if database_changed else None,
                 zip_output=data.zip_output,
+                manifest=manifest,
             )
             backup_created = True
             backup_id = backup.backup_id
@@ -829,6 +839,66 @@ def backup_history_response(backup: models.Backup) -> schemas.BackupHistoryRespo
     )
 
 
+def _backup_detail_files(backup: models.Backup) -> List[dict]:
+    manifest = _read_auto_backup_manifest(backup)
+    return [
+        _backup_file_detail(backup_file, manifest)
+        for backup_file in backup.files
+    ]
+
+
+def _backup_file_detail(
+    backup_file: models.BackupFile,
+    manifest: Optional[Dict[str, Any]],
+) -> dict:
+    detail = schemas.BackupFileResponse.model_validate(backup_file).model_dump()
+    detail["remote_path"] = _backup_file_remote_path(backup_file, manifest)
+    return detail
+
+
+def _backup_file_remote_path(
+    backup_file: models.BackupFile,
+    manifest: Optional[Dict[str, Any]],
+) -> Optional[str]:
+    if not manifest:
+        return None
+
+    paths = manifest.get("paths")
+    if not isinstance(paths, dict):
+        return None
+
+    remote_items = [
+        item
+        for item in paths.values()
+        if isinstance(item, dict) and isinstance(item.get("remote_path"), str)
+    ]
+    if not remote_items:
+        return None
+
+    file_path = Path(backup_file.file_path)
+    file_name = backup_file.file_name
+    if file_path.suffix.lower() == ".zip":
+        return _single_manifest_remote_path(remote_items)
+
+    for item in remote_items:
+        remote_path = item["remote_path"]
+        if posixpath.basename(remote_path.rstrip("/")) == file_name:
+            return remote_path
+
+    return None
+
+
+def _single_manifest_remote_path(remote_items: List[Dict[str, Any]]) -> Optional[str]:
+    remote_paths = {
+        item["remote_path"]
+        for item in remote_items
+        if isinstance(item.get("remote_path"), str)
+    }
+    if len(remote_paths) == 1:
+        return next(iter(remote_paths))
+    return None
+
+
 def _create_combined_auto_backup(
     db: Session,
     device: models.Device,
@@ -838,6 +908,7 @@ def _create_combined_auto_backup(
     zip_output: bool,
     backup_name: Optional[str] = None,
     backup_type: int = constants.BACKUP_TYPE_AUTO,
+    manifest: Optional[Dict[str, Any]] = None,
 ) -> models.Backup:
     user = resolve_user(db, created_by)
     backup_storage_path = os.getenv("BACKUP_STORAGE_PATH", "storage/backups")
@@ -875,6 +946,9 @@ def _create_combined_auto_backup(
                     checksum=database_dump.checksum,
                 )
             )
+
+        if manifest:
+            _write_auto_backup_manifest(local_path, manifest)
 
         zip_path = None
         if zip_output:
@@ -966,6 +1040,15 @@ def _latest_auto_backup_for_device(
     db: Session,
     device_id: int,
 ) -> Optional[models.Backup]:
+    backups = _recent_auto_backups_for_device(db, device_id, limit=1)
+    return backups[0] if backups else None
+
+
+def _recent_auto_backups_for_device(
+    db: Session,
+    device_id: int,
+    limit: int = 20,
+) -> List[models.Backup]:
     return (
         db.query(models.Backup)
         .filter(
@@ -974,74 +1057,267 @@ def _latest_auto_backup_for_device(
             models.Backup.backup_status == constants.BACKUP_STATUS_SUCCESS,
         )
         .order_by(models.Backup.created_at.desc(), models.Backup.backup_id.desc())
-        .first()
+        .limit(limit)
+        .all()
     )
 
 
 def _remote_snapshot_changed(
     snapshot: RemotePathSnapshot,
-    latest_backup: Optional[models.Backup],
+    latest_backup: Any,
     remote_path: str,
 ) -> bool:
-    if not latest_backup:
+    backups = _backup_history_list(latest_backup)
+    if not backups:
         return True
 
-    latest_checksum = _latest_backup_checksum_for_remote_path(latest_backup, remote_path)
+    manifest_checksum = _manifest_checksum_for_remote_path_in_backups(backups, remote_path)
+    if manifest_checksum:
+        return snapshot.checksum != manifest_checksum
+
+    latest_checksum = _latest_backup_checksum_for_remote_path_in_backups(backups, remote_path)
     if not latest_checksum:
         return True
 
-    if snapshot.modified_at <= latest_backup.created_at:
-        return False
-
     return snapshot.checksum != latest_checksum
+
+
+def _backup_history_list(latest_backup: Any) -> List[models.Backup]:
+    if not latest_backup:
+        return []
+    if isinstance(latest_backup, list):
+        return latest_backup
+    return [latest_backup]
+
+
+def _manifest_checksum_for_remote_path_in_backups(
+    backups: List[models.Backup],
+    remote_path: str,
+) -> Optional[str]:
+    for backup in backups:
+        checksum = _manifest_checksum_for_remote_path(backup, remote_path)
+        if checksum:
+            return checksum
+    return None
+
+
+def _latest_backup_checksum_for_remote_path_in_backups(
+    backups: List[models.Backup],
+    remote_path: str,
+) -> Optional[str]:
+    for backup in backups:
+        checksum = _latest_backup_checksum_for_remote_path(backup, remote_path)
+        if checksum:
+            return checksum
+    return None
 
 
 def _latest_backup_checksum_for_remote_path(
     latest_backup: models.Backup,
     remote_path: str,
 ) -> Optional[str]:
-    remote_name = Path(remote_path.rstrip("/")).name
-    if not remote_name:
+    remote_path = remote_path.rstrip("/")
+    remote_name = Path(remote_path).name
+    remote_parts = {part.lower() for part in Path(remote_path).parts if part and part not in ("/", "\\")}
+    if not remote_name and not remote_parts:
         return None
 
-    matching_files = []
+    best_match = None
+    best_score = None
+
     for backup_file in latest_backup.files:
         file_path = Path(backup_file.file_path)
-        if not file_path.exists():
+        file_name = file_path.name.lower()
+        file_parts = {part.lower() for part in file_path.parts if part and part not in ("/", "\\")}
+
+        if not file_name and not file_parts:
             continue
-        if file_path.name == remote_name or remote_name in file_path.parts:
-            matching_files.append(backup_file)
 
-    if not matching_files:
-        return None
-    if len(matching_files) == 1:
-        return matching_files[0].checksum
+        score = 99
+        if file_name == remote_name.lower():
+            score = 0
+        elif remote_name.lower() in file_parts:
+            score = 1
+        elif remote_name.lower() in file_name:
+            score = 2
+        elif remote_parts and remote_parts & file_parts:
+            score = 3
+        else:
+            continue
 
-    return _local_files_signature(matching_files)
+        candidate = (score, len(file_path.parts), backup_file.checksum or "")
+        if best_score is None or candidate[:2] < best_score[:2]:
+            best_score = candidate
+            best_match = backup_file.checksum
+
+    return best_match
 
 
 def _database_dump_changed(
     database_dump: DownloadedFile,
-    latest_backup: Optional[models.Backup],
+    latest_backup: Any,
 ) -> bool:
-    if not latest_backup:
+    backups = _backup_history_list(latest_backup)
+    if not backups:
         return True
 
-    for backup_file in latest_backup.files:
-        file_path = Path(backup_file.file_path)
-        if (
-            file_path.exists()
-            and backup_file.file_name == database_dump.file_name
-            and backup_file.checksum
-        ):
-            return backup_file.checksum != database_dump.checksum
+    manifest_checksum = _manifest_checksum_for_remote_path_in_backups(backups, database_dump.remote_path)
+    if manifest_checksum:
+        if manifest_checksum == database_dump.checksum:
+            return False
+        latest_stable_checksum = _latest_database_backup_stable_checksum_in_backups(
+            backups,
+            database_dump.file_name,
+        )
+        if latest_stable_checksum:
+            return latest_stable_checksum != database_dump.checksum
+        return manifest_checksum != database_dump.checksum
+
+    for backup in backups:
+        for backup_file in backup.files:
+            file_path = Path(backup_file.file_path)
+            if (
+                file_path.exists()
+                and backup_file.file_name == database_dump.file_name
+                and backup_file.checksum
+            ):
+                return backup_file.checksum != database_dump.checksum
 
     database_stem = Path(database_dump.file_name).stem
-    for backup_file in latest_backup.files:
-        if Path(backup_file.file_name).stem == database_stem and backup_file.checksum:
-            return backup_file.checksum != database_dump.checksum
+    for backup in backups:
+        for backup_file in backup.files:
+            if Path(backup_file.file_name).stem == database_stem and backup_file.checksum:
+                return backup_file.checksum != database_dump.checksum
 
     return True
+
+
+def _latest_database_backup_stable_checksum_in_backups(
+    backups: List[models.Backup],
+    file_name: str,
+) -> Optional[str]:
+    for backup in backups:
+        checksum = _latest_database_backup_stable_checksum(backup, file_name)
+        if checksum:
+            return checksum
+    return None
+
+
+def _latest_database_backup_stable_checksum(
+    latest_backup: models.Backup,
+    file_name: str,
+) -> Optional[str]:
+    for backup_file in latest_backup.files:
+        if backup_file.file_name != file_name:
+            continue
+
+        file_path = Path(backup_file.file_path)
+        if not file_path.exists():
+            continue
+
+        try:
+            payload = json.loads(file_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+
+        database = payload.get("database")
+        table = payload.get("table")
+        rows = payload.get("rows")
+        if not isinstance(database, str) or not isinstance(table, str) or not isinstance(rows, list):
+            continue
+        if not all(isinstance(row, dict) for row in rows):
+            continue
+
+        return _database_payload_checksum(database, table, rows)
+
+    return None
+
+
+def _build_auto_backup_manifest(
+    path_checks: List[Tuple[str, RemotePathSnapshot, bool]],
+    database_dump: Optional[DownloadedFile],
+) -> Dict[str, Any]:
+    paths = {}
+    for remote_path, snapshot, _ in path_checks:
+        paths[_normalize_remote_manifest_path(remote_path)] = {
+            "remote_path": remote_path,
+            "checksum": snapshot.checksum,
+            "modified_at": snapshot.modified_at.isoformat() if snapshot.modified_at else None,
+            "is_directory": snapshot.is_directory,
+            "size_bytes": snapshot.size_bytes,
+        }
+
+    if database_dump:
+        paths[_normalize_remote_manifest_path(database_dump.remote_path)] = {
+            "remote_path": database_dump.remote_path,
+            "checksum": database_dump.checksum,
+            "modified_at": None,
+            "is_directory": False,
+            "size_bytes": None,
+        }
+
+    return {
+        "version": 1,
+        "created_at": now_local().isoformat(),
+        "paths": paths,
+    }
+
+
+def _write_auto_backup_manifest(local_path: Path, manifest: Dict[str, Any]) -> Path:
+    local_path.mkdir(parents=True, exist_ok=True)
+    manifest_path = local_path / _AUTO_BACKUP_MANIFEST_NAME
+    manifest_path.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    return manifest_path
+
+
+def _manifest_checksum_for_remote_path(latest_backup: models.Backup, remote_path: str) -> Optional[str]:
+    manifest = _read_auto_backup_manifest(latest_backup)
+    if not manifest:
+        return None
+    paths = manifest.get("paths")
+    if not isinstance(paths, dict):
+        return None
+    item = paths.get(_normalize_remote_manifest_path(remote_path))
+    if not isinstance(item, dict):
+        return None
+    checksum = item.get("checksum")
+    return checksum if isinstance(checksum, str) and checksum else None
+
+
+def _read_auto_backup_manifest(latest_backup: models.Backup) -> Optional[Dict[str, Any]]:
+    for backup_file in latest_backup.files:
+        file_path = Path(backup_file.file_path)
+        manifest = _read_manifest_near_backup_file(file_path)
+        if manifest:
+            return manifest
+    return None
+
+
+def _read_manifest_near_backup_file(file_path: Path) -> Optional[Dict[str, Any]]:
+    if file_path.suffix.lower() == ".zip" and file_path.exists():
+        try:
+            with zipfile.ZipFile(file_path) as archive:
+                with archive.open(_AUTO_BACKUP_MANIFEST_NAME) as manifest_file:
+                    return json.loads(manifest_file.read().decode("utf-8"))
+        except (KeyError, OSError, json.JSONDecodeError, zipfile.BadZipFile):
+            return None
+
+    for parent in [file_path.parent, *file_path.parents]:
+        manifest_path = parent / _AUTO_BACKUP_MANIFEST_NAME
+        if not manifest_path.exists():
+            continue
+        try:
+            return json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+    return None
+
+
+def _normalize_remote_manifest_path(remote_path: str) -> str:
+    return remote_path.strip().replace("\\", "/").rstrip("/").lower()
 
 
 def _mark_device_status(db: Session, device: models.Device, online: bool) -> None:
