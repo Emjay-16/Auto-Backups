@@ -37,9 +37,7 @@ app.add_exception_handler(SQLAlchemyError, sqlalchemy_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 
 default_origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://172.30.39.6:3000",
+    "http://172.30.39.6:3000"
 ]
 env_origins = [
     origin.strip()
@@ -160,4 +158,4 @@ async def root():
 
 if __name__ == "__main__":
      import uvicorn
-     uvicorn.run(app, host="0.0.0.0", port=8000)
+     uvicorn.run(app, host="172.30.39.6", port=8000)
