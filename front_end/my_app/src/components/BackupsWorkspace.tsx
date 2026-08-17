@@ -329,7 +329,7 @@ export function BackupsWorkspace({
       showToast({
         tone: "success",
         title: "Auto cleanup updated",
-        message: `${settings.enabled ? "Enabled" : "Disabled"} · older than ${settings.older_than_days} days`,
+        message: `${settings.enabled ? "Enabled" : "Disabled"} · ${formatCleanupRetention(settings)}`,
       });
     } catch (errorResponse) {
       showToast({ tone: "error", title: "Save cleanup settings failed", message: getErrorMessage(errorResponse, "Save cleanup settings failed") });
@@ -769,7 +769,7 @@ export function BackupsWorkspace({
               <span><CleanupIcon /></span>
               <div>
                 <strong>Cleanup</strong>
-                <p>{cleanupSettings ? `${cleanupSettings.enabled ? "Auto on" : "Auto off"} · ${cleanupSettings.older_than_days} days` : "Manage retention rule"}</p>
+                <p>{cleanupSettings ? `${cleanupSettings.enabled ? "Auto on" : "Auto off"} · ${formatCleanupRetention(cleanupSettings)}` : "Manage retention rule"}</p>
               </div>
             </button>
           </div>
@@ -947,7 +947,7 @@ export function BackupsWorkspace({
                 <input value={cleanupDays} onChange={(event) => setCleanupDays(event.target.value)} />
                 {cleanupSettings ? (
                   <span className={styles.fieldHint}>
-                    Current auto cleanup setting: {cleanupSettings.older_than_hours > 0 ? `${cleanupSettings.older_than_hours} hour(s)` : `${cleanupSettings.older_than_days} day(s)`}
+                    Current auto cleanup setting: {formatCleanupRetention(cleanupSettings)}
                   </span>
                 ) : null}
               </label>
@@ -1434,6 +1434,13 @@ function formatBytes(value?: number | null): string {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatCleanupRetention(settings: AutoCleanupSettings): string {
+  if (settings.older_than_hours > 0) {
+    return `older than ${settings.older_than_hours} hour(s)`;
+  }
+  return `older than ${settings.older_than_days} day(s)`;
 }
 
 function normalizeZipFilename(filename: string): string {

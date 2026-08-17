@@ -40,22 +40,36 @@ export default function RestorePage() {
 
   useEffect(() => {
     let mounted = true;
-    Promise.all([getBackupsForUi(), getDevicesForUi()]).then(([backupItems, deviceItems]) => {
-      if (!mounted) return;
-      setBackups(backupItems.filter((backup) => backup.id));
-      setDevices(deviceItems);
+    const loadingId = window.setTimeout(() => {
+      if (mounted) setSaving(true);
+    }, 0);
+    Promise.all([getBackupsForUi(), getDevicesForUi()])
+      .then(([backupItems, deviceItems]) => {
+        if (!mounted) return;
+        setBackups(backupItems.filter((backup) => backup.id));
+        setDevices(deviceItems);
 
-      const params = new URLSearchParams(window.location.search);
-      const backupId = params.get("backup_id") ?? String(backupItems.find((backup) => backup.id)?.id ?? "");
-      const deviceId = params.get("device_id") ?? String(deviceItems.find((device) => device.id)?.id ?? "");
-      setSelectedBackupId(backupId);
-      setSelectedDeviceId(deviceId);
-    });
+        const params = new URLSearchParams(window.location.search);
+        const backupId = params.get("backup_id") ?? String(backupItems.find((backup) => backup.id)?.id ?? "");
+        const deviceId = params.get("device_id") ?? String(deviceItems.find((device) => device.id)?.id ?? "");
+        setSelectedBackupId(backupId);
+        setSelectedDeviceId(deviceId);
+      })
+      .catch((errorResponse) => {
+        if (!mounted) return;
+        const message = getErrorMessage(errorResponse, "Load restore data failed");
+        setError(message);
+        showToast({ tone: "error", title: "Load restore data failed", message });
+      })
+      .finally(() => {
+        if (mounted) setSaving(false);
+      });
 
     return () => {
       mounted = false;
+      window.clearTimeout(loadingId);
     };
-  }, []);
+  }, [showToast]);
 
   useEffect(() => {
     const backupId = Number(selectedBackupId);

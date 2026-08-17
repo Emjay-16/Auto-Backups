@@ -20,10 +20,12 @@ class AutoCleanupSettings:
 
 
 def _coerce_settings(data: dict, settings: AutoCleanupSettings) -> AutoCleanupSettings:
+    older_than_hours = max(int(data.get("older_than_hours", settings.older_than_hours)), 0)
+    older_than_days = int(data.get("older_than_days", settings.older_than_days))
     return AutoCleanupSettings(
         enabled=bool(data.get("enabled", settings.enabled)),
-        older_than_days=max(int(data.get("older_than_days", settings.older_than_days)), 1),
-        older_than_hours=max(int(data.get("older_than_hours", settings.older_than_hours)), 0),
+        older_than_days=max(older_than_days, 0 if older_than_hours > 0 else 1),
+        older_than_hours=older_than_hours,
         interval_hours=max(int(data.get("interval_hours", settings.interval_hours)), 1),
         keep_latest_per_device=bool(data.get("keep_latest_per_device", settings.keep_latest_per_device)),
     )
