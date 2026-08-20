@@ -95,6 +95,7 @@ def update_auto_backup_rule_settings(
     return update_auto_backup_settings(
         enabled=data.enabled,
         interval_hours=data.interval_hours,
+        full_baseline_interval_days=data.full_baseline_interval_days,
         zip_output=data.zip_output,
         run_on_startup=data.run_on_startup,
     )

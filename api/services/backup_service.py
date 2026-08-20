@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from api import constants, models, schemas
 from api.errors import api_exception
+from api.path_utils import project_path
 from api.services.activity_log import log_activity
 from api.services.backup_targets import get_default_auto_backup_paths
 from api.services.device_resolver import resolve_device, resolve_user
@@ -246,7 +247,7 @@ def run_combined_backup(
             device_name=device.device_name,
             total_file=backup.total_file,
             total_size_mb=backup.total_size_mb,
-            local_path=str(Path(os.getenv("BACKUP_STORAGE_PATH", "storage/backups")) / device.device_name),
+            local_path=str(project_path(os.getenv("BACKUP_STORAGE_PATH", "storage/backups")) / device.device_name),
             zip_path=None,
             message="Combined backup completed",
         )
@@ -673,6 +674,13 @@ def _run_auto_backup_for_device(
 ) -> dict:
     recent_backups = _recent_auto_backups_for_device(db, device.device_id)
     latest_backup = recent_backups[0] if recent_backups else None
+    force_full_backup = _should_create_full_baseline(
+        recent_backups=recent_backups,
+        device=device,
+        remote_paths=remote_paths,
+        interval_days=data.full_baseline_interval_days,
+        forced=data.force_full_backup,
+    )
     path_checks = []
     missing_path_items = []
 
@@ -701,7 +709,7 @@ def _run_auto_backup_for_device(
         except Exception as exc:
             raise RuntimeError(f"SFTP check failed for {remote_path}: {exc}") from exc
 
-        changed = _remote_snapshot_changed(snapshot, recent_backups, remote_path)
+        changed = True if force_full_backup else _remote_snapshot_changed(snapshot, recent_backups, remote_path)
         path_checks.append((remote_path, snapshot, changed))
 
     device_items = missing_path_items
@@ -726,11 +734,13 @@ def _run_auto_backup_for_device(
                 database_dump = None
 
         database_changed = (
-            _database_dump_changed(database_dump, recent_backups)
-            if database_dump
-            else False
+            True if force_full_backup else _database_dump_changed(database_dump, recent_backups)
+        ) if database_dump else False
+        manifest = _build_auto_backup_manifest(
+            path_checks,
+            database_dump,
+            backup_mode="full_baseline" if force_full_backup else "incremental",
         )
-        manifest = _build_auto_backup_manifest(path_checks, database_dump)
         changed_remote_paths = [
             remote_path
             for remote_path, _, changed in path_checks
@@ -767,7 +777,9 @@ def _run_auto_backup_for_device(
                     remote_modified_at=snapshot.modified_at,
                     remote_checksum=snapshot.checksum,
                     message=(
-                        "File changed, combined auto backup created"
+                        "Full baseline backup created"
+                        if changed and has_changes and force_full_backup
+                        else "File changed, incremental backup created"
                         if changed and has_changes
                         else "No change detected"
                     ),
@@ -786,7 +798,9 @@ def _run_auto_backup_for_device(
                     backup_id=backup_id,
                     remote_checksum=database_dump.checksum,
                     message=(
-                        "Database changed, combined auto backup created"
+                        "Database included in full baseline backup"
+                        if database_changed and has_changes and force_full_backup
+                        else "Database changed, incremental backup created"
                         if database_changed and has_changes
                         else "Database has no change"
                     ),
@@ -911,7 +925,7 @@ def _create_combined_auto_backup(
     manifest: Optional[Dict[str, Any]] = None,
 ) -> models.Backup:
     user = resolve_user(db, created_by)
-    backup_storage_path = os.getenv("BACKUP_STORAGE_PATH", "storage/backups")
+    backup_storage_path = str(project_path(os.getenv("BACKUP_STORAGE_PATH", "storage/backups")))
 
     username = password = port = None
     if remote_paths:
@@ -1036,6 +1050,18 @@ def _configured_robot_database_path(root: Path) -> Optional[Path]:
     return root / f"{database_name}_{table_name}.json"
 
 
+def _configured_robot_database_remote_path(device: models.Device) -> Optional[str]:
+    database_name = os.getenv("ROBOT_DB_NAME")
+    table_name = os.getenv("ROBOT_DB_TABLE")
+    username = os.getenv("ROBOT_DB_USER")
+    password = os.getenv("ROBOT_DB_PASSWORD")
+    if not database_name or not table_name or not username or not password:
+        return None
+    host = os.getenv("ROBOT_DB_HOST", device.ip_address)
+    port = int(os.getenv("ROBOT_DB_PORT", "3306"))
+    return f"ssh+mysql://{host}:{port}/{database_name}/{table_name}"
+
+
 def _latest_auto_backup_for_device(
     db: Session,
     device_id: int,
@@ -1060,6 +1086,60 @@ def _recent_auto_backups_for_device(
         .limit(limit)
         .all()
     )
+
+
+def _should_create_full_baseline(
+    *,
+    recent_backups: List[models.Backup],
+    remote_paths: List[str],
+    interval_days: int,
+    forced: bool,
+) -> bool:
+    if forced:
+        return True
+
+    latest_baseline = _latest_full_baseline_backup(recent_backups, remote_paths)
+    if not latest_baseline:
+        return True
+
+    return latest_baseline.created_at <= now_local() - timedelta(days=max(interval_days, 1))
+
+
+def _latest_full_baseline_backup(
+    backups: List[models.Backup],
+    remote_paths: List[str],
+) -> Optional[models.Backup]:
+    for backup in backups:
+        if _is_full_baseline_backup(backup, remote_paths):
+            return backup
+    return None
+
+
+def _is_full_baseline_backup(backup: models.Backup, remote_paths: List[str]) -> bool:
+    manifest = _read_auto_backup_manifest(backup)
+    if not manifest:
+        return False
+
+    backup_mode = manifest.get("backup_mode")
+    if backup_mode == "full_baseline":
+        return True
+
+    paths = manifest.get("paths")
+    if not isinstance(paths, dict):
+        return False
+
+    required_paths = {
+        _normalize_remote_manifest_path(remote_path)
+        for remote_path in remote_paths
+    }
+    database_path = _configured_robot_database_remote_path()
+    if database_path:
+        required_paths.add(_normalize_remote_manifest_path(database_path))
+
+    if not required_paths:
+        return False
+
+    return required_paths.issubset(set(paths.keys()))
 
 
 def _remote_snapshot_changed(
@@ -1236,6 +1316,7 @@ def _latest_database_backup_stable_checksum(
 def _build_auto_backup_manifest(
     path_checks: List[Tuple[str, RemotePathSnapshot, bool]],
     database_dump: Optional[DownloadedFile],
+    backup_mode: str = "incremental",
 ) -> Dict[str, Any]:
     paths = {}
     for remote_path, snapshot, _ in path_checks:
@@ -1258,6 +1339,7 @@ def _build_auto_backup_manifest(
 
     return {
         "version": 1,
+        "backup_mode": backup_mode,
         "created_at": now_local().isoformat(),
         "paths": paths,
     }
@@ -1476,7 +1558,7 @@ def _existing_zip_file(backup_files: List[models.BackupFile]) -> Optional[Path]:
 
 
 def _make_download_zip(backup: models.Backup, backup_files: List[models.BackupFile], selected: bool = False) -> Path:
-    base_path = Path(os.getenv("BACKUP_STORAGE_PATH", "storage/backups")) / "downloads"
+    base_path = project_path(os.getenv("BACKUP_STORAGE_PATH", "storage/backups")) / "downloads"
     base_path.mkdir(parents=True, exist_ok=True)
     if selected:
         selected_ids = ",".join(str(file.backup_file_id) for file in backup_files)
@@ -1596,7 +1678,7 @@ def _cleanup_item(
 
 def _delete_backup_files_from_disk(backup_files: List[models.BackupFile]) -> int:
     deleted_count = 0
-    backup_storage_root = Path(os.getenv("BACKUP_STORAGE_PATH", "storage/backups")).resolve()
+    backup_storage_root = project_path(os.getenv("BACKUP_STORAGE_PATH", "storage/backups")).resolve()
     touched_dirs = set()
 
     for backup_file in backup_files:

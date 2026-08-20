@@ -5,6 +5,8 @@ import threading
 from pathlib import Path
 from typing import Any, Callable, Dict, Generic, TypeVar
 
+from api.path_utils import project_path
+
 T = TypeVar("T")
 
 
@@ -28,7 +30,7 @@ class JsonStateManager(Generic[T]):
         self._lock = threading.Lock()
 
     def _settings_file(self) -> Path:
-        return Path(os.getenv(self._env_file_key, self._default_file))
+        return project_path(os.getenv(self._env_file_key, self._default_file))
 
     def _env_settings(self) -> T:
         values = {}

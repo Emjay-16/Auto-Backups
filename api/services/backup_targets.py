@@ -6,6 +6,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import List, Optional
 
+from api.path_utils import project_path
+
 
 _CUSTOM_PATHS_LOCK = threading.Lock()
 
@@ -139,7 +141,7 @@ def _extra_paths_from_env() -> List[str]:
 
 
 def _custom_paths_file() -> Path:
-    return Path(os.getenv("AUTO_BACKUP_PATHS_FILE", "storage/config/auto_backup_paths.json"))
+    return project_path(os.getenv("AUTO_BACKUP_PATHS_FILE", "storage/config/auto_backup_paths.json"))
 
 
 def _read_custom_paths_config() -> dict:

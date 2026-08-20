@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 class AutoBackupSettings:
     enabled: bool
     interval_hours: int
+    full_baseline_interval_days: int
     zip_output: bool
     run_on_startup: bool
 
@@ -23,6 +24,10 @@ def _coerce_settings(data: dict, settings: AutoBackupSettings) -> AutoBackupSett
     return AutoBackupSettings(
         enabled=bool(data.get("enabled", settings.enabled)),
         interval_hours=max(int(data.get("interval_hours", settings.interval_hours)), 1),
+        full_baseline_interval_days=max(
+            int(data.get("full_baseline_interval_days", settings.full_baseline_interval_days)),
+            1,
+        ),
         zip_output=bool(data.get("zip_output", settings.zip_output)),
         run_on_startup=bool(data.get("run_on_startup", settings.run_on_startup)),
     )
@@ -35,6 +40,7 @@ _manager = JsonStateManager(
     env_defaults={
         "enabled": False,
         "interval_hours": 168,
+        "full_baseline_interval_days": 30,
         "zip_output": False,
         "run_on_startup": False,
     },
@@ -50,12 +56,14 @@ def get_auto_backup_settings() -> AutoBackupSettings:
 def update_auto_backup_settings(
     enabled: Optional[bool] = None,
     interval_hours: Optional[int] = None,
+    full_baseline_interval_days: Optional[int] = None,
     zip_output: Optional[bool] = None,
     run_on_startup: Optional[bool] = None,
 ) -> AutoBackupSettings:
     settings = _manager.update(
         enabled=enabled,
         interval_hours=interval_hours,
+        full_baseline_interval_days=full_baseline_interval_days,
         zip_output=zip_output,
         run_on_startup=run_on_startup,
     )

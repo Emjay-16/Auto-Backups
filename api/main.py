@@ -94,6 +94,7 @@ def _run_backup_from_settings(settings):
         run_auto_backups(
             schemas.AutoBackupRequest(
                 zip_output=settings.zip_output,
+                full_baseline_interval_days=settings.full_baseline_interval_days,
             ),
             db,
         )

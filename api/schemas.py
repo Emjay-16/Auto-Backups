@@ -190,6 +190,8 @@ class AutoBackupRequest(BaseModel):
     device_ids: Optional[List[int]] = None
     remote_paths: Optional[List[str]] = None
     zip_output: bool = False
+    force_full_backup: bool = False
+    full_baseline_interval_days: int = 30
 
 
 class AutoBackupItemResponse(BaseModel):
@@ -218,6 +220,7 @@ class AutoBackupResponse(BaseModel):
 class AutoBackupSettingsResponse(BaseModel):
     enabled: bool
     interval_hours: int
+    full_baseline_interval_days: int
     zip_output: bool
     run_on_startup: bool
 
@@ -225,6 +228,7 @@ class AutoBackupSettingsResponse(BaseModel):
 class AutoBackupSettingsRequest(BaseModel):
     enabled: Optional[bool] = None
     interval_hours: Optional[int] = None
+    full_baseline_interval_days: Optional[int] = None
     zip_output: Optional[bool] = None
     run_on_startup: Optional[bool] = None
 
