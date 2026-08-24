@@ -70,6 +70,7 @@ def list_remote_path(
         )
 
         with ssh.open_sftp() as sftp:
+            _configure_sftp_timeout(sftp)
             return _list_remote_path(sftp, remote_path)
     finally:
         ssh.close()
@@ -104,6 +105,7 @@ def download_paths(
         )
 
         with ssh.open_sftp() as sftp:
+            _configure_sftp_timeout(sftp)
             for remote_path in remote_paths:
                 remote_name = posixpath.basename(remote_path.rstrip("/\\")) or "root"
                 _download_path(sftp, remote_path, local_root / remote_name, downloaded_files)
@@ -143,6 +145,7 @@ def upload_files(
             local_root = local_root.parent
 
         with ssh.open_sftp() as sftp:
+            _configure_sftp_timeout(sftp)
             for local_path in local_paths:
                 relative_path = local_path.relative_to(local_root).as_posix()
                 remote_path = posixpath.join(remote_root, relative_path)
@@ -177,6 +180,7 @@ def upload_files_to_targets(
         )
 
         with ssh.open_sftp() as sftp:
+            _configure_sftp_timeout(sftp)
             for local_path, remote_path in transfers:
                 _ensure_remote_directory(sftp, posixpath.dirname(remote_path))
                 sftp.put(str(local_path), remote_path)
@@ -208,7 +212,45 @@ def snapshot_remote_path(
             timeout=10,
         )
         with ssh.open_sftp() as sftp:
+            _configure_sftp_timeout(sftp)
             return _snapshot_path(sftp, remote_path)
+    finally:
+        ssh.close()
+
+
+def snapshot_remote_path_metadata(
+    host: str,
+    username: str,
+    password: str,
+    remote_path: str,
+    port: int = 22,
+) -> RemotePathSnapshot:
+    try:
+        import paramiko
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("Missing dependency: install paramiko") from exc
+
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    try:
+        ssh.connect(
+            hostname=host,
+            port=port,
+            username=username,
+            password=password,
+            timeout=10,
+        )
+        with ssh.open_sftp() as sftp:
+            _configure_sftp_timeout(sftp)
+            remote_stat = _stat_remote_path(sftp, remote_path)
+            return RemotePathSnapshot(
+                remote_path=remote_path,
+                is_directory=stat.S_ISDIR(remote_stat.st_mode),
+                size_bytes=remote_stat.st_size,
+                modified_at=datetime.fromtimestamp(remote_stat.st_mtime),
+                checksum="",
+            )
     finally:
         ssh.close()
 
@@ -338,6 +380,11 @@ def _sha256_remote_file(sftp, remote_path: str) -> str:
         for chunk in iter(lambda: remote_file.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _configure_sftp_timeout(sftp) -> None:
+    timeout = float(os.getenv("SFTP_READ_TIMEOUT_SECONDS", "30"))
+    sftp.get_channel().settimeout(max(timeout, 1))
 
 
 def _stat_remote_path(sftp, remote_path: str):

@@ -141,6 +141,7 @@ export type AutoCleanupSettingsPayload = Partial<AutoCleanupSettings>;
 export type AutoBackupSettings = {
   enabled: boolean;
   interval_hours: number;
+  full_baseline_interval_days: number;
   zip_output: boolean;
   run_on_startup: boolean;
 };

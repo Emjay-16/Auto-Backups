@@ -528,6 +528,17 @@ def _run_auto_backups(
         max_attempts = max(max_retries, 1)
         for attempt in range(max_attempts):
             try:
+                update_job(
+                    db,
+                    job,
+                    checked_devices=checked_devices,
+                    online_devices=online_devices,
+                    offline_devices=skipped_offline,
+                    backups_created=backups_created,
+                    failed_devices=failed_devices,
+                    retry_count=retry_count,
+                    message=f"Checking {_device_label(device)} ({checked_devices + 1}/{len(devices)})",
+                )
                 device_result = _run_auto_backup_for_device(
                     db=db,
                     device=device,
@@ -1091,6 +1102,7 @@ def _recent_auto_backups_for_device(
 def _should_create_full_baseline(
     *,
     recent_backups: List[models.Backup],
+    device: models.Device,
     remote_paths: List[str],
     interval_days: int,
     forced: bool,
@@ -1098,7 +1110,7 @@ def _should_create_full_baseline(
     if forced:
         return True
 
-    latest_baseline = _latest_full_baseline_backup(recent_backups, remote_paths)
+    latest_baseline = _latest_full_baseline_backup(recent_backups, device, remote_paths)
     if not latest_baseline:
         return True
 
@@ -1107,15 +1119,20 @@ def _should_create_full_baseline(
 
 def _latest_full_baseline_backup(
     backups: List[models.Backup],
+    device: models.Device,
     remote_paths: List[str],
 ) -> Optional[models.Backup]:
     for backup in backups:
-        if _is_full_baseline_backup(backup, remote_paths):
+        if _is_full_baseline_backup(backup, device, remote_paths):
             return backup
     return None
 
 
-def _is_full_baseline_backup(backup: models.Backup, remote_paths: List[str]) -> bool:
+def _is_full_baseline_backup(
+    backup: models.Backup,
+    device: models.Device,
+    remote_paths: List[str],
+) -> bool:
     manifest = _read_auto_backup_manifest(backup)
     if not manifest:
         return False
@@ -1132,7 +1149,7 @@ def _is_full_baseline_backup(backup: models.Backup, remote_paths: List[str]) -> 
         _normalize_remote_manifest_path(remote_path)
         for remote_path in remote_paths
     }
-    database_path = _configured_robot_database_remote_path()
+    database_path = _configured_robot_database_remote_path(device)
     if database_path:
         required_paths.add(_normalize_remote_manifest_path(database_path))
 

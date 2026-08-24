@@ -16,6 +16,7 @@ from api.services.backup_service import (
     _build_auto_backup_manifest,
     _database_dump_changed,
     _remote_snapshot_changed,
+    _should_create_full_baseline,
     _write_auto_backup_manifest,
 )
 from api.services.robot_database import _database_payload_checksum
@@ -257,6 +258,69 @@ class AutoBackupChangeDetectionTests(unittest.TestCase):
                     snapshot,
                     [latest_partial_backup, old_backup],
                     remote_path,
+                )
+            )
+
+    def test_full_baseline_interval_uses_recent_baseline_manifest(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            remote_path = "/home/matrix/node-red-dev/node-red-user/flows.json"
+            snapshot = RemotePathSnapshot(
+                remote_path=remote_path,
+                is_directory=False,
+                size_bytes=12,
+                modified_at=now_local(),
+                checksum="checksum-1",
+            )
+            manifest = _build_auto_backup_manifest(
+                [(remote_path, snapshot, True)],
+                None,
+                backup_mode="full_baseline",
+            )
+            manifest_path = _write_auto_backup_manifest(root, manifest)
+            baseline = models.Backup(
+                backup_id=1,
+                device_id=1,
+                backup_name="auto-baseline",
+                backup_type=constants.BACKUP_TYPE_AUTO,
+                backup_status=constants.BACKUP_STATUS_SUCCESS,
+                total_file=1,
+                total_size_mb=0,
+                created_by=1,
+                created_at=now_local() - timedelta(days=7),
+                updated_at=now_local(),
+            )
+            baseline.files = [
+                models.BackupFile(
+                    backup_file_id=1,
+                    backup_id=1,
+                    file_name=manifest_path.name,
+                    file_path=str(manifest_path),
+                    file_type="json",
+                    file_size_mb=0,
+                    checksum="manifest",
+                    file_status=constants.BACKUP_STATUS_SUCCESS,
+                    created_at=now_local(),
+                )
+            ]
+            device = models.Device(
+                device_id=1,
+                group_id=1,
+                device_code="AMR01",
+                device_name="AMR01",
+                ip_address="172.30.39.101",
+                device_status=constants.DEVICE_STATUS_ONLINE,
+                created_at=now_local(),
+                updated_at=now_local(),
+            )
+
+            self.assertFalse(
+                _should_create_full_baseline(
+                    recent_backups=[baseline],
+                    device=device,
+                    remote_paths=[remote_path],
+                    interval_days=30,
+                    forced=False,
                 )
             )
 

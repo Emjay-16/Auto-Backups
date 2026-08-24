@@ -72,6 +72,7 @@ export function BackupsWorkspace({
   const [autoBackupSettings, setAutoBackupSettings] = useState<AutoBackupSettings | null>(null);
   const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
   const [autoBackupIntervalHours, setAutoBackupIntervalHours] = useState("168");
+  const [autoBackupBaselineDays, setAutoBackupBaselineDays] = useState("30");
   const [autoBackupZipOutput, setAutoBackupZipOutput] = useState(false);
   const [autoBackupRunOnStartup, setAutoBackupRunOnStartup] = useState(false);
   const [result, setResult] = useState<BackupRunResult | BackupCleanupResult | null>(null);
@@ -116,6 +117,7 @@ export function BackupsWorkspace({
         if (backupRule) {
           setAutoBackupEnabled(backupRule.enabled);
           setAutoBackupIntervalHours(String(backupRule.interval_hours));
+          setAutoBackupBaselineDays(String(backupRule.full_baseline_interval_days));
           setAutoBackupZipOutput(backupRule.zip_output);
           setAutoBackupRunOnStartup(backupRule.run_on_startup);
         }
@@ -345,18 +347,20 @@ export function BackupsWorkspace({
       const settings = await updateAutoBackupSettings({
         enabled: autoBackupEnabled,
         interval_hours: Number(autoBackupIntervalHours) || 168,
+        full_baseline_interval_days: Number(autoBackupBaselineDays) || 30,
         zip_output: autoBackupZipOutput,
         run_on_startup: autoBackupRunOnStartup,
       });
       setAutoBackupSettings(settings);
       setAutoBackupEnabled(settings.enabled);
       setAutoBackupIntervalHours(String(settings.interval_hours));
+      setAutoBackupBaselineDays(String(settings.full_baseline_interval_days));
       setAutoBackupZipOutput(settings.zip_output);
       setAutoBackupRunOnStartup(settings.run_on_startup);
       showToast({
         tone: "success",
         title: "Auto backup updated",
-        message: `${settings.enabled ? "Enabled" : "Disabled"} · every ${settings.interval_hours} hour(s)`,
+        message: `${settings.enabled ? "Enabled" : "Disabled"} · incremental every ${settings.interval_hours} hour(s) · full every ${settings.full_baseline_interval_days} day(s)`,
       });
     } catch (errorResponse) {
       showToast({ tone: "error", title: "Save auto backup settings failed", message: getErrorMessage(errorResponse, "Save auto backup settings failed") });
@@ -759,7 +763,7 @@ export function BackupsWorkspace({
               <span><BackupIcon /></span>
               <div>
                 <strong>Auto backup</strong>
-                <p>{autoBackupSettings ? `${autoBackupSettings.enabled ? "ON" : "OFF"} · every ${autoBackupSettings.interval_hours} hour(s)` : "Manage auto backup rule"}</p>
+                <p>{autoBackupSettings ? `${autoBackupSettings.enabled ? "ON" : "OFF"} · incremental ${autoBackupSettings.interval_hours}h · full ${autoBackupSettings.full_baseline_interval_days}d` : "Manage auto backup rule"}</p>
               </div>
               <b className={autoBackupSettings?.enabled ? styles.actionStatusOn : styles.actionStatusOff}>
                 {autoBackupSettings?.enabled ? "ON" : "OFF"}
@@ -923,7 +927,16 @@ export function BackupsWorkspace({
                 <input value={autoBackupIntervalHours} onChange={(event) => setAutoBackupIntervalHours(event.target.value)} inputMode="numeric" />
                 {autoBackupSettings ? (
                   <span className={styles.fieldHint}>
-                    Current auto backup setting: every {autoBackupSettings.interval_hours} hour(s)
+                    Current incremental setting: every {autoBackupSettings.interval_hours} hour(s)
+                  </span>
+                ) : null}
+              </label>
+              <label>
+                Full baseline every days
+                <input value={autoBackupBaselineDays} onChange={(event) => setAutoBackupBaselineDays(event.target.value)} inputMode="numeric" />
+                {autoBackupSettings ? (
+                  <span className={styles.fieldHint}>
+                    Current full baseline setting: every {autoBackupSettings.full_baseline_interval_days} day(s)
                   </span>
                 ) : null}
               </label>
