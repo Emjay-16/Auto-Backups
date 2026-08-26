@@ -1,0 +1,58 @@
+name: Fix backup detail grouping
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply configured path matching
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('front_end/my_app/src/components/BackupsWorkspace.tsx')
+          text = path.read_text(encoding='utf-8')
+
+          old = '''          const targetPath = target.path.replace(/\\\\+$/, "");
+          const files = detail.files.filter((file) => {
+            const remotePath = (file.remote_path ?? "").replace(/\\\\+$/, "");
+            const filePath = (file.file_path ?? "").replace(/\\\\+$/, "");
+            return [remotePath, filePath].some((candidate) =>
+              candidate === targetPath || candidate.startsWith(`${targetPath}/`),
+            );
+          });'''
+          new = '''          const targetPath = target.path.replace(/\\\\+$/, "");
+          const targetName = targetPath.split("/").filter(Boolean).pop() ?? targetPath;
+          const files = detail.files.filter((file) => {
+            const remotePath = (file.remote_path ?? "").replace(/\\\\+$/, "");
+            const filePath = (file.file_path ?? "").replace(/\\\\+$/, "");
+            const fileSegments = filePath.split("/").filter(Boolean);
+            return [remotePath, filePath].some((candidate) =>
+              candidate === targetPath || candidate.startsWith(`${targetPath}/`),
+            ) || fileSegments.includes(targetName);
+          });'''
+          if old not in text:
+              raise SystemExit('configured path matching block not found')
+          text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit fix
+        run: |
+          if git diff --quiet -- 'front_end/my_app/src/components/BackupsWorkspace.tsx'; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- 'front_end/my_app/src/components/BackupsWorkspace.tsx'
+          git commit -m "fix: match backup details to configured paths"
+          git push
