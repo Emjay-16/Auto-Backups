@@ -2,75 +2,86 @@ name: Apply backup detail mapping
 
 on:
   push:
-    branches: [main]
+    branches:
+      - fix/backup-detail-configured-targets
+
+permissions:
+  contents: write
 
 jobs:
   patch:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Patch backup detail mapping
+        with:
+          fetch-depth: 1
+
+      - name: Patch backend detail metadata
+        shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
 
           backend = Path('api/services/backup_service.py')
           text = backend.read_text(encoding='utf-8')
-          start = text.index('def _backup_file_remote_path(')
-          end = text.index('\ndef _single_manifest_remote_path', start)
-          replacement = '''def _backup_file_remote_path(
-    backup_file: models.BackupFile,
-    manifest: Optional[Dict[str, Any]],
-) -> Optional[str]:
-    if not manifest:
-        return None
+          pattern = r'''def _backup_file_detail\(\n    backup_file: models\.BackupFile,\n    manifest: Optional\[Dict\[str, Any\]\],\n\) -> dict:\n    detail = schemas\.BackupFileResponse\.model_validate\(backup_file\)\.model_dump\(\)\n    detail\["remote_path"\] = _backup_file_remote_path\(backup_file, manifest\)\n    return detail'''
+          replacement = '''def _backup_file_detail(
+              backup_file: models.BackupFile,
+              manifest: Optional[Dict[str, Any]],
+          ) -> dict:
+              detail = schemas.BackupFileResponse.model_validate(backup_file).model_dump()
+              detail["remote_path"] = _backup_file_remote_path(backup_file, manifest)
+              detail["database"] = False
+              detail["database_name"] = None
+              detail["database_table"] = None
 
-    paths = manifest.get("paths")
-    if not isinstance(paths, dict):
-        return None
+              file_path = Path(backup_file.file_path)
+              if file_path.suffix.lower() == ".json" and file_path.exists():
+                  try:
+                      payload = json.loads(file_path.read_text(encoding="utf-8"))
+                  except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+                      payload = None
+                  if isinstance(payload, dict) and isinstance(payload.get("rows"), list) and payload.get("database") and payload.get("table"):
+                      detail["database"] = True
+                      detail["database_name"] = str(payload.get("database"))
+                      detail["database_table"] = str(payload.get("table"))
+              return detail'''
+          updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit('backend detail function not found')
+          backend.write_text(updated, encoding='utf-8')
+          PY
 
-    remote_items = [
-        item for item in paths.values()
-        if isinstance(item, dict) and isinstance(item.get("remote_path"), str)
-    ]
-    if not remote_items:
-        return None
-
-    file_path = Path(backup_file.file_path)
-    file_name = backup_file.file_name
-    file_parts = {part.lower() for part in file_path.parts if part and part not in ("/", "\\\\")}
-
-    # download_paths stores a directory under its basename, so recover the
-    # original configured target from that basename when the manifest exists.
-    matches = []
-    for item in remote_items:
-        remote_path = item["remote_path"]
-        remote_name = posixpath.basename(remote_path.rstrip("/\\\\"))
-        if remote_name and remote_name.lower() in file_parts:
-            matches.append(remote_path)
-
-    if len(matches) == 1:
-        return matches[0]
-
-    for item in remote_items:
-        remote_path = item["remote_path"]
-        if posixpath.basename(remote_path.rstrip("/\\\\")) == file_name:
-            return remote_path
-
-    if len(remote_items) == 1:
-        return remote_items[0]["remote_path"]
-    return None
-'''
-          backend.write_text(text[:start] + replacement + text[end:], encoding='utf-8')
+      - name: Patch frontend grouping
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
 
           frontend = Path('front_end/my_app/src/components/BackupsWorkspace.tsx')
           text = frontend.read_text(encoding='utf-8')
-          start = text.index('      const groupedFiles = backupTargets')
-          end = text.index('    } catch (errorResponse)', start)
-          replacement = '''      const configuredTargets = backupTargets.filter((target) => target.backup_api !== "robot_db");
+
+          start_marker = '      const groupedFiles = backupTargets'
+          if start_marker not in text:
+              start_marker = '      const configuredTargets = backupTargets'
+          start = text.find(start_marker)
+          if start < 0:
+              raise SystemExit('frontend grouping start not found')
+          end = text.find('    } catch (errorResponse)', start)
+          if end < 0:
+              raise SystemExit('frontend grouping end not found')
+
+          replacement = '''      type DetailFile = BackupDetail["files"][number] & {
+        group_file_ids?: number[];
+        database?: boolean;
+        database_name?: string | null;
+        database_table?: string | null;
+      };
+      const detailFiles = detail.files as DetailFile[];
+      const configuredTargets = backupTargets.filter((target) => target.backup_api !== "robot_db");
       const normalized = (value: string) => value.replace(/\\\\/g, "/").replace(/\\/+$/, "").toLowerCase();
       const targetInfo = configuredTargets.map((target) => {
         const targetPath = normalized(target.path);
@@ -79,7 +90,8 @@ jobs:
       });
 
       const assignments = new Map<number, number>();
-      for (const file of detail.files) {
+      for (const file of detailFiles) {
+        if (file.database) continue;
         const candidates = [file.remote_path, file.file_path]
           .filter((value): value is string => Boolean(value))
           .map(normalized);
@@ -102,7 +114,7 @@ jobs:
 
       const groupedFiles = targetInfo
         .map(({ target }, index) => {
-          const files = detail.files.filter((file) => assignments.get(file.backup_file_id) === index);
+          const files = detailFiles.filter((file) => !file.database && assignments.get(file.backup_file_id) === index);
           if (!files.length) return null;
           return {
             ...files[0],
@@ -112,12 +124,26 @@ jobs:
             file_size_mb: files.reduce((total, file) => total + Number(file.file_size_mb || 0), 0),
             remote_path: target.path,
             group_file_ids: files.map((file) => file.backup_file_id),
-          };
+          } as DetailFile;
         })
-        .filter((file): file is NonNullable<typeof file> => Boolean(file));
+        .filter((file): file is DetailFile => Boolean(file));
 
-      const groupedFileIds = new Set(groupedFiles.flatMap((file) => file.group_file_ids ?? []));
-      const ungroupedFiles = detail.files.filter((file) => !groupedFileIds.has(file.backup_file_id));
+      const databaseFiles = detailFiles.filter((file) => file.database);
+      if (databaseFiles.length) {
+        const databaseGroupId = -(groupedFiles.length + 1000);
+        groupedFiles.push({
+          ...databaseFiles[0],
+          backup_file_id: databaseGroupId,
+          file_name: "Database",
+          file_type: "database",
+          file_size_mb: databaseFiles.reduce((total, file) => total + Number(file.file_size_mb || 0), 0),
+          remote_path: "Database",
+          group_file_ids: databaseFiles.map((file) => file.backup_file_id),
+        });
+      }
+
+      const assignedIds = new Set(groupedFiles.flatMap((file) => file.group_file_ids ?? []));
+      const ungroupedFiles = detailFiles.filter((file) => !assignedIds.has(file.backup_file_id));
       if (ungroupedFiles.length) {
         groupedFiles.push({
           ...ungroupedFiles[0],
@@ -126,7 +152,7 @@ jobs:
           file_type: "other",
           file_size_mb: ungroupedFiles.reduce((total, file) => total + Number(file.file_size_mb || 0), 0),
           group_file_ids: ungroupedFiles.map((file) => file.backup_file_id),
-        });
+        } as DetailFile);
       }
 
       const groupedDetail = { ...detail, files: groupedFiles };
@@ -137,12 +163,24 @@ jobs:
           frontend.write_text(text[:start] + replacement + text[end:], encoding='utf-8')
           PY
 
-      - name: Commit and remove temporary workflows
+      - name: Patch database display children
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          text = Path('front_end/my_app/src/components/BackupsWorkspace.tsx').read_text(encoding='utf-8')
+          old = '''                    {backupDetail.files.map((file) => (\n                      <button'''
+          new = '''                    {backupDetail.files.map((file) => (\n                      <button'''
+          if old not in text:
+              raise SystemExit('file list marker not found')
+          # Keep the existing list rendering; database is a selectable group.
+          Path('front_end/my_app/src/components/BackupsWorkspace.tsx').write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit patch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add api/services/backup_service.py front_end/my_app/src/components/BackupsWorkspace.tsx
-          rm -f .github/workflows/patch-backup-detail.yml .github/workflows/fix-backup-detail-grouping.yml .github/workflows/fix-backup-detail-grouping-v2.yml
-          git add .github/workflows
-          git commit -m "fix: group backup details by configured targets"
+          git commit -m "fix: group backup detail paths and database json" || exit 0
           git push
