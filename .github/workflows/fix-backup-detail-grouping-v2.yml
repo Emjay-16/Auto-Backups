@@ -12,15 +12,15 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Patch backend remote path mapping
+      - name: Patch backup detail mapping
         run: |
           python - <<'PY'
           from pathlib import Path
-          import re
 
-          path = Path('api/services/backup_service.py')
-          text = path.read_text(encoding='utf-8')
-          pattern = r'def _backup_file_remote_path\(.*?\n\ndef _single_manifest_remote_path'
+          backend = Path('api/services/backup_service.py')
+          text = backend.read_text(encoding='utf-8')
+          start = text.index('def _backup_file_remote_path(')
+          end = text.index('\ndef _single_manifest_remote_path', start)
           replacement = '''def _backup_file_remote_path(
     backup_file: models.BackupFile,
     manifest: Optional[Dict[str, Any]],
@@ -33,8 +33,7 @@ jobs:
         return None
 
     remote_items = [
-        item
-        for item in paths.values()
+        item for item in paths.values()
         if isinstance(item, dict) and isinstance(item.get("remote_path"), str)
     ]
     if not remote_items:
@@ -42,21 +41,19 @@ jobs:
 
     file_path = Path(backup_file.file_path)
     file_name = backup_file.file_name
-    normalized_file_parts = {
-        part.lower()
-        for part in file_path.parts
-        if part and part not in ("/", "\\\\")
-    }
+    file_parts = {part.lower() for part in file_path.parts if part and part not in ("/", "\\\\")}
 
-    candidates = []
+    # download_paths stores a directory under its basename, so recover the
+    # original configured target from that basename when the manifest exists.
+    matches = []
     for item in remote_items:
         remote_path = item["remote_path"]
         remote_name = posixpath.basename(remote_path.rstrip("/\\\\"))
-        if remote_name and remote_name.lower() in normalized_file_parts:
-            candidates.append(remote_path)
+        if remote_name and remote_name.lower() in file_parts:
+            matches.append(remote_path)
 
-    if len(candidates) == 1:
-        return candidates[0]
+    if len(matches) == 1:
+        return matches[0]
 
     for item in remote_items:
         remote_path = item["remote_path"]
@@ -65,25 +62,14 @@ jobs:
 
     if len(remote_items) == 1:
         return remote_items[0]["remote_path"]
-
     return None
+'''
+          backend.write_text(text[:start] + replacement + text[end:], encoding='utf-8')
 
-
-def _single_manifest_remote_path'''
-          updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
-          if count != 1:
-              raise SystemExit('backend function not found')
-          path.write_text(updated, encoding='utf-8')
-          PY
-      - name: Patch frontend target grouping
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import re
-
-          path = Path('front_end/my_app/src/components/BackupsWorkspace.tsx')
-          text = path.read_text(encoding='utf-8')
-          pattern = r'      const groupedFiles = backupTargets.*?      setDownloadFilename\(`\$\{detail\.backup_name\}\.zip`\);'
+          frontend = Path('front_end/my_app/src/components/BackupsWorkspace.tsx')
+          text = frontend.read_text(encoding='utf-8')
+          start = text.index('      const groupedFiles = backupTargets')
+          end = text.index('    } catch (errorResponse)', start)
           replacement = '''      const configuredTargets = backupTargets.filter((target) => target.backup_api !== "robot_db");
       const normalized = (value: string) => value.replace(/\\\\/g, "/").replace(/\\/+$/, "").toLowerCase();
       const targetInfo = configuredTargets.map((target) => {
@@ -146,17 +132,17 @@ def _single_manifest_remote_path'''
       const groupedDetail = { ...detail, files: groupedFiles };
       setBackupDetail(groupedDetail);
       setSelectedDownloadFileIds(groupedFiles.map((file) => file.backup_file_id));
-      setDownloadFilename(`${detail.backup_name}.zip`);'''
-          updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
-          if count != 1:
-              raise SystemExit('frontend grouping block not found')
-          path.write_text(updated, encoding='utf-8')
+      setDownloadFilename(`${detail.backup_name}.zip`);
+'''
+          frontend.write_text(text[:start] + replacement + text[end:], encoding='utf-8')
           PY
-      - name: Commit code and remove temporary workflows
+
+      - name: Commit and remove temporary workflows
         run: |
-          rm -f .github/workflows/patch-backup-detail.yml .github/workflows/fix-backup-detail-grouping.yml .github/workflows/fix-backup-detail-grouping-v2.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add api/services/backup_service.py front_end/my_app/src/components/BackupsWorkspace.tsx .github/workflows
+          git add api/services/backup_service.py front_end/my_app/src/components/BackupsWorkspace.tsx
+          rm -f .github/workflows/patch-backup-detail.yml .github/workflows/fix-backup-detail-grouping.yml .github/workflows/fix-backup-detail-grouping-v2.yml
+          git add .github/workflows
           git commit -m "fix: group backup details by configured targets"
           git push
