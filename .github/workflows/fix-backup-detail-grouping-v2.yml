@@ -1,4 +1,4 @@
-name: Fix backup detail grouping v2
+name: Apply backup detail mapping
 
 on:
   push:
@@ -12,7 +12,70 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Apply robust target grouping
+      - name: Patch backend remote path mapping
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('api/services/backup_service.py')
+          text = path.read_text(encoding='utf-8')
+          pattern = r'def _backup_file_remote_path\(.*?\n\ndef _single_manifest_remote_path'
+          replacement = '''def _backup_file_remote_path(
+    backup_file: models.BackupFile,
+    manifest: Optional[Dict[str, Any]],
+) -> Optional[str]:
+    if not manifest:
+        return None
+
+    paths = manifest.get("paths")
+    if not isinstance(paths, dict):
+        return None
+
+    remote_items = [
+        item
+        for item in paths.values()
+        if isinstance(item, dict) and isinstance(item.get("remote_path"), str)
+    ]
+    if not remote_items:
+        return None
+
+    file_path = Path(backup_file.file_path)
+    file_name = backup_file.file_name
+    normalized_file_parts = {
+        part.lower()
+        for part in file_path.parts
+        if part and part not in ("/", "\\\\")
+    }
+
+    candidates = []
+    for item in remote_items:
+        remote_path = item["remote_path"]
+        remote_name = posixpath.basename(remote_path.rstrip("/\\\\"))
+        if remote_name and remote_name.lower() in normalized_file_parts:
+            candidates.append(remote_path)
+
+    if len(candidates) == 1:
+        return candidates[0]
+
+    for item in remote_items:
+        remote_path = item["remote_path"]
+        if posixpath.basename(remote_path.rstrip("/\\\\")) == file_name:
+            return remote_path
+
+    if len(remote_items) == 1:
+        return remote_items[0]["remote_path"]
+
+    return None
+
+
+def _single_manifest_remote_path'''
+          updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+          if count != 1:
+              raise SystemExit('backend function not found')
+          path.write_text(updated, encoding='utf-8')
+          PY
+      - name: Patch frontend target grouping
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -20,52 +83,41 @@ jobs:
 
           path = Path('front_end/my_app/src/components/BackupsWorkspace.tsx')
           text = path.read_text(encoding='utf-8')
-
-          pattern = r'''      const groupedFiles = backupTargets.*?      setDownloadFilename\(`\$\{detail\.backup_name\}\.zip`\);'''
+          pattern = r'      const groupedFiles = backupTargets.*?      setDownloadFilename\(`\$\{detail\.backup_name\}\.zip`\);'
           replacement = '''      const configuredTargets = backupTargets.filter((target) => target.backup_api !== "robot_db");
+      const normalized = (value: string) => value.replace(/\\\\/g, "/").replace(/\\/+$/, "").toLowerCase();
       const targetInfo = configuredTargets.map((target) => {
-        const normalizedPath = target.path
-          .replace(/\\\\/g, "/")
-          .replace(/\\/+$/, "")
-          .toLowerCase();
-        const targetName = normalizedPath.split("/").filter(Boolean).pop() ?? normalizedPath;
-        return { target, normalizedPath, targetName };
+        const targetPath = normalized(target.path);
+        const targetName = targetPath.split("/").filter(Boolean).pop() ?? targetPath;
+        return { target, targetPath, targetName };
       });
 
       const assignments = new Map<number, number>();
       for (const file of detail.files) {
         const candidates = [file.remote_path, file.file_path]
-          .filter(Boolean)
-          .map((value) => value!
-            .replace(/\\\\/g, "/")
-            .replace(/\\/+$/, "")
-            .toLowerCase());
+          .filter((value): value is string => Boolean(value))
+          .map(normalized);
         let bestIndex = -1;
         let bestScore = -1;
-
-        targetInfo.forEach(({ normalizedPath, targetName }, index) => {
+        targetInfo.forEach(({ targetPath, targetName }, index) => {
           let score = -1;
           for (const candidate of candidates) {
-            if (candidate === normalizedPath) score = Math.max(score, 100);
-            else if (candidate.startsWith(`${normalizedPath}/`)) score = Math.max(score, 90);
-            else if (candidate.split("/").filter(Boolean).includes(targetName)) score = Math.max(score, 50);
+            if (candidate === targetPath) score = Math.max(score, 100);
+            else if (candidate.startsWith(`${targetPath}/`)) score = Math.max(score, 90);
+            else if (candidate.split("/").filter(Boolean).includes(targetName)) score = Math.max(score, 60);
           }
           if (score > bestScore) {
             bestScore = score;
             bestIndex = index;
           }
         });
-
-        if (bestIndex >= 0 && bestScore >= 50) {
-          assignments.set(file.backup_file_id, bestIndex);
-        }
+        if (bestIndex >= 0 && bestScore >= 60) assignments.set(file.backup_file_id, bestIndex);
       }
 
       const groupedFiles = targetInfo
         .map(({ target }, index) => {
           const files = detail.files.filter((file) => assignments.get(file.backup_file_id) === index);
           if (!files.length) return null;
-
           return {
             ...files[0],
             backup_file_id: -(index + 1),
@@ -78,25 +130,33 @@ jobs:
         })
         .filter((file): file is NonNullable<typeof file> => Boolean(file));
 
+      const groupedFileIds = new Set(groupedFiles.flatMap((file) => file.group_file_ids ?? []));
+      const ungroupedFiles = detail.files.filter((file) => !groupedFileIds.has(file.backup_file_id));
+      if (ungroupedFiles.length) {
+        groupedFiles.push({
+          ...ungroupedFiles[0],
+          backup_file_id: -(groupedFiles.length + 1),
+          file_name: "Other files",
+          file_type: "other",
+          file_size_mb: ungroupedFiles.reduce((total, file) => total + Number(file.file_size_mb || 0), 0),
+          group_file_ids: ungroupedFiles.map((file) => file.backup_file_id),
+        });
+      }
+
       const groupedDetail = { ...detail, files: groupedFiles };
       setBackupDetail(groupedDetail);
       setSelectedDownloadFileIds(groupedFiles.map((file) => file.backup_file_id));
       setDownloadFilename(`${detail.backup_name}.zip`);'''
-
           updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
           if count != 1:
-              raise SystemExit('backup detail grouping block not found')
+              raise SystemExit('frontend grouping block not found')
           path.write_text(updated, encoding='utf-8')
           PY
-
-      - name: Commit patched component
+      - name: Commit code and remove temporary workflows
         run: |
-          if git diff --quiet -- 'front_end/my_app/src/components/BackupsWorkspace.tsx'; then
-            echo "No changes needed"
-            exit 0
-          fi
+          rm -f .github/workflows/patch-backup-detail.yml .github/workflows/fix-backup-detail-grouping.yml .github/workflows/fix-backup-detail-grouping-v2.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- 'front_end/my_app/src/components/BackupsWorkspace.tsx'
-          git commit -m "fix: group backup detail files by target root"
+          git add api/services/backup_service.py front_end/my_app/src/components/BackupsWorkspace.tsx .github/workflows
+          git commit -m "fix: group backup details by configured targets"
           git push
