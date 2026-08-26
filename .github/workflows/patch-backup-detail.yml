@@ -1,0 +1,63 @@
+name: Patch backup detail target grouping
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply backup detail grouping
+        env:
+          FILE: front_end/my_app/src/components/BackupsWorkspace.tsx
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path('front_end/my_app/src/components/BackupsWorkspace.tsx')
+          text = path.read_text(encoding='utf-8')
+
+          old = '''      const detail = await getBackupDetail(backup.id);\n      setBackupDetail(detail);\n      setSelectedDownloadFileIds(detail.files.map((file) => file.backup_file_id));\n      setDownloadFilename(`${detail.backup_name}.zip`);'''
+          new = '''      const detail = await getBackupDetail(backup.id);\n      const groupedFiles = backupTargets\n        .filter((target) => target.backup_api !== "robot_db")\n        .map((target, index) => {\n          const targetPath = target.path.replace(/\\\\+$/, "");\n          const files = detail.files.filter((file) => {\n            const remotePath = (file.remote_path ?? "").replace(/\\\\+$/, "");\n            const filePath = (file.file_path ?? "").replace(/\\\\+$/, "");\n            return [remotePath, filePath].some((candidate) =>\n              candidate === targetPath || candidate.startsWith(`${targetPath}/`),\n            );\n          });\n\n          if (!files.length) return null;\n\n          return {\n            ...files[0],\n            backup_file_id: -(index + 1),\n            file_name: target.label,\n            file_type: target.target_type,\n            file_size_mb: files.reduce((total, file) => total + Number(file.file_size_mb || 0), 0),\n            remote_path: target.path,\n            group_file_ids: files.map((file) => file.backup_file_id),\n          };\n        })\n        .filter(Boolean);\n\n      const groupedFileIds = new Set(\n        groupedFiles.flatMap((file) => file?.group_file_ids ?? []),\n      );\n      const ungroupedFiles = detail.files.filter((file) => !groupedFileIds.has(file.backup_file_id));\n      if (ungroupedFiles.length) {\n        groupedFiles.push({\n          ...ungroupedFiles[0],\n          backup_file_id: -(groupedFiles.length + 1),\n          file_name: "Other files",\n          file_type: "other",\n          file_size_mb: ungroupedFiles.reduce((total, file) => total + Number(file.file_size_mb || 0), 0),\n          group_file_ids: ungroupedFiles.map((file) => file.backup_file_id),\n        });\n      }\n\n      const groupedDetail = { ...detail, files: groupedFiles };\n      setBackupDetail(groupedDetail);\n      setSelectedDownloadFileIds(groupedFiles.map((file) => file.backup_file_id));\n      setDownloadFilename(`${detail.backup_name}.zip`);'''
+          if old not in text:
+              raise SystemExit('openBackupDetail block not found')
+          text = text.replace(old, new, 1)
+
+          old = '''  function toggleDownloadFile(fileId: number) {\n    setSelectedDownloadFileIds((current) => (\n      current.includes(fileId)\n        ? current.filter((selectedId) => selectedId !== fileId)\n        : [...current, fileId]\n    ));\n  }'''
+          new = '''  function toggleDownloadFile(fileId: number) {\n    setSelectedDownloadFileIds((current) => (\n      current.includes(fileId)\n        ? current.filter((selectedId) => selectedId !== fileId)\n        : [...current, fileId]\n    ));\n  }'''
+          if old not in text:
+              raise SystemExit('toggleDownloadFile block not found')
+          text = text.replace(old, new, 1)
+
+          old = '''    const link = document.createElement("a");\n    link.href = backupDownloadUrl(\n      backupDetail.backup_id,\n      selectedDownloadFileIds,\n      normalizeZipFilename(downloadFilename || backupDetail.backup_name),\n    );'''
+          new = '''    const selectedFileIds = backupDetail.files.flatMap((file) => {\n      if (!selectedDownloadFileIds.includes(file.backup_file_id)) return [];\n      const groupedIds = (file as BackupDetail["files"][number] & { group_file_ids?: number[] }).group_file_ids;\n      return groupedIds ?? [file.backup_file_id];\n    });\n    const link = document.createElement("a");\n    link.href = backupDownloadUrl(\n      backupDetail.backup_id,\n      selectedFileIds,\n      normalizeZipFilename(downloadFilename || backupDetail.backup_name),\n    );'''
+          if old not in text:
+              raise SystemExit('download block not found')
+          text = text.replace(old, new, 1)
+
+          old = '''                      {selectedDownloadFileIds.length} / {backupDetail.files.length} selected for zip'''
+          new = '''                      {selectedDownloadFileIds.length} / {backupDetail.files.length} target(s) selected for zip'''
+          if old not in text:
+              raise SystemExit('toolbar text not found')
+          text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit patched component
+        run: |
+          if git diff --quiet -- "$FILE"; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$FILE"
+          git commit -m "fix: group backup detail by configured labels"
+          git push
