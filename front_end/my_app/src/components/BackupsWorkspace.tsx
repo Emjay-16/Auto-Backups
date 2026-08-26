@@ -277,8 +277,50 @@ export function BackupsWorkspace({
     setSaving(true);
     try {
       const detail = await getBackupDetail(backup.id);
-      setBackupDetail(detail);
-      setSelectedDownloadFileIds(detail.files.map((file) => file.backup_file_id));
+      const groupedFiles = backupTargets
+        .filter((target) => target.backup_api !== "robot_db")
+        .map((target, index) => {
+          const targetPath = target.path.replace(/\\+$/, "");
+          const files = detail.files.filter((file) => {
+            const remotePath = (file.remote_path ?? "").replace(/\\+$/, "");
+            const filePath = (file.file_path ?? "").replace(/\\+$/, "");
+            return [remotePath, filePath].some((candidate) =>
+              candidate === targetPath || candidate.startsWith(`${targetPath}/`),
+            );
+          });
+
+          if (!files.length) return null;
+
+          return {
+            ...files[0],
+            backup_file_id: -(index + 1),
+            file_name: target.label,
+            file_type: target.target_type,
+            file_size_mb: files.reduce((total, file) => total + Number(file.file_size_mb || 0), 0),
+            remote_path: target.path,
+            group_file_ids: files.map((file) => file.backup_file_id),
+          };
+        })
+        .filter((file): file is NonNullable<typeof file> => Boolean(file));
+
+      const groupedFileIds = new Set(
+        groupedFiles.flatMap((file) => file.group_file_ids ?? []),
+      );
+      const ungroupedFiles = detail.files.filter((file) => !groupedFileIds.has(file.backup_file_id));
+      if (ungroupedFiles.length) {
+        groupedFiles.push({
+          ...ungroupedFiles[0],
+          backup_file_id: -(groupedFiles.length + 1),
+          file_name: "Other files",
+          file_type: "other",
+          file_size_mb: ungroupedFiles.reduce((total, file) => total + Number(file.file_size_mb || 0), 0),
+          group_file_ids: ungroupedFiles.map((file) => file.backup_file_id),
+        });
+      }
+
+      const groupedDetail = { ...detail, files: groupedFiles };
+      setBackupDetail(groupedDetail);
+      setSelectedDownloadFileIds(groupedFiles.map((file) => file.backup_file_id));
       setDownloadFilename(`${detail.backup_name}.zip`);
     } catch (errorResponse) {
       showToast({ tone: "error", title: "Load backup detail failed", message: getErrorMessage(errorResponse, "Load backup detail failed") });
@@ -539,10 +581,15 @@ export function BackupsWorkspace({
   function confirmDownloadSelectedFiles() {
     if (!backupDetail || !selectedDownloadFileIds.length) return;
     setError("");
+    const selectedFileIds = backupDetail.files.flatMap((file) => {
+      if (!selectedDownloadFileIds.includes(file.backup_file_id)) return [];
+      const groupedIds = (file as BackupDetail["files"][number] & { group_file_ids?: number[] }).group_file_ids;
+      return groupedIds ?? [file.backup_file_id];
+    });
     const link = document.createElement("a");
     link.href = backupDownloadUrl(
       backupDetail.backup_id,
-      selectedDownloadFileIds,
+      selectedFileIds,
       normalizeZipFilename(downloadFilename || backupDetail.backup_name),
     );
     link.download = normalizeZipFilename(downloadFilename || backupDetail.backup_name);
@@ -889,7 +936,7 @@ export function BackupsWorkspace({
                       {selectedDownloadFileIds.length === backupDetail.files.length ? "Clear selection" : "Select all"}
                     </button>
                     <span>
-                      {selectedDownloadFileIds.length} / {backupDetail.files.length} selected for zip
+                      {selectedDownloadFileIds.length} / {backupDetail.files.length} target(s) selected for zip
                     </span>
                   </div>
                   <div className={styles.fileList}>
