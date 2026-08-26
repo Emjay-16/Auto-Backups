@@ -937,6 +937,10 @@
   width: min(980px, 100%);
 }
 
+.detailModal {
+  width: min(880px, 100%);
+}
+
 .pathManagerIntro {
   display: flex;
   align-items: center;
