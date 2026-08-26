@@ -1,21 +1,23 @@
 name: Apply backup detail mapping
 
 on:
-  pull_request:
-    types: [opened, synchronize]
+  push:
+    branches:
+      - fix/backup-detail-configured-targets
 
 permissions:
   contents: write
 
 jobs:
   patch:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
           fetch-depth: 1
       - name: Patch backup detail mapping
+        shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -25,40 +27,39 @@ jobs:
           start = text.index('def _backup_file_remote_path(')
           end = text.index('\ndef _single_manifest_remote_path', start)
           replacement = '''def _backup_file_remote_path(
-    backup_file: models.BackupFile,
-    manifest: Optional[Dict[str, Any]],
-) -> Optional[str]:
-    if not manifest:
-        return None
-    paths = manifest.get("paths")
-    if not isinstance(paths, dict):
-        return None
-    remote_items = [
-        item for item in paths.values()
-        if isinstance(item, dict) and isinstance(item.get("remote_path"), str)
-    ]
-    if not remote_items:
-        return None
-
-    file_path = Path(backup_file.file_path)
-    file_name = backup_file.file_name
-    file_parts = {part.lower() for part in file_path.parts if part and part not in ("/", "\\\\")}
-    matches = []
-    for item in remote_items:
-        remote_path = item["remote_path"]
-        remote_name = posixpath.basename(remote_path.rstrip("/\\\\"))
-        if remote_name and remote_name.lower() in file_parts:
-            matches.append(remote_path)
-    if len(matches) == 1:
-        return matches[0]
-    for item in remote_items:
-        remote_path = item["remote_path"]
-        if posixpath.basename(remote_path.rstrip("/\\\\")) == file_name:
-            return remote_path
-    if len(remote_items) == 1:
-        return remote_items[0]["remote_path"]
-    return None
-'''
+              backup_file: models.BackupFile,
+              manifest: Optional[Dict[str, Any]],
+          ) -> Optional[str]:
+              if not manifest:
+                  return None
+              paths = manifest.get("paths")
+              if not isinstance(paths, dict):
+                  return None
+              remote_items = [
+                  item for item in paths.values()
+                  if isinstance(item, dict) and isinstance(item.get("remote_path"), str)
+              ]
+              if not remote_items:
+                  return None
+              file_path = Path(backup_file.file_path)
+              file_name = backup_file.file_name
+              file_parts = {part.lower() for part in file_path.parts if part and part not in ("/", "\\\\")}
+              matches = []
+              for item in remote_items:
+                  remote_path = item["remote_path"]
+                  remote_name = posixpath.basename(remote_path.rstrip("/\\\\"))
+                  if remote_name and remote_name.lower() in file_parts:
+                      matches.append(remote_path)
+              if len(matches) == 1:
+                  return matches[0]
+              for item in remote_items:
+                  remote_path = item["remote_path"]
+                  if posixpath.basename(remote_path.rstrip("/\\\\")) == file_name:
+                      return remote_path
+              if len(remote_items) == 1:
+                  return remote_items[0]["remote_path"]
+              return None
+          '''
           backend.write_text(text[:start] + replacement + text[end:], encoding='utf-8')
 
           frontend = Path('front_end/my_app/src/components/BackupsWorkspace.tsx')
@@ -132,5 +133,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add api/services/backup_service.py front_end/my_app/src/components/BackupsWorkspace.tsx
-          git commit -m "fix: group backup details by configured targets"
-          git push origin HEAD:${{ github.head_ref }}
+          git commit -m "fix: group backup details by configured targets" || exit 0
+          git push
