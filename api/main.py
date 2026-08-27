@@ -23,7 +23,12 @@ from api.errors import (
 from api.routers import auth, backups, device_groups, devices, jobs, logs, restore, uploads
 from api.services.api_token_auth import api_token_auth_middleware
 from api.services.auto_backup_state import auto_backup_loop, pending_backup_loop
-from api.services.backup_service import cleanup_old_backups, process_pending_auto_backups, run_auto_backups
+from api.services.backup_service import (
+    cleanup_old_backups,
+    process_pending_auto_backups,
+    recover_stale_running_records,
+    run_auto_backups,
+)
 from api.services.cleanup_state import auto_cleanup_loop
 
 app = FastAPI(
@@ -113,6 +118,15 @@ def _run_pending_backups():
 @app.on_event("startup")
 def start_background_jobs():
     global _backup_thread, _cleanup_thread, _pending_backup_thread
+    recovery_db = SessionLocal()
+    try:
+        recover_stale_running_records(
+            recovery_db,
+            max_age_hours=float(os.getenv("STALE_RUNNING_TIMEOUT_HOURS", "24")),
+        )
+    finally:
+        recovery_db.close()
+
     _cleanup_stop_event.clear()
     _cleanup_thread = threading.Thread(
         target=auto_cleanup_loop,

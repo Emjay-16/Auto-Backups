@@ -61,6 +61,7 @@ export function BackupsWorkspace({
   const [openedPath, setOpenedPath] = useState("");
   const [backupDetail, setBackupDetail] = useState<BackupDetail | null>(null);
   const [selectedDownloadFileIds, setSelectedDownloadFileIds] = useState<number[]>([]);
+  const [collapsedBackupFolders, setCollapsedBackupFolders] = useState<Set<string>>(new Set());
   const [downloadFilename, setDownloadFilename] = useState("");
   const [pendingDownloadConfirm, setPendingDownloadConfirm] = useState(false);
   const [cleanupDays, setCleanupDays] = useState("90");
@@ -271,6 +272,7 @@ export function BackupsWorkspace({
     setMode("detail");
     setBackupDetail(null);
     setSelectedDownloadFileIds([]);
+    setCollapsedBackupFolders(new Set());
     setDownloadFilename("");
     setResult(null);
     setError("");
@@ -279,6 +281,7 @@ export function BackupsWorkspace({
       const detail = await getBackupDetail(backup.id);
       setBackupDetail(detail);
       setSelectedDownloadFileIds(detail.files.map((file) => file.backup_file_id));
+      setCollapsedBackupFolders(new Set(groupBackupFiles(detail.files).map((group) => group.name)));
       setDownloadFilename(`${detail.backup_name}.zip`);
     } catch (errorResponse) {
       showToast({ tone: "error", title: "Load backup detail failed", message: getErrorMessage(errorResponse, "Load backup detail failed") });
@@ -896,22 +899,39 @@ export function BackupsWorkspace({
                     </span>
                   </div>
                   <div className={styles.fileList}>
-                    {backupDetail.files.map((file) => (
-                      <button
-                        className={selectedDownloadFileIds.includes(file.backup_file_id) ? styles.selectedFile : ""}
-                        key={file.backup_file_id}
-                        onClick={() => toggleDownloadFile(file.backup_file_id)}
-                        type="button"
-                      >
-                        <input
-                          checked={selectedDownloadFileIds.includes(file.backup_file_id)}
-                          onChange={() => toggleDownloadFile(file.backup_file_id)}
-                          onClick={(event) => event.stopPropagation()}
-                          type="checkbox"
-                        />
-                        <span>{file.file_name}</span>
-                        <b>{Number(file.file_size_mb).toFixed(2)} MB</b>
-                      </button>
+                    {groupBackupFiles(backupDetail.files).map((group) => (
+                      <section className={styles.fileGroup} key={group.name}>
+                        <button
+                          aria-expanded={!collapsedBackupFolders.has(group.name)}
+                          className={styles.fileGroupHeader}
+                          onClick={() => setCollapsedBackupFolders((current) => {
+                            const next = new Set(current);
+                            if (next.has(group.name)) next.delete(group.name);
+                            else next.add(group.name);
+                            return next;
+                          })}
+                          type="button"
+                        >
+                          <span className={styles.folderIcon}><FolderIcon /></span>
+                          <strong>{group.name}</strong>
+                          <small>{group.files.length} file(s)</small>
+                          <span className={`${styles.folderChevron} ${collapsedBackupFolders.has(group.name) ? styles.folderChevronCollapsed : ""}`}>▾</span>
+                        </button>
+                        {!collapsedBackupFolders.has(group.name) ? (
+                          <div className={styles.fileGroupItems}>
+                            {group.files.map((file) => {
+                              const isSelected = selectedDownloadFileIds.includes(file.backup_file_id);
+                              return (
+                                <label className={`${styles.fileSelectionRow} ${isSelected ? styles.selectedFile : ""}`} key={file.backup_file_id}>
+                                  <input checked={isSelected} onChange={() => toggleDownloadFile(file.backup_file_id)} type="checkbox" />
+                                  <span title={file.remote_path ?? file.file_path}>{displayBackupFilePath(file)}</span>
+                                  <b>{Number(file.file_size_mb).toFixed(2)} MB</b>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        ) : null}
+                      </section>
                     ))}
                   </div>
                 </>
@@ -966,13 +986,6 @@ export function BackupsWorkspace({
                     Current auto cleanup setting: {formatCleanupRetention(cleanupSettings)}
                   </span>
                 ) : null}
-              </label>
-              <label>
-                Older than hours (optional)
-                <input value={cleanupHours} onChange={(event) => setCleanupHours(event.target.value)} />
-                <span className={styles.fieldHint}>
-                  ถ้าใส่มากกว่า 0 ระบบจะใช้ชั่วโมงแทนจำนวนวัน เหมาะสำหรับทดสอบ
-                </span>
               </label>
               <label>
                 Interval hours
@@ -1125,22 +1138,24 @@ export function BackupsWorkspace({
                     </div>
                     <div className={styles.targetList}>
                       {backupTargets.length ? backupTargets.map((target) => (
-                        <label key={`${target.backup_api}:${target.path}:${target.key}`}>
-                          <input
-                            checked={target.backup_api === "robot_db" ? includeDatabase : selectedPaths.includes(target.path)}
-                            onChange={() => {
-                              if (target.backup_api === "robot_db") setIncludeDatabase((current) => !current);
-                              else togglePath(target.path);
-                            }}
-                            type="checkbox"
-                          />
-                          <span className={styles.targetText}>
-                            <strong>{target.label}</strong>
-                            <small>{target.path}</small>
-                          </span>
-                          <b className={`${styles.targetMeta} ${targetToneClass(target)}`}>
-                            {target.backup_api === "robot_db" ? "DB JSON" : target.target_type}
-                          </b>
+                        <div className={styles.targetRow} key={`${target.backup_api}:${target.path}:${target.key}`}>
+                          <label className={styles.targetChoice}>
+                            <input
+                              checked={target.backup_api === "robot_db" ? includeDatabase : selectedPaths.includes(target.path)}
+                              onChange={() => {
+                                if (target.backup_api === "robot_db") setIncludeDatabase((current) => !current);
+                                else togglePath(target.path);
+                              }}
+                              type="checkbox"
+                            />
+                            <span className={styles.targetText}>
+                              <strong>{target.label}</strong>
+                              <small>{target.path}</small>
+                            </span>
+                            <b className={`${styles.targetMeta} ${targetToneClass(target)}`}>
+                              {target.backup_api === "robot_db" ? "DB JSON" : target.target_type}
+                            </b>
+                          </label>
                           {target.browsable ? (
                             <button
                               onClick={(event) => {
@@ -1152,7 +1167,7 @@ export function BackupsWorkspace({
                               Open
                             </button>
                           ) : null}
-                        </label>
+                        </div>
                       )) : (
                         <p className={styles.emptyText}>No backup targets configured</p>
                       )}
@@ -1420,6 +1435,64 @@ function backupGroupName(name: string): string {
     .replace(/[_-]\d{8}$/u, "")
     .replace(/[_-]\d{4}-\d{2}-\d{2}[_-]\d{2}-\d{2}-\d{2}$/u, "")
     .trim() || name;
+}
+
+function groupBackupFiles(files: BackupDetail["files"]) {
+  const groups = new Map<string, BackupDetail["files"]>();
+  files.forEach((file) => {
+    const groupName = backupStorageFolderName(file);
+    groups.set(groupName, [...(groups.get(groupName) ?? []), file]);
+  });
+  return Array.from(groups.entries())
+    .sort(([first], [second]) => first.localeCompare(second))
+    .map(([name, groupFiles]) => ({ name, files: groupFiles }));
+}
+
+function backupStoragePathParts(file: BackupDetail["files"][number]): string[] {
+  return file.file_path.replace(/\\/gu, "/").split("/").filter(Boolean);
+}
+
+function backupStorageFolderName(file: BackupDetail["files"][number]): string {
+  const parts = backupStoragePathParts(file);
+  const backupIndex = parts.findIndex((part) => /^\d{8}_\d{6}(?:_\d+)?$/u.test(part));
+  const folder = backupIndex >= 0 ? parts[backupIndex + 1] : parts[parts.length - 2];
+  if (!folder) return "Other";
+  if (backupStorageIsRootFile(file, backupIndex)) {
+    if (isDatabaseBackupFile(file)) {
+      return `Database: ${databaseDisplayName(file)}`;
+    }
+    return folder.replace(/\.[^.]+$/u, "");
+  }
+  if (folder.toLowerCase() !== "database") return folder;
+  const databaseName = backupIndex >= 0 ? parts[backupIndex + 2] : parts[parts.length - 3];
+  return databaseName ? `Database: ${databaseName}` : "Database";
+}
+
+function backupStorageIsRootFile(file: BackupDetail["files"][number], backupIndex: number): boolean {
+  const parts = backupStoragePathParts(file);
+  return backupIndex >= 0 && parts.length === backupIndex + 2;
+}
+
+function isDatabaseBackupFile(file: BackupDetail["files"][number]): boolean {
+  const source = `${file.remote_path ?? ""}/${file.file_type}`.toLowerCase();
+  return source.startsWith("ssh+mysql://") || source.startsWith("mysql://") || source.includes("database") || source.includes("robot_db");
+}
+
+function databaseDisplayName(file: BackupDetail["files"][number]): string {
+  const remotePath = file.remote_path ?? "";
+  if (remotePath.startsWith("database://")) {
+    return remotePath.slice("database://".length).replace(/\.json$/iu, "");
+  }
+  const parts = remotePath.split("/").filter(Boolean);
+  return parts[parts.length - 2] ?? file.file_name.replace(/\.json$/iu, "");
+}
+
+function displayBackupFilePath(file: BackupDetail["files"][number]): string {
+  const parts = backupStoragePathParts(file);
+  const fileName = parts[parts.length - 1] ?? file.file_name;
+  const backupIndex = parts.findIndex((part) => /^\d{8}_\d{6}(?:_\d+)?$/u.test(part));
+  const groupIndex = backupIndex >= 0 ? backupIndex + 1 : parts.length - 2;
+  return groupIndex >= 0 ? parts.slice(groupIndex + 1).join("/") || fileName : fileName;
 }
 
 function formatBackupDateTime(value: string): { date: string; time: string } {

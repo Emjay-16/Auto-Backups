@@ -93,6 +93,40 @@ class RestoreZipTests(unittest.TestCase):
 
 
 class AutoBackupChangeDetectionTests(unittest.TestCase):
+    def test_multi_path_manifest_resolves_file_remote_path_from_backup_tree(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            backup_root = Path(temp_dir) / "AMR01" / "run"
+            local_file = backup_root / "home/matrix/node-red-dev/node-red-user/flows.json"
+            local_file.parent.mkdir(parents=True)
+            local_file.write_text("{}")
+            (backup_root / ".auto_backup_manifest.json").write_text("{}")
+            backup_file = models.BackupFile(
+                backup_file_id=1,
+                backup_id=1,
+                file_name="flows.json",
+                file_path=str(local_file),
+                file_type="json",
+                file_size_mb=0,
+                checksum="flows",
+                file_status=constants.BACKUP_STATUS_SUCCESS,
+                created_at=now_local(),
+            )
+            manifest = {
+                "paths": {
+                    "/home/matrix/node-red-dev/node-red-user/flows.json": {
+                        "remote_path": "/home/matrix/node-red-dev/node-red-user/flows.json",
+                    },
+                    "/etc/udev/rules.d/matrix_robot.rules": {
+                        "remote_path": "/etc/udev/rules.d/matrix_robot.rules",
+                    },
+                }
+            }
+
+            self.assertEqual(
+                _backup_file_remote_path(backup_file, manifest),
+                "/home/matrix/node-red-dev/node-red-user/flows.json",
+            )
+
     def test_zip_backup_file_uses_single_manifest_remote_path(self):
         backup_file = models.BackupFile(
             backup_file_id=1,

@@ -130,7 +130,7 @@ export default function RestorePage() {
   const allFilesSelected = totalBackupFiles > 0 && selectedFileCount === totalBackupFiles;
   const sourceReady = restoreMode === "upload" ? uploadFiles.length > 0 : Boolean(selectedBackup);
   const filesReady = restoreMode === "upload" ? uploadFiles.length > 0 : selectedFileCount > 0;
-  const targetReady = restoreMode === "upload" ? Boolean(selectedDeviceId && fallbackTargetPath.trim()) : Boolean(selectedBackup);
+  const targetReady = restoreMode === "upload" ? Boolean(selectedDeviceId && fallbackTargetPath.trim()) : Boolean(selectedBackup && selectedDeviceId);
 
   async function submitRestore() {
     const backupId = Number(selectedBackupId);
@@ -159,6 +159,7 @@ export default function RestorePage() {
     try {
       const response = await restoreBackup(backupId, {
         restored_by: 1,
+        device_id: Number(selectedDeviceId),
         restore_type: 1,
         items,
       });
@@ -336,10 +337,17 @@ export default function RestorePage() {
                       <strong>{selectedBackup?.name ?? "Choose a backup"}</strong>
                       <small>{selectedBackup ? `${selectedBackup.device} · ${selectedBackup.files} file(s) · ${selectedBackup.size}` : "Select from Backup Library"}</small>
                     </div>
-                    <div className={styles.lockedTargetCard}>
-                      <span>Destination device</span>
-                      <strong>{selectedBackup?.device ?? "Locked to backup owner"}</strong>
-                    </div>
+                    <label className={styles.destinationDeviceField}>
+                      Destination device
+                      <select value={selectedDeviceId} onChange={(event) => setSelectedDeviceId(event.target.value)}>
+                        {devices.filter((device) => device.id).map((device) => (
+                          <option key={`${device.id}-${device.name}`} value={device.id}>
+                            {device.name} · {device.ip}{device.name === selectedBackup?.device ? " · source" : ""}
+                          </option>
+                        ))}
+                      </select>
+                      <span className={styles.hint}>เลือกเครื่องปลายทางได้ แม้ไม่ใช่เครื่องที่สร้าง Backup นี้</span>
+                    </label>
                     <label>
                       Default target path (optional)
                       <input value={fallbackTargetPath} onChange={(event) => setFallbackTargetPath(event.target.value)} placeholder="ใช้เมื่อไฟล์ใน popup ไม่ได้กำหนด Restore to" />

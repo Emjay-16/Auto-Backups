@@ -286,6 +286,23 @@
   line-height: 1.35;
 }
 
+.destinationDeviceField {
+  padding: 16px;
+  border: 1px solid #b9d9ed;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f4fbff, #ffffff);
+  box-shadow: 0 8px 18px rgba(36, 93, 128, 0.06);
+}
+
+.destinationDeviceField::before {
+  content: "Restore destination";
+  color: var(--primary-strong);
+  font-size: 11px;
+  font-weight: 820;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .target input,
 .target select,
 .targetPathField input {

@@ -50,6 +50,7 @@ from api.utils.time import now_local
 
 _AUTO_BACKUP_LOCK = threading.Lock()
 _AUTO_BACKUP_MANIFEST_NAME = ".auto_backup_manifest.json"
+_MAX_AUTO_BACKUPS_PER_MONTH = 4
 
 
 def get_backup_history(db: Session, limit: int) -> List[schemas.BackupHistoryResponse]:
@@ -61,6 +62,43 @@ def get_backup_history(db: Session, limit: int) -> List[schemas.BackupHistoryRes
         .all()
     )
     return [backup_history_response(backup) for backup in backups]
+
+
+def recover_stale_running_records(db: Session, max_age_hours: float = 24) -> Tuple[int, int]:
+    cutoff = now_local() - timedelta(hours=max(float(max_age_hours), 1))
+    stale_backups = (
+        db.query(models.Backup)
+        .filter(
+            models.Backup.backup_status == constants.BACKUP_STATUS_RUNNING,
+            models.Backup.updated_at < cutoff,
+        )
+        .all()
+    )
+    for backup in stale_backups:
+        _finish_backup_failed(
+            db,
+            backup,
+            f"Backup marked failed after exceeding {max_age_hours:g} hour(s); worker stopped or timed out",
+        )
+
+    stale_jobs = (
+        db.query(models.BackupJob)
+        .filter(
+            models.BackupJob.job_status == constants.JOB_STATUS_RUNNING,
+            models.BackupJob.updated_at < cutoff,
+        )
+        .all()
+    )
+    for job in stale_jobs:
+        update_job(
+            db,
+            job,
+            status=constants.JOB_STATUS_FAILED,
+            message=f"Job marked failed after exceeding {max_age_hours:g} hour(s); worker stopped or timed out",
+            finished=True,
+        )
+
+    return len(stale_backups), len(stale_jobs)
 
 
 def get_backup_detail(backup_id: int, db: Session) -> dict:
@@ -136,18 +174,23 @@ def cleanup_old_backups(
     db: Session,
 ) -> schemas.BackupCleanupResponse:
     cutoff = now_local() - cleanup_age_delta(data)
-    backups = (
+    age_candidates = (
         db.query(models.Backup)
         .filter(models.Backup.created_at < cutoff)
         .order_by(models.Backup.created_at, models.Backup.backup_id)
         .all()
     )
+    monthly_candidates = _monthly_backup_excess(db, max_per_month=_MAX_AUTO_BACKUPS_PER_MONTH)
+    monthly_candidate_ids = {backup.backup_id for backup in monthly_candidates}
+    backups = list({backup.backup_id: backup for backup in age_candidates + monthly_candidates}.values())
+    backups.sort(key=lambda backup: (backup.created_at, backup.backup_id))
 
     items = []
     deleted = 0
     skipped = 0
 
     for backup in backups:
+        monthly_excess = backup.backup_id in monthly_candidate_ids
         reason = _backup_cleanup_skip_reason(
             backup,
             db,
@@ -158,7 +201,11 @@ def cleanup_old_backups(
             items.append(_cleanup_item(backup, deleted=False, reason=reason))
             continue
 
-        item = _cleanup_item(backup, deleted=True, reason="Deleted")
+        item = _cleanup_item(
+            backup,
+            deleted=True,
+            reason="Deleted: more than 4 auto backups in this month" if monthly_excess else "Deleted",
+        )
         delete_backup(backup.backup_id, db)
         deleted += 1
         items.append(item)
@@ -171,6 +218,28 @@ def cleanup_old_backups(
         skipped=skipped,
         items=items,
     )
+
+
+def _monthly_backup_excess(db: Session, max_per_month: int) -> List[models.Backup]:
+    auto_backups = (
+        db.query(models.Backup)
+        .filter(
+            models.Backup.backup_type == constants.BACKUP_TYPE_AUTO,
+            models.Backup.backup_status != constants.BACKUP_STATUS_RUNNING,
+        )
+        .order_by(models.Backup.created_at.desc(), models.Backup.backup_id.desc())
+        .all()
+    )
+    grouped: Dict[Tuple[int, int, int], List[models.Backup]] = {}
+    for backup in auto_backups:
+        key = (backup.device_id, backup.created_at.year, backup.created_at.month)
+        grouped.setdefault(key, []).append(backup)
+
+    return [
+        backup
+        for backups in grouped.values()
+        for backup in backups[max(max_per_month, 1):]
+    ]
 
 
 def cleanup_age_delta(data: schemas.BackupCleanupRequest) -> timedelta:
@@ -885,6 +954,10 @@ def _backup_file_remote_path(
     backup_file: models.BackupFile,
     manifest: Optional[Dict[str, Any]],
 ) -> Optional[str]:
+    configured_database_file = _configured_robot_database_path(Path("/tmp"))
+    if configured_database_file and backup_file.file_name == configured_database_file.name:
+        return f"database://{backup_file.file_name}"
+
     if not manifest:
         return None
 
@@ -901,10 +974,30 @@ def _backup_file_remote_path(
         return None
 
     file_path = Path(backup_file.file_path)
-    file_name = backup_file.file_name
     if file_path.suffix.lower() == ".zip":
         return _single_manifest_remote_path(remote_items)
 
+    backup_root = next(
+        (parent for parent in file_path.parents if (parent / ".auto_backup_manifest.json").exists()),
+        None,
+    )
+    if backup_root:
+        relative_file_path = file_path.relative_to(backup_root).as_posix()
+        normalized_relative_path = relative_file_path.lstrip("/").lower()
+        database_items = [
+            item for item in remote_items
+            if item["remote_path"].lower().startswith(("ssh+mysql://", "mysql://"))
+        ]
+        if len(database_items) == 1 and "/" not in relative_file_path:
+            return database_items[0]["remote_path"]
+        for item in remote_items:
+            remote_path = item["remote_path"].replace("\\", "/")
+            normalized_remote_path = remote_path.rstrip("/").lstrip("/").lower()
+            if normalized_relative_path == normalized_remote_path or normalized_relative_path.startswith(f"{normalized_remote_path}/"):
+                suffix = relative_file_path[len(normalized_remote_path):].lstrip("/")
+                return posixpath.join(remote_path.rstrip("/"), suffix) if suffix else remote_path
+
+    file_name = backup_file.file_name
     for item in remote_items:
         remote_path = item["remote_path"]
         if posixpath.basename(remote_path.rstrip("/")) == file_name:
