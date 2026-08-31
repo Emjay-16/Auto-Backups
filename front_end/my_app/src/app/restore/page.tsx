@@ -51,7 +51,7 @@ export default function RestorePage() {
 
         const params = new URLSearchParams(window.location.search);
         const backupId = params.get("backup_id") ?? String(backupItems.find((backup) => backup.id)?.id ?? "");
-        const deviceId = params.get("device_id") ?? String(deviceItems.find((device) => device.id)?.id ?? "");
+        const deviceId = params.get("device_id") ?? "";
         setSelectedBackupId(backupId);
         setSelectedDeviceId(deviceId);
       })
@@ -318,6 +318,7 @@ export default function RestorePage() {
                     <label>
                       Device
                       <select value={selectedDeviceId} onChange={(event) => setSelectedDeviceId(event.target.value)}>
+                        <option value="">Select a device</option>
                         {devices.filter((device) => device.id).map((device) => (
                           <option key={`${device.id}-${device.name}`} value={device.id}>
                             {device.name} · {device.ip}
@@ -340,6 +341,7 @@ export default function RestorePage() {
                     <label className={styles.destinationDeviceField}>
                       Destination device
                       <select value={selectedDeviceId} onChange={(event) => setSelectedDeviceId(event.target.value)}>
+                        <option value="">Select a device</option>
                         {devices.filter((device) => device.id).map((device) => (
                           <option key={`${device.id}-${device.name}`} value={device.id}>
                             {device.name} · {device.ip}{device.name === selectedBackup?.device ? " · source" : ""}

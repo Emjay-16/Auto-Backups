@@ -195,6 +195,7 @@ def cleanup_old_backups(
             backup,
             db,
             keep_latest_per_device=data.keep_latest_per_device,
+            monthly_excess=monthly_excess,
         )
         if reason:
             skipped += 1
@@ -227,19 +228,21 @@ def _monthly_backup_excess(db: Session, max_per_month: int) -> List[models.Backu
             models.Backup.backup_type == constants.BACKUP_TYPE_AUTO,
             models.Backup.backup_status != constants.BACKUP_STATUS_RUNNING,
         )
-        .order_by(models.Backup.created_at.desc(), models.Backup.backup_id.desc())
+        .order_by(models.Backup.device_id.asc(), models.Backup.created_at.desc(), models.Backup.backup_id.desc())
         .all()
     )
+
     grouped: Dict[Tuple[int, int, int], List[models.Backup]] = {}
     for backup in auto_backups:
         key = (backup.device_id, backup.created_at.year, backup.created_at.month)
         grouped.setdefault(key, []).append(backup)
 
-    return [
-        backup
-        for backups in grouped.values()
-        for backup in backups[max(max_per_month, 1):]
-    ]
+    excess: List[models.Backup] = []
+    for backups in grouped.values():
+        if len(backups) <= max(max_per_month, 1):
+            continue
+        excess.extend(backups[max(max_per_month, 1):])
+    return excess
 
 
 def cleanup_age_delta(data: schemas.BackupCleanupRequest) -> timedelta:
@@ -867,25 +870,27 @@ def _run_auto_backup_for_device(
             )
 
         if database_dump:
-            device_items.append(
-                schemas.AutoBackupItemResponse(
-                    device_id=device.device_id,
-                    ip_address=device.ip_address,
-                    device_name=device.device_name,
-                    remote_path=database_dump.remote_path,
-                    online=True,
-                    changed=database_changed,
-                    backup_id=backup_id,
-                    remote_checksum=database_dump.checksum,
-                    message=(
-                        "Database included in full baseline backup"
-                        if database_changed and has_changes and force_full_backup
-                        else "Database changed, incremental backup created"
-                        if database_changed and has_changes
-                        else "Database has no change"
-                    ),
+            # database_dump is List[DownloadedFile]; report one item per split file
+            for dump_file in database_dump:
+                device_items.append(
+                    schemas.AutoBackupItemResponse(
+                        device_id=device.device_id,
+                        ip_address=device.ip_address,
+                        device_name=device.device_name,
+                        remote_path=dump_file.remote_path,
+                        online=True,
+                        changed=database_changed,
+                        backup_id=backup_id,
+                        remote_checksum=dump_file.checksum,
+                        message=(
+                            "Database included in full baseline backup"
+                            if database_changed and has_changes and force_full_backup
+                            else "Database changed, incremental backup created"
+                            if database_changed and has_changes
+                            else "Database has no change"
+                        ),
+                    )
                 )
-            )
 
     _mark_device_status(db, device, online=True)
     return {
@@ -955,8 +960,18 @@ def _backup_file_remote_path(
     manifest: Optional[Dict[str, Any]],
 ) -> Optional[str]:
     configured_database_file = _configured_robot_database_path(Path("/tmp"))
-    if configured_database_file and backup_file.file_name == configured_database_file.name:
-        return f"database://{backup_file.file_name}"
+    if configured_database_file:
+        db_stem = configured_database_file.stem
+        file_path = Path(backup_file.file_name)
+        file_stem = file_path.stem
+        parent_name = file_path.parent.name
+        # Match exact database file OR any file inside {stem}.ros_maps/ folder
+        if (
+            backup_file.file_name == configured_database_file.name
+            or file_stem.startswith(f"{db_stem}_")
+            or parent_name == f"{db_stem}.ros_maps"
+        ):
+            return f"database://{backup_file.file_name}"
 
     if not manifest:
         return None
@@ -1022,7 +1037,7 @@ def _create_combined_auto_backup(
     device: models.Device,
     created_by: Optional[int],
     remote_paths: List[str],
-    database_dump: Optional[DownloadedFile],
+    database_dump: Optional[List[DownloadedFile]],
     zip_output: bool,
     backup_name: Optional[str] = None,
     backup_type: int = constants.BACKUP_TYPE_AUTO,
@@ -1052,18 +1067,19 @@ def _create_combined_auto_backup(
             )
 
         if database_dump:
-            database_local_path = local_path / database_dump.file_name
-            database_local_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(database_dump.local_path, database_local_path)
-            downloaded_files.append(
-                DownloadedFile(
-                    file_name=database_dump.file_name,
-                    local_path=str(database_local_path),
-                    remote_path=database_dump.remote_path,
-                    file_size_mb=database_local_path.stat().st_size / (1024 * 1024),
-                    checksum=database_dump.checksum,
+            for dump_file in database_dump:
+                database_local_path = local_path / dump_file.file_name
+                database_local_path.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(dump_file.local_path, database_local_path)
+                downloaded_files.append(
+                    DownloadedFile(
+                        file_name=dump_file.file_name,
+                        local_path=str(database_local_path),
+                        remote_path=dump_file.remote_path,
+                        file_size_mb=database_local_path.stat().st_size / (1024 * 1024),
+                        checksum=dump_file.checksum,
+                    )
                 )
-            )
 
         if manifest:
             _write_auto_backup_manifest(local_path, manifest)
@@ -1103,7 +1119,7 @@ def _dump_robot_database(
     output_path: Path,
     database_name: Optional[str] = None,
     table_name: Optional[str] = None,
-) -> DownloadedFile:
+) -> List[DownloadedFile]:
     database_name = database_name or os.getenv("ROBOT_DB_NAME")
     table_name = table_name or os.getenv("ROBOT_DB_TABLE")
     username = os.getenv("ROBOT_DB_USER")
@@ -1344,42 +1360,62 @@ def _latest_backup_checksum_for_remote_path(
 
 
 def _database_dump_changed(
-    database_dump: DownloadedFile,
+    database_dump: List[DownloadedFile],
     latest_backup: Any,
 ) -> bool:
     backups = _backup_history_list(latest_backup)
     if not backups:
         return True
 
-    manifest_checksum = _manifest_checksum_for_remote_path_in_backups(backups, database_dump.remote_path)
-    if manifest_checksum:
-        if manifest_checksum == database_dump.checksum:
-            return False
-        latest_stable_checksum = _latest_database_backup_stable_checksum_in_backups(
-            backups,
-            database_dump.file_name,
-        )
-        if latest_stable_checksum:
-            return latest_stable_checksum != database_dump.checksum
-        return manifest_checksum != database_dump.checksum
+    # Consider changed if ANY split file has changed
+    for dump_file in database_dump:
+        manifest_checksum = _manifest_checksum_for_remote_path_in_backups(backups, dump_file.remote_path)
+        if manifest_checksum:
+            if manifest_checksum == dump_file.checksum:
+                continue  # this split file unchanged
+            latest_stable_checksum = _latest_database_backup_stable_checksum_in_backups(
+                backups,
+                dump_file.file_name,
+            )
+            if latest_stable_checksum:
+                if latest_stable_checksum != dump_file.checksum:
+                    return True
+            elif manifest_checksum != dump_file.checksum:
+                return True
+            continue
 
-    for backup in backups:
-        for backup_file in backup.files:
-            file_path = Path(backup_file.file_path)
-            if (
-                file_path.exists()
-                and backup_file.file_name == database_dump.file_name
-                and backup_file.checksum
-            ):
-                return backup_file.checksum != database_dump.checksum
+        file_matched = False
+        for backup in backups:
+            for backup_file in backup.files:
+                file_path = Path(backup_file.file_path)
+                if (
+                    file_path.exists()
+                    and backup_file.file_name == dump_file.file_name
+                    and backup_file.checksum
+                ):
+                    if backup_file.checksum != dump_file.checksum:
+                        return True
+                    file_matched = True
+                    break
+            if file_matched:
+                break
 
-    database_stem = Path(database_dump.file_name).stem
-    for backup in backups:
-        for backup_file in backup.files:
-            if Path(backup_file.file_name).stem == database_stem and backup_file.checksum:
-                return backup_file.checksum != database_dump.checksum
+        if not file_matched:
+            database_stem = Path(dump_file.file_name).stem
+            for backup in backups:
+                for backup_file in backup.files:
+                    if Path(backup_file.file_name).stem == database_stem and backup_file.checksum:
+                        if backup_file.checksum != dump_file.checksum:
+                            return True
+                        file_matched = True
+                        break
+                if file_matched:
+                    break
 
-    return True
+        if not file_matched:
+            return True
+
+    return False
 
 
 def _latest_database_backup_stable_checksum_in_backups(
@@ -1425,7 +1461,7 @@ def _latest_database_backup_stable_checksum(
 
 def _build_auto_backup_manifest(
     path_checks: List[Tuple[str, RemotePathSnapshot, bool]],
-    database_dump: Optional[DownloadedFile],
+    database_dump: Optional[List[DownloadedFile]],
     backup_mode: str = "incremental",
 ) -> Dict[str, Any]:
     paths = {}
@@ -1439,13 +1475,14 @@ def _build_auto_backup_manifest(
         }
 
     if database_dump:
-        paths[_normalize_remote_manifest_path(database_dump.remote_path)] = {
-            "remote_path": database_dump.remote_path,
-            "checksum": database_dump.checksum,
-            "modified_at": None,
-            "is_directory": False,
-            "size_bytes": None,
-        }
+        for dump_file in database_dump:
+            paths[_normalize_remote_manifest_path(dump_file.remote_path)] = {
+                "remote_path": dump_file.remote_path,
+                "checksum": dump_file.checksum,
+                "modified_at": None,
+                "is_directory": False,
+                "size_bytes": None,
+            }
 
     return {
         "version": 1,
@@ -1730,11 +1767,12 @@ def _backup_cleanup_skip_reason(
     backup: models.Backup,
     db: Session,
     keep_latest_per_device: bool,
+    monthly_excess: bool = False,
 ) -> Optional[str]:
     if backup.backup_type != constants.BACKUP_TYPE_AUTO:
         return "Manual backup is protected"
 
-    if keep_latest_per_device and _is_latest_backup_for_device(backup, db):
+    if keep_latest_per_device and not monthly_excess and _is_latest_backup_for_device(backup, db):
         return "Latest backup for this device"
 
     return None

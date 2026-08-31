@@ -5,7 +5,11 @@ from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+
 from api import constants, models
+from api.database import Base
 from api.routers.restore import (
     _build_file_restore_transfers,
     _extract_restore_zip,
@@ -19,9 +23,117 @@ from api.services.backup_service import (
     _should_create_full_baseline,
     _write_auto_backup_manifest,
 )
-from api.services.robot_database import _database_payload_checksum
+from api.services.robot_database import _database_payload_checksum, _resolve_row_reference_names
 from api.services.sftp_backup import DownloadedFile, RemotePathSnapshot
 from api.utils.time import now_local
+
+
+class BackupRetentionLimitTests(unittest.TestCase):
+    def test_monthly_backup_excess_is_counted_per_device_and_ignores_manual_backups(self):
+        engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(bind=engine)
+        session_factory = sessionmaker(bind=engine)
+        db = session_factory()
+
+        try:
+            group = models.DeviceGroup(group_id=1, group_name="Fleet")
+            db.add(group)
+            db.flush()
+
+            user = models.User(user_name="tester", password="secret", role=1)
+            db.add(user)
+            db.flush()
+
+            device_one = models.Device(
+                device_id=1,
+                group_id=group.group_id,
+                device_code="AMR01",
+                device_name="AMR01",
+                ip_address="10.0.0.1",
+                device_status=constants.DEVICE_STATUS_ONLINE,
+                auto_backup_enabled=True,
+                created_at=now_local(),
+                updated_at=now_local(),
+            )
+            device_two = models.Device(
+                device_id=2,
+                group_id=group.group_id,
+                device_code="AMR02",
+                device_name="AMR02",
+                ip_address="10.0.0.2",
+                device_status=constants.DEVICE_STATUS_ONLINE,
+                auto_backup_enabled=True,
+                created_at=now_local(),
+                updated_at=now_local(),
+            )
+            db.add_all([device_one, device_two])
+            db.flush()
+
+            now = now_local()
+            for index in range(5):
+                db.add(
+                    models.Backup(
+                        device_id=device_one.device_id,
+                        backup_name=f"auto-{index}",
+                        backup_type=constants.BACKUP_TYPE_AUTO,
+                        backup_status=constants.BACKUP_STATUS_SUCCESS,
+                        total_file=1,
+                        total_size_mb=0,
+                        created_by=user.user_id,
+                        created_at=now - timedelta(days=index),
+                        updated_at=now,
+                    )
+                )
+
+            db.add(
+                models.Backup(
+                    device_id=device_one.device_id,
+                    backup_name="manual-backup",
+                    backup_type=constants.BACKUP_TYPE_SELECTED,
+                    backup_status=constants.BACKUP_STATUS_SUCCESS,
+                    total_file=1,
+                    total_size_mb=0,
+                    created_by=user.user_id,
+                    created_at=now - timedelta(days=1),
+                    updated_at=now,
+                )
+            )
+
+            db.add_all(
+                [
+                    models.Backup(
+                        device_id=device_two.device_id,
+                        backup_name="device-two-auto-1",
+                        backup_type=constants.BACKUP_TYPE_AUTO,
+                        backup_status=constants.BACKUP_STATUS_SUCCESS,
+                        total_file=1,
+                        total_size_mb=0,
+                        created_by=user.user_id,
+                        created_at=now - timedelta(days=2),
+                        updated_at=now,
+                    ),
+                    models.Backup(
+                        device_id=device_two.device_id,
+                        backup_name="device-two-auto-2",
+                        backup_type=constants.BACKUP_TYPE_AUTO,
+                        backup_status=constants.BACKUP_STATUS_SUCCESS,
+                        total_file=1,
+                        total_size_mb=0,
+                        created_by=user.user_id,
+                        created_at=now - timedelta(days=3),
+                        updated_at=now,
+                    ),
+                ]
+            )
+            db.commit()
+
+            excess = _monthly_backup_excess(db, max_per_month=4)
+
+            self.assertEqual(len(excess), 1)
+            self.assertEqual(excess[0].device_id, device_one.device_id)
+            self.assertEqual(excess[0].backup_name, "auto-4")
+        finally:
+            db.close()
 
 
 class RestoreZipTests(unittest.TestCase):
@@ -357,6 +469,26 @@ class AutoBackupChangeDetectionTests(unittest.TestCase):
                     forced=False,
                 )
             )
+
+    def test_row_reference_names_are_resolved_from_related_ids(self):
+        rows = [
+            {"backup_id": 5, "device_id": 9, "group_id": 2},
+            {"backup_id": 6, "device_id": 10, "group_id": 3},
+        ]
+        lookup = {
+            "backup_id": {5: "auto-backup-1", 6: "auto-backup-2"},
+            "device_id": {9: "AMR01", 10: "AMR02"},
+            "group_id": {2: "AMR", 3: "SMR"},
+        }
+
+        resolved = _resolve_row_reference_names(rows, lookup)
+
+        self.assertEqual(resolved[0]["backup_name"], "auto-backup-1")
+        self.assertEqual(resolved[0]["device_name"], "AMR01")
+        self.assertEqual(resolved[0]["group_name"], "AMR")
+        self.assertEqual(resolved[1]["backup_name"], "auto-backup-2")
+        self.assertEqual(resolved[1]["device_name"], "AMR02")
+        self.assertEqual(resolved[1]["group_name"], "SMR")
 
     def test_database_checksum_ignores_row_order(self):
         rows = [

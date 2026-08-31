@@ -48,7 +48,7 @@ export function BackupsWorkspace({
   const { showToast } = useToast();
   const usableDevices = devices.filter((device) => device.id);
   const [mode, setMode] = useState<ModalMode>(null);
-  const [deviceId, setDeviceId] = useState(String(usableDevices[0]?.id ?? ""));
+  const [deviceId, setDeviceId] = useState("");
   const [backupName, setBackupName] = useState("");
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
   const [customPathLabel, setCustomPathLabel] = useState("");
@@ -870,7 +870,7 @@ export function BackupsWorkspace({
               ) : null}
               {mode === "autoBackup" ? <button onClick={saveAutoBackupSettings} disabled={saving} type="button">{saving ? "Saving..." : "Save settings"}</button> : null}
               {mode === "cleanup" ? <button onClick={saveCleanupSettings} disabled={saving} type="button">{saving ? "Saving..." : "Save settings"}</button> : null}
-              {mode === "cleanup" ? <button onClick={submitCleanup} disabled={saving} type="button">{saving ? "Cleaning..." : "Run cleanup"}</button> : null}
+              {mode === "cleanup" ? <button onClick={submitCleanup} disabled={saving} type="button">{saving ? "Cleaning..." : "Clean now"}</button> : null}
             </>
           )}
         >
@@ -993,7 +993,7 @@ export function BackupsWorkspace({
               </label>
               <label className={styles.checkRow}>
                 <input checked={cleanupKeepLatest} onChange={(event) => setCleanupKeepLatest(event.target.checked)} type="checkbox" />
-                Keep latest per device
+                Keep latest per device for age cleanup
               </label>
             </div>
           ) : mode === "path" ? (
@@ -1087,6 +1087,7 @@ export function BackupsWorkspace({
               <label>
                 Device
                 <select value={deviceId} onChange={(event) => setDeviceId(event.target.value)}>
+                  <option value="">Select a device</option>
                   {usableDevices.map((device) => (
                     <option key={device.id} value={device.id}>{device.name} · {device.ip}</option>
                   ))}
