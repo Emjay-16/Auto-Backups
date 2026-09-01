@@ -1256,44 +1256,64 @@
   align-items: center;
   gap: 10px !important;
   width: fit-content;
-  min-height: 38px;
-  padding: 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #ffffff;
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid rgba(213, 225, 237, 0.95);
+  border-radius: 11px;
+  background: linear-gradient(180deg, #ffffff, #fbfdff);
   color: #40546d;
-  font-weight: 760;
-  box-shadow: none;
+  font-size: 12px;
+  font-weight: 740;
+  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.035);
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.checkRow:hover {
+  border-color: #c3d6e7;
+  background: #f9fbfd;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
 }
 
 .checkRow input {
   appearance: none;
   width: 18px;
   height: 18px;
+  flex: 0 0 auto;
   display: grid;
   place-items: center;
-  border: 1.5px solid #b7c9df;
-  border-radius: 999px;
+  margin: 0;
+  border: 1.5px solid #b7c9db;
+  border-radius: 50%;
   background: #ffffff;
-  box-shadow: none;
-  transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 2px rgba(15, 23, 42, 0.035);
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    box-shadow 0.16s ease,
+    transform 0.12s ease;
 }
 
 .checkRow input::before {
   content: "";
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
   background: #ffffff;
   transform: scale(0);
-  transform-origin: center;
   transition: transform 0.14s ease;
 }
 
 .checkRow input:checked {
   border-color: var(--primary);
   background: var(--primary);
-  box-shadow: 0 0 0 3px rgba(47, 126, 164, 0.1);
+  box-shadow:
+    0 0 0 3px rgba(47, 126, 164, 0.09),
+    0 2px 5px rgba(47, 126, 164, 0.14);
 }
 
 .checkRow input:checked::before {
@@ -1302,41 +1322,45 @@
 
 .checkRow input:focus-visible {
   outline: 0;
-  box-shadow: var(--control-focus);
+  box-shadow:
+    var(--control-focus),
+    0 0 0 3px rgba(47, 126, 164, 0.06);
 }
 
 .checkRow input:active {
-  transform: scale(0.94);
+  transform: scale(0.9);
 }
 
 .targetList {
   display: grid;
-  gap: 8px;
+  gap: 7px;
   align-self: start;
 }
 
 .fileList {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   min-height: 120px;
   height: min(52vh, 460px);
   overflow-x: hidden;
-  overflow-y: scroll;
+  overflow-y: auto;
   align-content: start;
   grid-auto-rows: max-content;
-  padding: 4px;
-  scrollbar-color: #8ebbd7 #edf5fb;
-  scrollbar-width: auto;
+  padding: 3px;
+  scrollbar-color: #a9c5da #f2f6fa;
+  scrollbar-width: thin;
 }
 
 .selectionPanel {
   display: grid;
-  gap: 12px;
+  gap: 11px;
   padding: 15px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: #fbfcfe;
-  box-shadow: none;
+  border: 1px solid rgba(218, 229, 239, 0.95);
+  border-radius: 15px;
+  background:
+    linear-gradient(180deg, #fcfdff, #f8fafc);
+  box-shadow:
+    0 3px 12px rgba(15, 23, 42, 0.035);
 }
 
 .selectionHeader {
@@ -1356,34 +1380,47 @@
   color: #162235;
   font-size: 14px;
   font-weight: 760;
+  line-height: 1.2;
 }
 
 .selectionHeader span {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 760;
+  color: #7a899d;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .selectionActions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 6px;
 }
 
 .selectionActions button {
-  min-height: 32px;
-  padding: 0 12px;
-  border: 1px solid var(--line-strong);
-  border-radius: 999px;
+  min-height: 31px;
+  padding: 0 11px;
+  border: 1px solid #d8e3ed;
+  border-radius: 8px;
   background: #ffffff;
   color: var(--primary);
-  font-size: 12px;
-  font-weight: 760;
+  font-size: 11px;
+  font-weight: 720;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.025);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.12s ease;
 }
 
 .selectionActions button:hover:not(:disabled) {
-  background: #f2f6fb;
+  border-color: #bfd2e3;
+  background: #f5f9fc;
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.04);
+}
+
+.selectionActions button:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
 .selectionActions button:disabled {
@@ -1394,10 +1431,10 @@
 .selectedPathList {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid #e0e8f0;
+  border-radius: 11px;
   background: #ffffff;
 }
 
@@ -1407,21 +1444,26 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 9px;
-  min-height: 32px;
-  padding: 0 8px 0 12px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface-soft);
-  color: var(--primary-strong);
-  font-size: 12px;
-  font-weight: 760;
+  gap: 8px;
+  min-height: 30px;
+  padding: 0 7px 0 10px;
+  border: 1px solid #dbe5ee;
+  border-radius: 8px;
+  background: #f7fafd;
+  color: #38566f;
+  font-size: 11px;
+  font-weight: 720;
   text-align: left;
+  transition:
+    border-color 0.14s ease,
+    background 0.14s ease,
+    box-shadow 0.14s ease;
 }
 
 .selectedPathList button:hover {
-  border-color: var(--line-strong);
-  background: #eef4fb;
+  border-color: #bfd3e5;
+  background: #f1f7fb;
+  box-shadow: 0 2px 7px rgba(15, 23, 42, 0.035);
 }
 
 .selectedPathList span {
@@ -1431,8 +1473,8 @@
 }
 
 .selectedPathList b {
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
   display: grid;
   place-items: center;
   border-radius: 50%;
@@ -1445,60 +1487,70 @@
 .fileList button,
 .fileRow {
   min-width: 0;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 13px;
-  padding: 13px 14px;
-  border: 1px solid var(--line);
-  border-radius: 13px;
+  gap: 11px;
+  padding: 11px 12px;
+  border: 1px solid #dfe7ef;
+  border-radius: 10px;
   background: #ffffff;
   color: #53647a;
   font-size: 12px;
-  font-weight: 760;
-  box-shadow: none;
-  transition: transform 0.15s var(--ease-out-expo), border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  font-weight: 720;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.025);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.15s ease;
 }
 
 .targetList .targetRow {
-  grid-template-columns: minmax(0, 1fr) auto;
+  flex-direction: row;
   padding: 0;
 }
 
 .targetChoice {
   min-width: 0;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 13px;
-  padding: 13px 14px;
+  gap: 11px;
+  padding: 11px 12px;
   cursor: pointer;
 }
 
 .targetRow > button {
-  margin-right: 14px;
-  min-height: 30px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: 999px;
-  background: #f2f6fb;
+  margin-right: 12px;
+  min-height: 29px;
+  padding: 0 10px;
+  border: 1px solid #dbe5ee;
+  border-radius: 8px;
+  background: #f6f9fc;
   color: var(--primary-strong);
-  font-size: 11px;
-  font-weight: 760;
-  transition: background 0.14s ease;
+  font-size: 10.5px;
+  font-weight: 720;
+  transition:
+    border-color 0.14s ease,
+    background 0.14s ease,
+    transform 0.12s ease;
 }
 
 .targetRow > button:hover {
-  background: #e8eef7;
+  border-color: #bfd3e5;
+  background: #edf5fa;
 }
 
 .targetList .targetRow:hover,
 .fileList button:hover,
 .fileRow:hover {
-  border-color: var(--line-strong);
-  background: #f8fbff;
-  box-shadow: none;
-  transform: none;
+  border-color: #c7d8e7;
+  background: #f9fbfd;
+  box-shadow:
+    0 4px 12px rgba(15, 23, 42, 0.045);
+  transform: translateY(-1px);
 }
 
 .targetList .targetRow:has(input:focus-visible) {
@@ -1508,44 +1560,54 @@
 
 .targetList .targetRow:has(input:checked),
 .fileRow:has(input:checked) {
-  border-color: var(--accent);
-  background: #f4f8ff;
-  box-shadow: none;
+  border-color: rgba(47, 126, 164, 0.5);
+  background: linear-gradient(180deg, #f5faff, #f1f7fb);
+  box-shadow:
+    inset 3px 0 0 var(--primary),
+    0 3px 10px rgba(47, 126, 164, 0.055);
 }
 
 .targetList input,
 .fileRow input {
   appearance: none;
-  width: 20px;
-  height: 20px;
+  width: 19px;
+  height: 19px;
   display: grid;
   place-items: center;
-  border: 1.5px solid #bfd0e5;
-  border-radius: 999px;
+  flex: 0 0 auto;
+  margin: 0;
+  border: 1.5px solid #b8c9db;
+  border-radius: 50%;
   background: #ffffff;
   color: #ffffff;
-  flex: 0 0 auto;
-  box-shadow: none;
-  transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
+  cursor: pointer;
+  box-shadow:
+    inset 0 1px 2px rgba(15, 23, 42, 0.035);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.12s ease;
 }
 
 .targetList input::before,
 .fileRow input::before {
   content: "";
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
   background: #ffffff;
   transform: scale(0);
-  transform-origin: center;
-  transition: transform 0.14s ease;
+  transition: transform 0.13s ease;
 }
 
 .targetList input:checked,
 .fileRow input:checked {
   border-color: var(--primary);
   background: var(--primary);
-  box-shadow: 0 0 0 3px rgba(47, 126, 164, 0.1);
+  box-shadow:
+    0 0 0 3px rgba(47, 126, 164, 0.08),
+    0 2px 5px rgba(47, 126, 164, 0.12);
 }
 
 .targetList input:checked::before,
@@ -1556,12 +1618,14 @@
 .targetList input:focus-visible,
 .fileRow input:focus-visible {
   outline: 0;
-  box-shadow: var(--control-focus);
+  box-shadow:
+    var(--control-focus),
+    0 0 0 3px rgba(47, 126, 164, 0.05);
 }
 
 .targetList input:active,
 .fileRow input:active {
-  transform: scale(0.94);
+  transform: scale(0.9);
 }
 
 .targetText {
@@ -1686,8 +1750,24 @@
   white-space: nowrap;
 }
 
-.fileGroupHeader .folderChevron {
-  margin-left: 8px;
+.folderChevron {
+  width: 8px;
+  height: 8px;
+  margin-right: 3px;
+  border-right: 1.5px solid #8998aa;
+  border-bottom: 1.5px solid #8998aa;
+  transform: rotate(45deg);
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.folderChevronCollapsed {
+  transform: rotate(-45deg);
+}
+
+.fileGroupHeader:hover .folderChevron {
+  border-color: var(--primary);
 }
 
 .fileGroupItems {

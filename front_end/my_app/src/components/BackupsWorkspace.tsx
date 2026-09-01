@@ -102,9 +102,9 @@ export function BackupsWorkspace({
         ? "Browse robot files"
         : mode === "path"
           ? "Manage backup paths"
-        : mode === "detail"
-          ? "Backup detail"
-          : "Run backup";
+          : mode === "detail"
+            ? "Backup detail"
+            : "Run backup";
 
   useEffect(() => {
     let mounted = true;
@@ -915,7 +915,13 @@ export function BackupsWorkspace({
                           <span className={styles.folderIcon}><FolderIcon /></span>
                           <strong>{group.name}</strong>
                           <small>{group.files.length} file(s)</small>
-                          <span className={`${styles.folderChevron} ${collapsedBackupFolders.has(group.name) ? styles.folderChevronCollapsed : ""}`}>▾</span>
+                          <span
+                            className={`${styles.folderChevron} ${collapsedBackupFolders.has(group.name)
+                                ? styles.folderChevronCollapsed
+                                : ""
+                              }`}
+                            aria-hidden="true"
+                          />
                         </button>
                         {!collapsedBackupFolders.has(group.name) ? (
                           <div className={styles.fileGroupItems}>

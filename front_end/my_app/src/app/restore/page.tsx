@@ -494,11 +494,29 @@ export default function RestorePage() {
 
 function inferRestoreTarget(file: BackupFileDetail): string {
   if (isLikelyDatabaseBackupFile(file)) return "";
-  if (file.remote_path) return file.remote_path;
+
+  const remotePath = typeof file.remote_path === "string" ? file.remote_path.trim() : "";
+  if (remotePath && !remotePath.startsWith("ssh+mysql://") && !remotePath.startsWith("mysql://")) {
+    return remotePath;
+  }
+
   if (file.file_name === "flows.json") return "/home/matrix/node-red-dev/node-red-user/flows.json";
+
+  const filePath = (file.file_path ?? "").trim();
   const mapsRoot = "/home/matrix/public_web/ist_web_release/writable/uploads/maps";
-  if (isZipBackupFile(file) && file.file_name.toLowerCase().includes("maps")) return mapsRoot;
-  if (isZipBackupFile(file)) return "";
+
+  const derivedFromFilePath = deriveFileParentDirectory(filePath, file.file_name);
+  if (derivedFromFilePath) {
+    return derivedFromFilePath;
+  }
+
+  if (isZipBackupFile(file)) {
+    if (file.file_name.toLowerCase().includes("maps") || filePath.toLowerCase().includes("/maps/") || filePath.toLowerCase().includes("/layouts/")) {
+      return mapsRoot;
+    }
+    return "";
+  }
+
   const mapsMarker = "/maps/";
   const mapsIndex = file.file_path.indexOf(mapsMarker);
   if (mapsIndex >= 0) {
@@ -508,6 +526,32 @@ function inferRestoreTarget(file: BackupFileDetail): string {
     return mapsRoot;
   }
   return file.file_name;
+}
+
+function deriveFileParentDirectory(filePath: string, fileName: string): string {
+  if (!filePath) return "";
+
+  const normalized = filePath.replace(/\\/g, "/").trim();
+  if (!normalized || normalized.startsWith("ssh+mysql://") || normalized.startsWith("mysql://")) {
+    return "";
+  }
+
+  const lastSlashIndex = normalized.lastIndexOf("/");
+  const parentDir = lastSlashIndex >= 0 ? normalized.slice(0, lastSlashIndex) : "";
+  if (!parentDir) return "";
+
+  const lowerFileName = fileName.toLowerCase();
+  const lowerPath = normalized.toLowerCase();
+  const isMapLike = lowerPath.includes("/maps/") || lowerPath.includes("/layouts/") || lowerFileName.includes("maps") || lowerFileName.includes("layout");
+  if (!isMapLike) {
+    return "";
+  }
+
+  if (normalized.endsWith(`/${fileName}`) || normalized.endsWith(`\\${fileName}`)) {
+    return parentDir;
+  }
+
+  return parentDir;
 }
 
 function isLikelyDatabaseBackupFile(file: BackupFileDetail): boolean {
