@@ -1120,10 +1120,10 @@
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 80;
   display: grid;
   place-items: center;
-  padding: 24px;
+  padding: 44px 24px 28px;
 }
 
 .backdrop {
@@ -1131,61 +1131,71 @@
   inset: 0;
   border: 0;
   background: rgba(15, 23, 42, 0.46);
-  backdrop-filter: blur(3px);
+  backdrop-filter: blur(5px);
 }
 
 .modal {
   position: relative;
   z-index: 1;
   width: min(840px, 100%);
-  max-height: min(88vh, 840px);
+  max-height: min(90vh, 860px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   border: 1px solid rgba(196, 212, 231, 0.86);
-  border-radius: 22px;
-  background:
-    radial-gradient(circle at 92% 0%, rgba(8, 145, 178, 0.055), transparent 16rem),
-    linear-gradient(180deg, #ffffff, #f8fbff);
-  box-shadow: var(--shadow-lg);
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 28px 86px rgba(15, 23, 42, 0.26);
 }
 
 .modalHeader {
+  flex: 0 0 auto;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 22px 24px;
-  border-bottom: 1px solid rgba(220, 231, 243, 0.9);
-  background:
-    radial-gradient(circle at 8% 12%, rgba(47, 126, 164, 0.08), transparent 18rem),
-    linear-gradient(180deg, #ffffff, #f8fbff);
+  padding: 20px 24px 18px;
+  border-bottom: 1px solid var(--line);
+  background: #fbfcfe;
 }
 
 .modalHeader p {
-  color: var(--muted);
+  margin: 0;
+  color: #63718a;
   font-size: 12px;
   font-weight: 760;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.035em;
   text-transform: uppercase;
 }
 
 .modalHeader h2 {
-  margin-top: 2px;
+  margin: 3px 0 0;
   color: #0f172a;
-  font-size: 25px;
-  line-height: 1.12;
+  font-size: 23px;
+  font-weight: 820;
+  line-height: 1.15;
 }
 
 .closeButton {
   width: 38px;
   height: 38px;
-  border: 1px solid var(--line);
+  border: 1px solid #dbe4ee;
   border-radius: 12px;
-  background: linear-gradient(180deg, #ffffff, var(--surface-soft));
-  color: var(--muted);
+  background: #ffffff;
+  color: #53647a;
   font-size: 22px;
   line-height: 1;
+  transition: border-color 0.15s ease, color 0.15s ease, transform 0.15s var(--ease-out-expo), background 0.15s ease;
+}
+
+.closeButton:hover {
+  border-color: #b9c6d8;
+  background: #f1f5f9;
+  color: #223149;
+}
+
+.closeButton:active {
+  transform: scale(0.92) rotate(90deg);
 }
 
 .formGrid {
@@ -1467,9 +1477,23 @@
 
 .targetRow > button {
   margin-right: 14px;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: #f2f6fb;
+  color: var(--primary-strong);
+  font-size: 11px;
+  font-weight: 760;
+  transition: background 0.14s ease;
+}
+
+.targetRow > button:hover {
+  background: #e8eef7;
 }
 
 .targetList .targetRow:hover,
+.fileList button:hover,
 .fileRow:hover {
   border-color: var(--line-strong);
   background: #f8fbff;
@@ -1962,29 +1986,41 @@
   flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 11px;
   padding: 16px 24px 20px;
   border-top: 1px solid rgba(220, 231, 243, 0.9);
-  background: rgba(255, 255, 255, 0.78);
-  backdrop-filter: blur(12px);
+  background: #fbfcfe;
 }
 
 .modalActions button {
   min-height: 38px;
-  padding: 0 15px;
+  padding: 0 16px;
   border: 1px solid #dbe4ee;
   border-radius: 12px;
   background: #ffffff;
   color: #223149;
   font-size: 13px;
   font-weight: 760;
+  transition: transform 0.15s var(--ease-out-expo), border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.modalActions button:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: #f8fbff;
+  transform: translateY(-1px);
 }
 
 .modalActions button:last-child {
   border-color: var(--primary);
   background: var(--primary);
   color: #ffffff;
-  box-shadow: 0 10px 22px rgba(47, 126, 164, 0.16);
+  box-shadow: 0 10px 22px rgba(47, 126, 164, 0.18);
+}
+
+.modalActions button:last-child:hover:not(:disabled) {
+  border-color: var(--primary-strong);
+  background: var(--primary-strong);
+  box-shadow: 0 14px 28px rgba(47, 126, 164, 0.22);
 }
 
 .modalActions button:disabled {
@@ -2001,9 +2037,10 @@
   box-shadow: none;
 }
 
-.modalActions .dangerButton:hover {
+.modalActions .dangerButton:hover:not(:disabled) {
   border-color: var(--danger);
   background: var(--danger);
+  color: #ffffff;
 }
 
 .dangerButton {
@@ -2034,7 +2071,7 @@
   inset: 0;
   border: 0;
   background: rgba(15, 23, 42, 0.5);
-  backdrop-filter: blur(3px);
+  backdrop-filter: blur(5px);
 }
 
 .confirmDialog {
@@ -2045,15 +2082,15 @@
   gap: 15px;
   padding: 24px;
   border: 1px solid #fecaca;
-  border-radius: 18px;
+  border-radius: 20px;
   background: #ffffff;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+  box-shadow: 0 28px 86px rgba(15, 23, 42, 0.26);
 }
 
 .downloadDialog {
   border-color: var(--line-strong);
   background: #ffffff;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.2);
+  box-shadow: 0 28px 86px rgba(15, 23, 42, 0.26);
 }
 
 .confirmIcon {
@@ -2096,6 +2133,21 @@
   color: #162235;
 }
 
+.confirmContent code {
+  display: block;
+  margin: 2px 0 0;
+  padding: 8px 10px;
+  border: 1px solid rgba(220, 231, 243, 0.9);
+  border-radius: 10px;
+  background: var(--surface-soft);
+  color: #47709f;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
 .confirmActions {
   display: flex;
   justify-content: flex-end;
@@ -2105,30 +2157,48 @@
 
 .confirmActions button {
   min-height: 38px;
-  padding: 0 15px;
+  padding: 0 16px;
   border: 1px solid #dbe4ee;
   border-radius: 12px;
   background: #ffffff;
   color: #223149;
   font-size: 13px;
   font-weight: 760;
+  transition: transform 0.15s var(--ease-out-expo), border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.confirmActions button:hover:not(:disabled) {
+  border-color: var(--line-strong);
+  background: #f8fbff;
+  transform: translateY(-1px);
 }
 
 .confirmActions button:last-child {
   border-color: var(--danger);
   background: linear-gradient(135deg, var(--danger), var(--danger));
   color: #ffffff;
+  box-shadow: 0 10px 22px rgba(220, 38, 38, 0.18);
+}
+
+.confirmActions button:last-child:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: var(--danger);
+  box-shadow: 0 14px 28px rgba(220, 38, 38, 0.24);
+  transform: translateY(-1px);
 }
 
 .downloadActions button:last-child {
   border-color: var(--primary);
   background: var(--primary);
   color: #ffffff;
+  box-shadow: 0 10px 22px rgba(47, 126, 164, 0.18);
 }
 
-.downloadActions button:last-child:hover {
+.downloadActions button:last-child:hover:not(:disabled) {
   border-color: var(--primary-strong);
   background: var(--primary-strong);
+  box-shadow: 0 14px 28px rgba(47, 126, 164, 0.22);
+  transform: translateY(-1px);
 }
 
 .confirmActions button:disabled {

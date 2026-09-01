@@ -418,6 +418,14 @@
   background: #ffffff;
   color: var(--primary-strong);
   box-shadow: none;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.target .filePickerSummary button:not(:disabled):hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  box-shadow: none;
+  transform: none;
 }
 
 .primaryAction:disabled,
@@ -472,23 +480,21 @@
   inset: 0;
   display: grid;
   place-items: center;
-  padding: 24px;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(47, 126, 164, 0.14), transparent 34rem),
-    rgba(15, 23, 42, 0.46);
-  backdrop-filter: blur(6px);
+  padding: 44px 24px 28px;
+  background: rgba(15, 23, 42, 0.46);
+  backdrop-filter: blur(5px);
 }
 
 .dialog {
   width: min(960px, 100%);
-  max-height: min(88vh, 800px);
+  max-height: min(90vh, 860px);
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   overflow: hidden;
-  border: 1px solid var(--line-strong);
+  border: 1px solid rgba(196, 212, 231, 0.86);
   border-radius: 20px;
   background: #ffffff;
-  box-shadow: 0 28px 86px rgba(15, 23, 42, 0.24);
+  box-shadow: 0 28px 86px rgba(15, 23, 42, 0.26);
 }
 
 .dialogHeader,
@@ -502,14 +508,17 @@
 }
 
 .dialogHeader {
-  border-bottom: 1px solid #e6edf5;
+  border-bottom: 1px solid var(--line);
   background: #fbfcfe;
+  padding: 20px 24px 18px;
 }
 
 .dialogHeader h2 {
   margin: 0;
-  color: #162235;
-  font-size: 20px;
+  color: #0f172a;
+  font-size: 23px;
+  font-weight: 820;
+  line-height: 1.15;
 }
 
 .dialogHeader p {
@@ -517,6 +526,7 @@
   color: var(--muted);
   font-size: 13px;
   font-weight: 700;
+  line-height: 1.4;
 }
 
 .dialogHeader button {
@@ -525,15 +535,21 @@
   border: 1px solid #dbe4ee;
   border-radius: 12px;
   background: #ffffff;
-  color: #223149;
-  font-size: 20px;
+  color: #53647a;
+  font-size: 22px;
   font-weight: 760;
+  line-height: 1;
+  transition: border-color 0.15s ease, color 0.15s ease, transform 0.15s var(--ease-out-expo), background 0.15s ease;
 }
 
 .dialogHeader button:hover {
-  border-color: var(--line-strong);
-  background: var(--primary-soft);
-  color: var(--primary-strong);
+  border-color: #b9c6d8;
+  background: #f1f5f9;
+  color: #223149;
+}
+
+.dialogHeader button:active {
+  transform: scale(0.92) rotate(90deg);
 }
 
 .dialogActions {
@@ -546,8 +562,7 @@
   gap: 8px;
 }
 
-.dialogActions button,
-.dialogFooter button {
+.dialogActions button {
   min-height: 36px;
   padding: 0 13px;
   border: 1px solid #dbe4ee;
@@ -558,11 +573,41 @@
   font-weight: 760;
 }
 
-.dialogActions button:not(:disabled):hover,
-.dialogFooter button:not(:disabled):first-child:hover {
+.dialogActions button:not(:disabled):hover {
   border-color: var(--line-strong);
   background: var(--primary-soft);
   color: var(--primary-strong);
+}
+
+.dialogFooter button {
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid #dbe4ee;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #223149;
+  font-size: 13px;
+  font-weight: 760;
+  transition: transform 0.15s var(--ease-out-expo), border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dialogFooter button:not(:disabled):hover {
+  border-color: var(--line-strong);
+  background: #f8fbff;
+  transform: translateY(-1px);
+}
+
+.dialogFooter button:last-child {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #ffffff;
+  box-shadow: 0 10px 22px rgba(47, 126, 164, 0.18);
+}
+
+.dialogFooter button:last-child:not(:disabled):hover {
+  border-color: var(--primary-strong);
+  background: var(--primary-strong);
+  box-shadow: 0 14px 28px rgba(47, 126, 164, 0.22);
 }
 
 .dialogActions span {
@@ -741,6 +786,48 @@
   line-height: 1.45;
 }
 
+.originalPathRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.originalPathRow code {
+  overflow: hidden;
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 5px 8px;
+  border: 1px solid rgba(220, 231, 243, 0.9);
+  border-radius: 8px;
+  background: var(--surface-soft);
+  color: #6a7c94;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.resetPathButton {
+  flex: 0 0 auto;
+  min-height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--primary-soft);
+  border-radius: 999px;
+  background: #f8fbff;
+  color: var(--primary-strong);
+  font-size: 11px;
+  font-weight: 760;
+  white-space: nowrap;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.resetPathButton:hover {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+}
+
 .databaseTarget {
   padding: 12px 14px;
   border: 1px solid #dce8f5;
@@ -750,8 +837,10 @@
 
 .dialogFooter {
   justify-content: flex-end;
-  border-top: 1px solid #e6edf5;
-  background: #ffffff;
+  gap: 11px;
+  padding: 16px 24px 20px;
+  border-top: 1px solid rgba(220, 231, 243, 0.9);
+  background: #fbfcfe;
 }
 
 @media (max-width: 1080px) {

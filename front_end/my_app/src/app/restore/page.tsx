@@ -442,10 +442,29 @@ export default function RestorePage() {
                           <div className={styles.targetPathField}>
                             <span>{isZip ? "Target folder" : "Restore to"}</span>
                             <input
-                              value={targetPaths[file.backup_file_id] ?? fallbackTargetPath}
+                              value={targetPaths[file.backup_file_id] || fallbackTargetPath}
                               onChange={(event) => setTargetPaths({ ...targetPaths, [file.backup_file_id]: event.target.value })}
                               placeholder={isZip ? "/remote/folder/on/robot" : "Path ปลายทางของไฟล์นี้"}
                             />
+                            {(() => {
+                              const originalPath = inferRestoreTarget(file);
+                              const currentPath = targetPaths[file.backup_file_id] || fallbackTargetPath;
+                              if (!originalPath) return null;
+                              return (
+                                <div className={styles.originalPathRow}>
+                                  <code title={originalPath}>{originalPath}</code>
+                                  {currentPath !== originalPath ? (
+                                    <button
+                                      className={styles.resetPathButton}
+                                      onClick={() => setTargetPaths({ ...targetPaths, [file.backup_file_id]: originalPath })}
+                                      type="button"
+                                    >
+                                      ใช้ path เดิม
+                                    </button>
+                                  ) : null}
+                                </div>
+                              );
+                            })()}
                             {isZip ? <p>ถ้า zip มีหลายไฟล์ ต้องใส่ path เป็นโฟลเดอร์ปลายทาง</p> : null}
                           </div>
                         )}
