@@ -392,6 +392,11 @@
   transform: scale(0.92) rotate(90deg);
 }
 
+.closeButton:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
 .formGrid {
   min-height: 0;
   flex: 1 1 auto;
@@ -820,6 +825,14 @@
   color: var(--primary-strong);
   font-size: 12px;
   font-weight: 760;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.targetList button:not(:disabled):hover,
+.fileRow button:not(:disabled):hover,
+.browserHeader button:not(:disabled):hover {
+  border-color: var(--primary);
+  background: #e8f0f9;
 }
 
 .browser {

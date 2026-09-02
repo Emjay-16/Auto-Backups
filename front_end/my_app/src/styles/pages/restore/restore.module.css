@@ -552,6 +552,11 @@
   transform: scale(0.92) rotate(90deg);
 }
 
+.dialogHeader button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
 .dialogActions {
   border-bottom: 1px solid #e6edf5;
   background: #fbfdff;

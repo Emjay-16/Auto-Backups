@@ -218,7 +218,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: 80;
   display: grid;
   place-items: center;
   padding: 52px 24px 28px;
@@ -245,7 +245,7 @@
   inset: 0;
   border: 0;
   background: rgba(15, 23, 42, 0.46);
-  backdrop-filter: blur(3px);
+  backdrop-filter: blur(5px);
 }
 
 .modal {
@@ -256,10 +256,10 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--line-strong);
+  border: 1px solid rgba(196, 212, 231, 0.86);
   border-radius: 20px;
   background: #ffffff;
-  box-shadow: 0 28px 86px rgba(15, 23, 42, 0.24);
+  box-shadow: 0 28px 86px rgba(15, 23, 42, 0.26);
 }
 
 .modalBody {
@@ -274,7 +274,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 16px 24px;
+  padding: 20px 24px 18px;
   border-bottom: 1px solid var(--line);
   background: #fbfcfe;
 }
@@ -291,18 +291,20 @@
 }
 
 .modalHeader p {
-  color: #66758a;
+  margin: 0;
+  color: #63718a;
   font-size: 12px;
   font-weight: 760;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.035em;
   text-transform: uppercase;
 }
 
 .modalHeader h2 {
-  margin-top: 2px;
-  color: #162235;
+  margin: 3px 0 0;
+  color: #0f172a;
   font-size: 22px;
-  line-height: 1.12;
+  font-weight: 820;
+  line-height: 1.15;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -468,6 +470,12 @@
   color: var(--primary-strong);
   font-size: 12px;
   font-weight: 760;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.customPathRow button:not(:disabled):hover {
+  border-color: var(--primary);
+  background: #e8f0f9;
 }
 
 .selectedPathList {
@@ -499,6 +507,12 @@
   font-size: 12px;
   font-weight: 760;
   text-align: left;
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+
+.selectedPathList button:hover {
+  border-color: var(--line-strong);
+  background: #eef4fb;
 }
 
 .selectedPathList span {

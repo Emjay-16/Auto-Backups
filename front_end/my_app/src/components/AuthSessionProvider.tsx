@@ -5,7 +5,10 @@ import type { ReactNode } from "react";
 
 export function AuthSessionProvider({ children }: { children: ReactNode }) {
   return (
-    <SessionProvider refetchInterval={60} refetchOnWindowFocus>
+    <SessionProvider
+      refetchInterval={0}
+      refetchOnWindowFocus={false}
+    >
       {children}
     </SessionProvider>
   );

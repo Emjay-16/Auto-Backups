@@ -98,6 +98,13 @@ def recover_stale_running_records(db: Session, max_age_hours: float = 24) -> Tup
             finished=True,
         )
 
+    stale_locks = db.query(models.JobLock).all()
+    for lock in stale_locks:
+        if not is_job_lock_active(db, lock.lock_name):
+            db.delete(lock)
+
+    db.commit()
+
     return len(stale_backups), len(stale_jobs)
 
 
