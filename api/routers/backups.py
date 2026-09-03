@@ -24,6 +24,7 @@ from api.services.backup_service import (
     get_backup_detail,
     get_backup_download_zip,
     get_backup_history,
+    recover_stale_running_records,
     run_auto_backups,
     run_combined_backup,
     safe_download_filename,
@@ -42,6 +43,7 @@ def list_backups(
     db: Session = Depends(get_db),
 ):
     """แสดงรายการสำรองข้อมูลทั้งหมด"""
+    recover_stale_running_records(db)
     return get_backup_history(db, limit)
 
 

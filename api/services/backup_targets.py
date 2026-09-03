@@ -18,7 +18,12 @@ class CustomBackupPath:
     label: str
 
 
-def get_default_auto_backup_paths() -> List[str]:
+def get_default_auto_backup_paths(db=None, device_id: Optional[int] = None) -> List[str]:
+    if db is not None and device_id is not None:
+        device_paths = get_device_backup_paths(db, device_id)
+        if device_paths:
+            return unique_paths([target.path for target in device_paths])
+
     return unique_paths([
         path
         for path in (
@@ -29,6 +34,70 @@ def get_default_auto_backup_paths() -> List[str]:
         )
         if path
     ])
+
+
+def get_device_backup_paths(db, device_id: int) -> List[CustomBackupPath]:
+    from api import models  # local import avoids a circular import at module load time
+
+    rows = (
+        db.query(models.DeviceBackupPath)
+        .filter(models.DeviceBackupPath.device_id == device_id)
+        .order_by(models.DeviceBackupPath.device_backup_path_id)
+        .all()
+    )
+    return [CustomBackupPath(path=row.path, label=row.label) for row in rows]
+
+
+def add_device_backup_path(db, device_id: int, path: str, label: Optional[str] = None):
+    from api.utils.time import now_local  # matches the convention used elsewhere in this codebase
+    from api import models
+
+    normalized_path = normalize_remote_path(path)
+    normalized_label = normalize_path_label(label, normalized_path)
+
+    existing = (
+        db.query(models.DeviceBackupPath)
+        .filter(
+            models.DeviceBackupPath.device_id == device_id,
+            models.DeviceBackupPath.path == normalized_path,
+        )
+        .first()
+    )
+    if existing:
+        existing.label = normalized_label
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    row = models.DeviceBackupPath(
+        device_id=device_id,
+        path=normalized_path,
+        label=normalized_label,
+        created_at=now_local(),
+    )
+    db.add(row)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def delete_device_backup_path(db, device_id: int, path: str) -> bool:
+    from api import models
+
+    normalized_path = normalize_remote_path(path)
+    row = (
+        db.query(models.DeviceBackupPath)
+        .filter(
+            models.DeviceBackupPath.device_id == device_id,
+            models.DeviceBackupPath.path == normalized_path,
+        )
+        .first()
+    )
+    if not row:
+        return False
+    db.delete(row)
+    db.commit()
+    return True
 
 
 def get_custom_auto_backup_paths() -> List[str]:

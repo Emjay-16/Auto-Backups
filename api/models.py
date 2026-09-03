@@ -47,6 +47,9 @@ class Device(Base):
     ip_address = Column(Text, nullable=False)
     device_status = Column(Integer, nullable=False, default=0)
     auto_backup_enabled = Column(Boolean, nullable=False, default=True)
+    ssh_username = Column(Text)
+    ssh_password_encrypted = Column(Text)
+    ssh_port = Column(Integer)
     last_seen_at = Column(DateTime)
     created_at = Column(DateTime, nullable=False)
     updated_at = Column(DateTime, nullable=False)
@@ -56,6 +59,29 @@ class Device(Base):
     backup_jobs = relationship("BackupJob", back_populates="device")
     restore_logs = relationship("RestoreLog", back_populates="device")
     activity_logs = relationship("ActivityLog", back_populates="device")
+    backup_paths = relationship(
+        "DeviceBackupPath", back_populates="device", cascade="all, delete-orphan"
+    )
+
+    @property
+    def has_ssh_override(self) -> bool:
+        return bool(self.ssh_username and self.ssh_password_encrypted)
+
+
+class DeviceBackupPath(Base):
+    __tablename__ = "device_backup_paths"
+    __table_args__ = (
+        UniqueConstraint("device_id", "path", name="uq_device_backup_paths_device_path"),
+        Index("ix_device_backup_paths_device_id", "device_id"),
+    )
+
+    device_backup_path_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    device_id = Column(Integer, ForeignKey("devices.device_id", ondelete="CASCADE"), nullable=False)
+    path = Column(Text, nullable=False)
+    label = Column(Text, nullable=False)
+    created_at = Column(DateTime, nullable=False)
+
+    device = relationship("Device", back_populates="backup_paths")
 
 
 class Backup(Base):

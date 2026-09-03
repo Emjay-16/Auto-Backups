@@ -59,7 +59,9 @@ class DeviceBase(BaseModel):
 
 
 class DeviceCreate(DeviceBase):
-    pass
+    ssh_username: Optional[str] = None
+    ssh_password: Optional[str] = None
+    ssh_port: Optional[int] = None
 
 
 class DeviceUpdate(BaseModel):
@@ -70,6 +72,10 @@ class DeviceUpdate(BaseModel):
     device_status: Optional[int] = None
     auto_backup_enabled: Optional[bool] = None
     last_seen_at: Optional[datetime] = None
+    ssh_username: Optional[str] = None
+    ssh_password: Optional[str] = None
+    ssh_port: Optional[int] = None
+    clear_ssh_override: bool = False
 
 
 class DeviceResponse(DeviceBase):
@@ -77,6 +83,9 @@ class DeviceResponse(DeviceBase):
 
     device_id: int
     group_name: Optional[str] = None
+    ssh_username: Optional[str] = None
+    ssh_port: Optional[int] = None
+    has_ssh_override: bool = False
     created_at: datetime
     updated_at: datetime
 
@@ -85,7 +94,18 @@ class DeviceResponse(DeviceBase):
         data = cls.model_validate(device)
         if device.group:
             data.group_name = device.group.group_name
+        data.has_ssh_override = device.has_ssh_override
         return data
+
+
+class DeviceBackupPathCreate(BaseModel):
+    path: str
+    label: Optional[str] = None
+
+
+class DeviceBackupPathResponse(BaseModel):
+    path: str
+    label: str
 
 
 class DeviceNameResponse(BaseModel):

@@ -24,6 +24,7 @@ from api.services.backup_targets import get_default_auto_backup_paths
 from api.services.device_resolver import resolve_device, resolve_user
 from api.services.job_service import (
     acquire_job_lock,
+    clear_stale_job_locks,
     create_job,
     ensure_pending_auto_backup_job,
     is_job_lock_active,
@@ -64,48 +65,69 @@ def get_backup_history(db: Session, limit: int) -> List[schemas.BackupHistoryRes
     return [backup_history_response(backup) for backup in backups]
 
 
-def recover_stale_running_records(db: Session, max_age_hours: float = 24) -> Tuple[int, int]:
-    cutoff = now_local() - timedelta(hours=max(float(max_age_hours), 1))
-    stale_backups = (
-        db.query(models.Backup)
-        .filter(
-            models.Backup.backup_status == constants.BACKUP_STATUS_RUNNING,
-            models.Backup.updated_at < cutoff,
-        )
-        .all()
-    )
-    for backup in stale_backups:
-        _finish_backup_failed(
-            db,
-            backup,
-            f"Backup marked failed after exceeding {max_age_hours:g} hour(s); worker stopped or timed out",
-        )
+def recover_stale_running_records(
+    db: Session,
+    max_age_minutes: Optional[float] = None,
+    max_age_hours: Optional[float] = None,
+) -> Tuple[int, int]:
+    try:
+        if max_age_minutes is None:
+            if max_age_hours is not None:
+                max_age_minutes = float(max_age_hours) * 60
+            elif os.getenv("STALE_RUNNING_TIMEOUT_MINUTES"):
+                max_age_minutes = float(os.getenv("STALE_RUNNING_TIMEOUT_MINUTES", "15"))
+            elif os.getenv("STALE_RUNNING_TIMEOUT_HOURS"):
+                max_age_minutes = float(os.getenv("STALE_RUNNING_TIMEOUT_HOURS", "0.25")) * 60
+            else:
+                max_age_minutes = 15.0
 
-    stale_jobs = (
-        db.query(models.BackupJob)
-        .filter(
-            models.BackupJob.job_status == constants.JOB_STATUS_RUNNING,
-            models.BackupJob.updated_at < cutoff,
-        )
-        .all()
-    )
-    for job in stale_jobs:
-        update_job(
-            db,
-            job,
-            status=constants.JOB_STATUS_FAILED,
-            message=f"Job marked failed after exceeding {max_age_hours:g} hour(s); worker stopped or timed out",
-            finished=True,
+        max_age_minutes = max(float(max_age_minutes), 1.0)
+        cutoff = now_local() - timedelta(minutes=max_age_minutes)
+
+        time_label = (
+            f"{int(max_age_minutes)} minute(s)"
+            if max_age_minutes < 60
+            else f"{max_age_minutes / 60:g} hour(s)"
         )
 
-    stale_locks = db.query(models.JobLock).all()
-    for lock in stale_locks:
-        if not is_job_lock_active(db, lock.lock_name):
-            db.delete(lock)
+        stale_backups = (
+            db.query(models.Backup)
+            .filter(
+                models.Backup.backup_status == constants.BACKUP_STATUS_RUNNING,
+                models.Backup.updated_at < cutoff,
+            )
+            .all()
+        )
+        for backup in stale_backups:
+            _finish_backup_failed(
+                db,
+                backup,
+                f"Backup marked failed after exceeding {time_label}; worker stopped or timed out",
+            )
 
-    db.commit()
+        stale_jobs = (
+            db.query(models.BackupJob)
+            .filter(
+                models.BackupJob.job_status == constants.JOB_STATUS_RUNNING,
+                models.BackupJob.updated_at < cutoff,
+            )
+            .all()
+        )
+        for job in stale_jobs:
+            update_job(
+                db,
+                job,
+                status=constants.JOB_STATUS_FAILED,
+                message=f"Job marked failed after exceeding {time_label}; worker stopped or timed out",
+                finished=True,
+            )
 
-    return len(stale_backups), len(stale_jobs)
+        clear_stale_job_locks(db)
+
+        return len(stale_backups), len(stale_jobs)
+    except Exception:
+        db.rollback()
+        return 0, 0
 
 
 def get_backup_detail(backup_id: int, db: Session) -> dict:
@@ -273,6 +295,8 @@ def run_combined_backup(
             "Select at least one remote path or database target",
         )
 
+    recover_stale_running_records(db)
+
     job = create_job(
         db,
         job_type="combined_backup",
@@ -375,6 +399,7 @@ def run_auto_backups(data: schemas.AutoBackupRequest, db: Session) -> schemas.Au
     lock_owner = None
     job = None
     try:
+        recover_stale_running_records(db)
         lock_owner = acquire_job_lock(
             db,
             "auto_backup",
@@ -567,15 +592,7 @@ def _run_auto_backups(
     max_retries: int,
     retry_delay_seconds: float,
 ) -> schemas.AutoBackupResponse:
-    username, password, port = require_ssh_credentials()
-
-    remote_paths = data.remote_paths or _default_auto_backup_paths()
-    if not remote_paths:
-        raise api_exception(
-            status.HTTP_400_BAD_REQUEST,
-            "AUTO_BACKUP_PATHS_MISSING",
-            "No remote paths configured for auto backup",
-        )
+    explicit_remote_paths = data.remote_paths
 
     devices_query = (
         db.query(models.Device)
@@ -585,6 +602,18 @@ def _run_auto_backups(
     if data.device_ids:
         devices_query = devices_query.filter(models.Device.device_id.in_(data.device_ids))
     devices = devices_query.all()
+
+    device_remote_paths = {
+        device.device_id: explicit_remote_paths or get_default_auto_backup_paths(db, device.device_id)
+        for device in devices
+    }
+
+    if not explicit_remote_paths and devices and not any(device_remote_paths.values()):
+        raise api_exception(
+            status.HTTP_400_BAD_REQUEST,
+            "AUTO_BACKUP_PATHS_MISSING",
+            "No remote paths configured for auto backup",
+        )
 
     items = []
     skipped_offline = 0
@@ -603,6 +632,49 @@ def _run_auto_backups(
     )
 
     for device in devices:
+        remote_paths = device_remote_paths[device.device_id]
+
+        if not remote_paths:
+            skipped_device_names.append(_device_label(device))
+            device_result = {
+                "items": [
+                    schemas.AutoBackupItemResponse(
+                        device_id=device.device_id,
+                        ip_address=device.ip_address,
+                        device_name=device.device_name,
+                        remote_path="",
+                        online=False,
+                        changed=False,
+                        message="Skipped: no backup paths configured for this device",
+                    )
+                ],
+                "online": False,
+                "backup_created": False,
+                "offline": True,
+            }
+            items.extend(device_result["items"])
+            if device_result["offline"]:
+                skipped_offline += 1
+            checked_devices += 1
+            update_job(
+                db,
+                job,
+                checked_devices=checked_devices,
+                online_devices=online_devices,
+                offline_devices=skipped_offline,
+                backups_created=backups_created,
+                failed_devices=failed_devices,
+                retry_count=retry_count,
+                message=_auto_backup_progress_message(
+                    checked_devices=checked_devices,
+                    total_devices=len(devices),
+                    skipped_device_names=skipped_device_names,
+                ),
+            )
+            continue
+
+        username, password, port = require_ssh_credentials(device)
+
         device_result = None
         max_attempts = max(max_retries, 1)
         for attempt in range(max_attempts):
@@ -1055,7 +1127,7 @@ def _create_combined_auto_backup(
 
     username = password = port = None
     if remote_paths:
-        username, password, port = require_ssh_credentials()
+        username, password, port = require_ssh_credentials(device)
 
     backup_name = backup_name or _auto_full_backup_name(device.device_name)
     local_path = build_backup_directory(backup_storage_path, device.device_name)
@@ -1667,7 +1739,11 @@ def _finish_backup_success(
 def _finish_backup_failed(db: Session, backup: models.Backup, message: str) -> None:
     backup.backup_status = constants.BACKUP_STATUS_FAILED
     backup.updated_at = now_local()
-    log_activity(db, backup.created_by, backup.device_id, backup.backup_id, "backup", constants.BACKUP_STATUS_FAILED, message)
+    if backup.created_by is not None and backup.device_id is not None:
+        try:
+            log_activity(db, backup.created_by, backup.device_id, backup.backup_id, "backup", constants.BACKUP_STATUS_FAILED, message)
+        except Exception:
+            pass
     db.commit()
 
 

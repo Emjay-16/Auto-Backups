@@ -42,7 +42,7 @@ def upload_files_to_device(
     device = resolve_device(db, device_id, ip_address, device_name)
     user = resolve_user(db, uploaded_by)
 
-    username, password, port = require_ssh_credentials()
+    username, password, port = require_ssh_credentials(device)
 
     uploaded_files = []
 

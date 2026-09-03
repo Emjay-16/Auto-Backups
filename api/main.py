@@ -110,6 +110,7 @@ def _run_backup_from_settings(settings):
 def _run_pending_backups():
     db = SessionLocal()
     try:
+        recover_stale_running_records(db)
         process_pending_auto_backups(db)
     finally:
         db.close()
@@ -120,10 +121,7 @@ def start_background_jobs():
     global _backup_thread, _cleanup_thread, _pending_backup_thread
     recovery_db = SessionLocal()
     try:
-        recover_stale_running_records(
-            recovery_db,
-            max_age_hours=float(os.getenv("STALE_RUNNING_TIMEOUT_HOURS", "24")),
-        )
+        recover_stale_running_records(recovery_db)
     finally:
         recovery_db.close()
 

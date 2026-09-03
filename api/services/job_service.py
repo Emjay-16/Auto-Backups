@@ -244,3 +244,16 @@ def _is_stale_same_host_lock(locked_by: str) -> bool:
         return False
 
     return False
+
+
+def clear_stale_job_locks(db: Session) -> int:
+    now = now_local()
+    locks = db.query(models.JobLock).all()
+    cleared = 0
+    for lock in locks:
+        if lock.expires_at <= now or _is_stale_same_host_lock(lock.locked_by):
+            db.delete(lock)
+            cleared += 1
+    if cleared > 0:
+        db.commit()
+    return cleared

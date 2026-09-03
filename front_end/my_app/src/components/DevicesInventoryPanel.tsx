@@ -11,10 +11,14 @@ import {
   runCombinedBackup,
   saveCustomBackupPath,
   updateDevice,
+  getDeviceBackupPaths,
+  addDeviceBackupPath,
+  deleteDeviceBackupPath,
   type BackupRunResult,
   type BackupTarget,
   type DeviceFormPayload,
   type DeviceGroupOption,
+  type DeviceBackupPath,
   type RemoteFile,
 } from "@/lib/api";
 import styles from "@/styles/pages/devices/devices.module.css";
@@ -29,6 +33,10 @@ type FormState = {
   deviceName: string;
   ipAddress: string;
   autoBackupEnabled: boolean;
+  useOwnCredentials: boolean;
+  sshUsername: string;
+  sshPassword: string;
+  sshPort: string;
 };
 
 type DeviceModalMode = "add" | "edit" | null;
@@ -45,6 +53,10 @@ function makeEmptyForm(groups: DeviceGroupOption[]): FormState {
     deviceName: "",
     ipAddress: "",
     autoBackupEnabled: true,
+    useOwnCredentials: false,
+    sshUsername: "",
+    sshPassword: "",
+    sshPort: "",
   };
 }
 
@@ -57,6 +69,10 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
   const [activeFilter, setActiveFilter] = useState<DeviceFilter["key"]>("all");
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [form, setForm] = useState<FormState>(() => makeEmptyForm(groupOptions));
+  const [devicePaths, setDevicePaths] = useState<DeviceBackupPath[]>([]);
+  const [devicePathsLoading, setDevicePathsLoading] = useState(false);
+  const [newDevicePath, setNewDevicePath] = useState("");
+  const [newDevicePathLabel, setNewDevicePathLabel] = useState("");
   const [remotePath, setRemotePath] = useState("");
   const [backupTargets, setBackupTargets] = useState<BackupTarget[]>([]);
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
@@ -90,11 +106,14 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
   function openAdd() {
     setSelectedDevice(null);
     setForm(makeEmptyForm(groupOptions));
+    setDevicePaths([]);
+    setNewDevicePath("");
+    setNewDevicePathLabel("");
     setError("");
     setMode("add");
   }
 
-  function openEdit(device: Device) {
+  async function openEdit(device: Device) {
     setSelectedDevice(device);
     setForm({
       groupId: String(device.groupId ?? ""),
@@ -102,9 +121,26 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
       deviceName: device.name,
       ipAddress: device.ip,
       autoBackupEnabled: device.autoBackupEnabled,
+      useOwnCredentials: device.hasSshOverride,
+      sshUsername: device.sshUsername ?? "",
+      sshPassword: "",
+      sshPort: device.sshPort ? String(device.sshPort) : "",
     });
+    setDevicePaths([]);
+    setNewDevicePath("");
+    setNewDevicePathLabel("");
     setError("");
     setMode("edit");
+
+    setDevicePathsLoading(true);
+    try {
+      const paths = await getDeviceBackupPaths(device.id);
+      setDevicePaths(paths);
+    } catch (errorResponse) {
+      showToast({ tone: "error", title: "Load device paths failed", message: getErrorMessage(errorResponse, "Load device paths failed") });
+    } finally {
+      setDevicePathsLoading(false);
+    }
   }
 
   function closeModal() {
@@ -123,6 +159,9 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
     setBackupName("");
     setZipOutput(false);
     setBackupTargets([]);
+    setDevicePaths([]);
+    setNewDevicePath("");
+    setNewDevicePathLabel("");
   }
 
   async function openBrowse(device: Device) {
@@ -301,6 +340,29 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
     }
   }
 
+  async function addDevicePath() {
+    if (!selectedDevice?.id || !newDevicePath.trim()) return;
+    try {
+      const saved = await addDeviceBackupPath(selectedDevice.id, newDevicePath.trim(), newDevicePathLabel.trim() || undefined);
+      setDevicePaths((current) => [...current.filter((target) => target.path !== saved.path), saved]);
+      setNewDevicePath("");
+      setNewDevicePathLabel("");
+      showToast({ tone: "success", title: "Backup path added", message: `${saved.label}: ${saved.path}` });
+    } catch (errorResponse) {
+      showToast({ tone: "error", title: "Add backup path failed", message: getErrorMessage(errorResponse, "Add backup path failed") });
+    }
+  }
+
+  async function removeDevicePath(path: string) {
+    if (!selectedDevice?.id) return;
+    try {
+      await deleteDeviceBackupPath(selectedDevice.id, path);
+      setDevicePaths((current) => current.filter((target) => target.path !== path));
+    } catch (errorResponse) {
+      showToast({ tone: "error", title: "Remove backup path failed", message: getErrorMessage(errorResponse, "Remove backup path failed") });
+    }
+  }
+
   async function submitForm() {
     setSaving(true);
     setError("");
@@ -410,6 +472,76 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
                 Auto backup this device
               </label>
             </div>
+
+            <div className={styles.overrideSection}>
+              <label className={styles.checkboxField}>
+                <input
+                  checked={form.useOwnCredentials}
+                  onChange={(event) => setForm({ ...form, useOwnCredentials: event.target.checked })}
+                  type="checkbox"
+                />
+                ตั้งค่า SSH login เฉพาะเครื่องนี้ (แยกจากค่ากลางของฟลีต)
+              </label>
+              {form.useOwnCredentials ? (
+                <div className={styles.overrideFields}>
+                  <label>
+                    SSH username
+                    <input
+                      value={form.sshUsername}
+                      onChange={(event) => setForm({ ...form, sshUsername: event.target.value })}
+                      placeholder="pi"
+                    />
+                  </label>
+                  <label>
+                    SSH password{mode === "edit" && selectedDevice?.hasSshOverride ? " (เว้นว่างถ้าไม่เปลี่ยน)" : ""}
+                    <input
+                      value={form.sshPassword}
+                      onChange={(event) => setForm({ ...form, sshPassword: event.target.value })}
+                      type="password"
+                      placeholder="••••••••"
+                    />
+                  </label>
+                  <label>
+                    SSH port
+                    <input
+                      value={form.sshPort}
+                      onChange={(event) => setForm({ ...form, sshPort: event.target.value })}
+                      placeholder="22"
+                    />
+                  </label>
+                </div>
+              ) : null}
+            </div>
+
+            {mode === "edit" ? (
+              <div className={styles.overrideSection}>
+                <span>Backup path เฉพาะเครื่องนี้ (แยกจาก path กลางของฟลีต)</span>
+                {devicePathsLoading ? <p className={styles.hint}>กำลังโหลด...</p> : null}
+                {devicePaths.length ? (
+                  <div className={styles.selectedPathList}>
+                    {devicePaths.map((target) => (
+                      <button key={target.path} onClick={() => removeDevicePath(target.path)} type="button">
+                        <span>{target.label}: {target.path}</span>
+                        <b>×</b>
+                      </button>
+                    ))}
+                  </div>
+                ) : !devicePathsLoading ? (
+                  <p className={styles.hint}>ยังไม่มี path เฉพาะเครื่อง — จะใช้ path กลางของฟลีตแทน</p>
+                ) : null}
+                <div className={styles.customPathRow}>
+                  <label>
+                    Path บนเครื่อง
+                    <input value={newDevicePath} onChange={(event) => setNewDevicePath(event.target.value)} placeholder="/home/user/backup-data" />
+                  </label>
+                  <label>
+                    ชื่อ (ไม่บังคับ)
+                    <input value={newDevicePathLabel} onChange={(event) => setNewDevicePathLabel(event.target.value)} placeholder="App data" />
+                  </label>
+                  <button onClick={() => void addDevicePath()} type="button">+ เพิ่ม path</button>
+                </div>
+              </div>
+            ) : null}
 
             {error ? <p className={styles.formError}>{error}</p> : null}
 
@@ -613,7 +745,7 @@ function buildCreatePayload(form: FormState): DeviceFormPayload {
     throw new Error("Please create a device group before adding devices.");
   }
 
-  return {
+  const payload: DeviceFormPayload = {
     group_id: groupId,
     device_code: form.deviceCode.trim(),
     device_name: form.deviceName.trim(),
@@ -621,6 +753,19 @@ function buildCreatePayload(form: FormState): DeviceFormPayload {
     device_status: 0,
     auto_backup_enabled: form.autoBackupEnabled,
   };
+
+  if (form.useOwnCredentials) {
+    const username = form.sshUsername.trim();
+    const password = form.sshPassword;
+    if (!username || !password) {
+      throw new Error("กรุณากรอก SSH username และ password ให้ครบ ถ้าจะตั้งค่าเฉพาะเครื่องนี้");
+    }
+    payload.ssh_username = username;
+    payload.ssh_password = password;
+    if (form.sshPort.trim()) payload.ssh_port = Number(form.sshPort.trim());
+  }
+
+  return payload;
 }
 
 function buildUpdatePayload(form: FormState, original: Device): Partial<DeviceFormPayload> {
@@ -635,6 +780,21 @@ function buildUpdatePayload(form: FormState, original: Device): Partial<DeviceFo
   if (deviceName && deviceName !== original.name) payload.device_name = deviceName;
   if (ipAddress && ipAddress !== original.ip) payload.ip_address = ipAddress;
   if (form.autoBackupEnabled !== original.autoBackupEnabled) payload.auto_backup_enabled = form.autoBackupEnabled;
+
+  if (form.useOwnCredentials) {
+    const username = form.sshUsername.trim();
+    if (!username) {
+      throw new Error("กรุณากรอก SSH username");
+    }
+    if (!original.hasSshOverride && !form.sshPassword) {
+      throw new Error("กรุณากรอก SSH password สำหรับตั้งค่าเฉพาะเครื่องนี้");
+    }
+    payload.ssh_username = username;
+    if (form.sshPassword) payload.ssh_password = form.sshPassword;
+    payload.ssh_port = form.sshPort.trim() ? Number(form.sshPort.trim()) : undefined;
+  } else if (original.hasSshOverride) {
+    payload.clear_ssh_override = true;
+  }
 
   return payload;
 }

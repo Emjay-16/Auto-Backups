@@ -21,6 +21,9 @@ type ApiDevice = {
   device_status: number;
   auto_backup_enabled?: boolean;
   last_seen_at: string | null;
+  has_ssh_override?: boolean;
+  ssh_username?: string | null;
+  ssh_port?: number | null;
 };
 
 export type DeviceFormPayload = {
@@ -30,6 +33,15 @@ export type DeviceFormPayload = {
   ip_address: string;
   device_status: number;
   auto_backup_enabled: boolean;
+  ssh_username?: string;
+  ssh_password?: string;
+  ssh_port?: number;
+  clear_ssh_override?: boolean;
+};
+
+export type DeviceBackupPath = {
+  path: string;
+  label: string;
 };
 
 export type DeviceGroupOption = {
@@ -343,6 +355,24 @@ export async function updateDevice(deviceId: number, payload: Partial<DeviceForm
   await sendJson(`/devices/${deviceId}`, "PUT", payload);
 }
 
+export async function getDeviceBackupPaths(deviceId: number): Promise<DeviceBackupPath[]> {
+  return getJson<DeviceBackupPath[]>(`/devices/${deviceId}/paths`);
+}
+
+export async function addDeviceBackupPath(deviceId: number, path: string, label?: string): Promise<DeviceBackupPath> {
+  return sendJson<DeviceBackupPath>(`/devices/${deviceId}/paths`, "POST", { path, label });
+}
+
+export async function deleteDeviceBackupPath(deviceId: number, path: string): Promise<void> {
+  const response = await fetchApi(`/devices/${deviceId}/paths?path=${encodeURIComponent(path)}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response, `API /devices/${deviceId}/paths failed: ${response.status}`));
+  }
+}
+
 export async function getBackupTargets(): Promise<BackupTarget[]> {
   return getJson<BackupTarget[]>("/devices/backup-targets", 5000);
 }
@@ -561,6 +591,9 @@ function mapDevice(device: ApiDevice, pendingDeviceIds: Set<number>): Device {
     ip: device.ip_address,
     status: pendingDeviceIds.has(device.device_id) ? "pending" : mapDeviceStatus(device.device_status),
     lastSeen: formatTime(device.last_seen_at),
+    hasSshOverride: device.has_ssh_override ?? false,
+    sshUsername: device.ssh_username ?? undefined,
+    sshPort: device.ssh_port ?? undefined,
   };
 }
 

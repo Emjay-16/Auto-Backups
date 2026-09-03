@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from api import models, schemas
 from api.database import get_db
 from api.errors import api_exception
+from api.services.backup_service import recover_stale_running_records
 
 
 router = APIRouter(
@@ -25,6 +26,7 @@ def list_jobs(
     limit: int = 100,
     db: Session = Depends(get_db),
 ):
+    recover_stale_running_records(db)
     limit = max(1, min(limit, 500))
     query = db.query(models.BackupJob)
 
@@ -54,6 +56,7 @@ def get_job(
     job_id: int,
     db: Session = Depends(get_db),
 ):
+    recover_stale_running_records(db)
     job = (
         db.query(models.BackupJob)
         .filter(models.BackupJob.job_id == job_id)

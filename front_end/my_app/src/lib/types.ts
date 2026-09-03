@@ -13,6 +13,9 @@ export type Device = {
   ip: string;
   status: DeviceStatus;
   lastSeen: string;
+  hasSshOverride: boolean;
+  sshUsername?: string;
+  sshPort?: number;
 };
 
 export type Backup = {

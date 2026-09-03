@@ -17,12 +17,21 @@ from api.schemas import (
     DeviceResponse,
     DeviceStatusResponse,
     DeviceUpdate,
+    DeviceBackupPathCreate,
+    DeviceBackupPathResponse,
     BackupTargetResponse,
     CustomBackupPathResponse,
     RemotePathCheckResponse,
     RemoteFileResponse,
 )
-from api.services.backup_targets import get_backup_path_label, get_custom_auto_backup_targets
+from api.services.backup_targets import (
+    get_backup_path_label,
+    get_custom_auto_backup_targets,
+    get_device_backup_paths,
+    add_device_backup_path,
+    delete_device_backup_path,
+)
+from api.services.credential_crypto import encrypt_secret
 from api.services.device_resolver import map_device_name
 from api.services.sftp_backup import RemotePathNotFound, list_remote_path
 from api.services.ssh_credentials import require_ssh_credentials
@@ -212,9 +221,9 @@ def list_device_files(
     db: Session = Depends(get_db),
 ):
     device = _get_device_or_404(device_id, db)
-    username, password, port = require_ssh_credentials()
+    username, password, port = require_ssh_credentials(device)
 
-    remote_paths = [path] if path else _default_browse_paths()
+    remote_paths = [path] if path else _default_browse_paths(db, device.device_id)
     if not remote_paths:
         raise api_exception(
             400,
@@ -290,7 +299,7 @@ def check_device_remote_path(
     db: Session = Depends(get_db),
 ):
     device = _get_device_or_404(device_id, db)
-    username, password, port = require_ssh_credentials()
+    username, password, port = require_ssh_credentials(device)
 
     try:
         files = list_remote_path(
@@ -382,6 +391,19 @@ def create_device(
             "Device code or IP address already exists",
         )
 
+    if data.ssh_password and not data.ssh_username:
+        raise api_exception(
+            400,
+            "SSH_USERNAME_REQUIRED",
+            "ssh_username is required when ssh_password is provided",
+        )
+    if data.ssh_username and not data.ssh_password:
+        raise api_exception(
+            400,
+            "SSH_PASSWORD_REQUIRED",
+            "ssh_password is required when ssh_username is provided",
+        )
+
     now = now_local()
     new_device = Device(
         group_id=data.group_id,
@@ -391,6 +413,9 @@ def create_device(
         device_status=data.device_status,
         auto_backup_enabled=data.auto_backup_enabled,
         last_seen_at=data.last_seen_at,
+        ssh_username=data.ssh_username or None,
+        ssh_password_encrypted=encrypt_secret(data.ssh_password) if data.ssh_password else None,
+        ssh_port=data.ssh_port,
         created_at=now,
         updated_at=now,
     )
@@ -426,6 +451,11 @@ def update_device(
         for field, value in data.model_dump(exclude_unset=True).items()
         if value is not None and value != ""
     }
+
+    clear_ssh_override = update_data.pop("clear_ssh_override", False)
+
+    if "ssh_password" in update_data:
+        update_data["ssh_password_encrypted"] = encrypt_secret(update_data.pop("ssh_password"))
 
     if "group_id" in update_data:
         group = (
@@ -475,12 +505,66 @@ def update_device(
     for field, value in update_data.items():
         setattr(device, field, value)
 
+    if clear_ssh_override:
+        device.ssh_username = None
+        device.ssh_password_encrypted = None
+        device.ssh_port = None
+
     device.updated_at = now_local()
 
     db.commit()
     db.refresh(device)
 
     return device
+
+
+@router.get("/{device_id}/paths", response_model=List[DeviceBackupPathResponse])
+def list_device_backup_paths(
+    device_id: int,
+    db: Session = Depends(get_db),
+):
+    """แสดง path สำรองข้อมูลเฉพาะเครื่องนี้ (แยกจาก path กลางของฟลีต)"""
+    _get_device_or_404(device_id, db)
+    return [
+        DeviceBackupPathResponse(path=target.path, label=target.label)
+        for target in get_device_backup_paths(db, device_id)
+    ]
+
+
+@router.post("/{device_id}/paths", response_model=DeviceBackupPathResponse)
+def add_device_backup_path_endpoint(
+    device_id: int,
+    data: DeviceBackupPathCreate,
+    db: Session = Depends(get_db),
+):
+    """เพิ่ม path สำรองข้อมูลเฉพาะเครื่องนี้ — เมื่อเครื่องนี้มี path ของตัวเองแล้ว
+    ระบบจะสำรองข้อมูลตาม path เหล่านี้เท่านั้น ไม่ใช้ path กลางของฟลีตอีกต่อไป"""
+    _get_device_or_404(device_id, db)
+    try:
+        target = add_device_backup_path(db, device_id, data.path, data.label)
+    except ValueError as exc:
+        raise api_exception(400, "INVALID_BACKUP_PATH", str(exc))
+
+    return DeviceBackupPathResponse(path=target.path, label=target.label)
+
+
+@router.delete("/{device_id}/paths", response_model=DeviceBackupPathResponse)
+def delete_device_backup_path_endpoint(
+    device_id: int,
+    path: str,
+    db: Session = Depends(get_db),
+):
+    """ลบ path สำรองข้อมูลเฉพาะเครื่องนี้"""
+    _get_device_or_404(device_id, db)
+    try:
+        deleted = delete_device_backup_path(db, device_id, path)
+    except ValueError as exc:
+        raise api_exception(400, "INVALID_BACKUP_PATH", str(exc))
+
+    if not deleted:
+        raise api_exception(404, "DEVICE_BACKUP_PATH_NOT_FOUND", "Device backup path not found")
+
+    return DeviceBackupPathResponse(path=path, label="")
 
 
 @router.delete("/{device_id}")
@@ -559,7 +643,12 @@ def _get_device_or_404(device_id: int, db: Session) -> Device:
     return device
 
 
-def _default_browse_paths() -> List[str]:
+def _default_browse_paths(db: Session, device_id: Optional[int] = None) -> List[str]:
+    if device_id is not None:
+        device_paths = get_device_backup_paths(db, device_id)
+        if device_paths:
+            return [target.path for target in device_paths]
+
     return [
         path
         for path in (
