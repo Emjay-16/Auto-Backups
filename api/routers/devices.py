@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from api import constants, schemas
 from api.database import get_db
@@ -40,10 +40,15 @@ def get_devices(
     refresh_status: bool = False,
     db: Session = Depends(get_db),
 ):
-    devices = db.query(Device).order_by(Device.device_id).all()
+    devices = (
+        db.query(Device)
+        .options(joinedload(Device.group))
+        .order_by(Device.device_id)
+        .all()
+    )
     if refresh_status:
         _refresh_devices_statuses(devices, db)
-    return devices
+    return [DeviceResponse.from_device(d) for d in devices]
 
 
 @router.get("/name-by-ip/{ip_address}", response_model=DeviceNameResponse)

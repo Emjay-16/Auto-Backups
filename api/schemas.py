@@ -76,8 +76,16 @@ class DeviceResponse(DeviceBase):
     model_config = ConfigDict(from_attributes=True)
 
     device_id: int
+    group_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+
+    @classmethod
+    def from_device(cls, device) -> "DeviceResponse":
+        data = cls.model_validate(device)
+        if device.group:
+            data.group_name = device.group.group_name
+        return data
 
 
 class DeviceNameResponse(BaseModel):

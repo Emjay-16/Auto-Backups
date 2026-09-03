@@ -14,6 +14,7 @@ const API_AUTH_TOKEN = process.env.NEXT_PUBLIC_API_AUTH_TOKEN?.trim() ?? "";
 type ApiDevice = {
   device_id: number;
   group_id: number;
+  group_name?: string | null;
   device_code: string;
   device_name: string;
   ip_address: string;
@@ -556,7 +557,7 @@ function mapDevice(device: ApiDevice, pendingDeviceIds: Set<number>): Device {
     rawStatus: device.device_status,
     autoBackupEnabled: device.auto_backup_enabled ?? true,
     name: device.device_name,
-    group: inferDeviceGroup(device.device_name, device.device_code),
+    group: device.group_name ?? inferDeviceGroup(device.device_name, device.device_code),
     ip: device.ip_address,
     status: pendingDeviceIds.has(device.device_id) ? "pending" : mapDeviceStatus(device.device_status),
     lastSeen: formatTime(device.last_seen_at),
@@ -567,7 +568,7 @@ function mapDeviceStatus(deviceStatus: number): DeviceStatus {
   return deviceStatus === 1 ? "online" : "offline";
 }
 
-function inferDeviceGroup(deviceName: string, deviceCode: string): Device["group"] {
+function inferDeviceGroup(deviceName: string, deviceCode: string): string {
   const value = `${deviceName} ${deviceCode}`.toUpperCase();
   if (value.includes("SMRL") || /\bSMR\d+L\b/.test(value)) return "SMRL";
   if (value.includes("SMR")) return "SMR";

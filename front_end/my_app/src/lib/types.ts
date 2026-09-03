@@ -9,7 +9,7 @@ export type Device = {
   rawStatus?: number;
   autoBackupEnabled: boolean;
   name: string;
-  group: "AMR" | "SMR" | "SMRL";
+  group: string;
   ip: string;
   status: DeviceStatus;
   lastSeen: string;
