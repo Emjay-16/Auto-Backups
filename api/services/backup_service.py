@@ -972,11 +972,11 @@ def _backup_file_remote_path(
         file_path = Path(backup_file.file_name)
         file_stem = file_path.stem
         parent_name = file_path.parent.name
-        # Match exact database file OR any file inside {stem}.ros_maps/ folder
+        # Match exact database file OR any file inside the database-named folder
         if (
             backup_file.file_name == configured_database_file.name
             or file_stem.startswith(f"{db_stem}_")
-            or parent_name == f"{db_stem}.ros_maps"
+            or parent_name in {db_stem, f"{db_stem}.ros_maps"}
         ):
             return f"database://{backup_file.file_name}"
 
@@ -1140,7 +1140,7 @@ def _dump_robot_database(
         raise RuntimeError("Robot database config is incomplete")
 
     try:
-        return dump_mysql_table_to_json(
+        dump_result = dump_mysql_table_to_json(
             host=device.ip_address,
             port=port,
             username=username,
@@ -1153,7 +1153,7 @@ def _dump_robot_database(
         if not ssh_username or not ssh_password:
             raise direct_exc
 
-        return dump_mysql_table_via_ssh(
+        dump_result = dump_mysql_table_via_ssh(
             host=device.ip_address,
             ssh_username=ssh_username,
             ssh_password=ssh_password,
@@ -1165,6 +1165,12 @@ def _dump_robot_database(
             table=table_name,
             output_path=output_path,
         )
+
+    if dump_result is None:
+        return []
+    if isinstance(dump_result, list):
+        return dump_result
+    return [dump_result]
 
 
 def _configured_robot_database_path(root: Path) -> Optional[Path]:
@@ -1367,12 +1373,17 @@ def _latest_backup_checksum_for_remote_path(
 
 
 def _database_dump_changed(
-    database_dump: List[DownloadedFile],
+    database_dump: Any,
     latest_backup: Any,
 ) -> bool:
     backups = _backup_history_list(latest_backup)
     if not backups:
         return True
+
+    if database_dump is None:
+        return False
+    if not isinstance(database_dump, list):
+        database_dump = [database_dump]
 
     # Consider changed if ANY split file has changed
     for dump_file in database_dump:

@@ -29,7 +29,7 @@ def dump_mysql_table_to_json(
     table: str,
     output_path: Path,
     port: int = 3306,
-) -> List[DownloadedFile]:
+) -> DownloadedFile:
     try:
         import pymysql
     except ModuleNotFoundError as exc:
@@ -54,7 +54,6 @@ def dump_mysql_table_to_json(
         with connection.cursor() as cursor:
             cursor.execute(f"SELECT * FROM `{table}`")
             rows: List[Dict[str, Any]] = cursor.fetchall()
-        rows = _expand_related_row_names(connection, rows)
     finally:
         connection.close()
 
@@ -78,7 +77,7 @@ def dump_mysql_table_via_ssh(
     output_path: Path,
     ssh_port: int = 22,
     db_port: int = 3306,
-) -> List[DownloadedFile]:
+) -> DownloadedFile:
     try:
         import paramiko
     except ModuleNotFoundError as exc:
@@ -250,34 +249,25 @@ def _write_database_payload(
     rows: List[Dict[str, Any]],
     output_path: Path,
     remote_path: str,
-) -> List[DownloadedFile]:
-    if not rows:
-        return [_write_single_database_payload(database, table, rows, output_path, remote_path)]
+    minimal: bool = False,
+):
+    if table == "ros_maps" and rows:
+        return _write_ros_maps_payload(database, table, rows, output_path, remote_path)
 
-    if "name" in rows[0]:
-        return _write_database_payload_split_by_name(database, table, rows, output_path, remote_path)
-    else:
-        return [_write_single_database_payload(database, table, rows, output_path, remote_path)]
+    filtered_rows = [_extract_essential_fields(row) for row in rows]
+    payload = filtered_rows
 
-
-def _write_single_database_payload(
-    database: str,
-    table: str,
-    rows: List[Dict[str, Any]],
-    output_path: Path,
-    remote_path: str,
-) -> DownloadedFile:
-    payload = {
-        "database": database,
-        "table": table,
-        "row_count": len(rows),
-        "dumped_at": datetime.now().astimezone().isoformat(),
-        "rows": rows,
-    }
     with output_path.open("w", encoding="utf-8") as file:
-        json.dump(payload, file, ensure_ascii=False, indent=2, default=_json_default)
+        json.dump(
+            payload,
+            file,
+            ensure_ascii=False,
+            indent=2,
+            default=_json_default,
+        )
 
     file_size_mb = os.path.getsize(output_path) / (1024 * 1024)
+
     return DownloadedFile(
         file_name=output_path.name,
         local_path=str(output_path),
@@ -287,65 +277,77 @@ def _write_single_database_payload(
     )
 
 
-def _write_database_payload_split_by_name(
+def _write_ros_maps_payload(
     database: str,
     table: str,
     rows: List[Dict[str, Any]],
     output_path: Path,
     remote_path: str,
-) -> List[DownloadedFile]:
-    grouped_rows = _group_rows_by_name(rows)
+):
+    grouped_rows: Dict[str, List[Dict[str, Any]]] = {}
+    for row in rows:
+        name_value = row.get("name") or row.get("map_name") or "unnamed"
+        grouped_rows.setdefault(str(name_value), []).append(row)
 
-    if len(grouped_rows) == 1:
-        map_name = list(grouped_rows.keys())[0]
-        map_rows = grouped_rows[map_name]
-        return [_write_single_database_payload(database, table, map_rows, output_path, remote_path)]
+    if len(grouped_rows) <= 1:
+        return _write_single_database_payload(database, table, rows, output_path, remote_path)
 
-    # Create a single folder: {stem}.ros_maps/
-    stem = output_path.stem
-    folder_name = f"{stem}.ros_maps"
-    folder_path = output_path.parent / folder_name
-    folder_path.mkdir(parents=True, exist_ok=True)
-
-    result: List[DownloadedFile] = []
+    split_dir = output_path.parent / database
+    split_dir.mkdir(parents=True, exist_ok=True)
+    outputs: List[DownloadedFile] = []
 
     for map_name, map_rows in sorted(grouped_rows.items()):
-        safe_name = str(map_name).replace("/", "_").replace("\\", "_").replace(" ", "_")
-        split_file_name = f"{safe_name}.json"
-        split_output_path = folder_path / split_file_name
-        split_remote_path = f"{remote_path}#{map_name}"
-
-        payload = {
-            "database": database,
-            "table": table,
-            "row_count": len(map_rows),
-            "dumped_at": datetime.now().astimezone().isoformat(),
-            "rows": map_rows,
-        }
-        with split_output_path.open("w", encoding="utf-8") as file:
+        safe_name = "".join(ch if ch.isalnum() or ch in "._-" else "_" for ch in str(map_name)).strip()
+        safe_name = safe_name or "map"
+        file_path = split_dir / f"{safe_name}.json"
+        payload = _extract_essential_fields(map_rows[0]) if map_rows else {}
+        with file_path.open("w", encoding="utf-8") as file:
             json.dump(payload, file, ensure_ascii=False, indent=2, default=_json_default)
 
-        file_size_mb = os.path.getsize(split_output_path) / (1024 * 1024)
-        # file_name includes folder so _create_combined_auto_backup preserves folder structure
-        result.append(DownloadedFile(
-            file_name=f"{folder_name}/{split_file_name}",
-            local_path=str(split_output_path),
-            remote_path=split_remote_path,
-            file_size_mb=file_size_mb,
-            checksum=_database_payload_checksum(database, table, map_rows),
-        ))
+        outputs.append(
+            DownloadedFile(
+                file_name=file_path.name,
+                local_path=str(file_path),
+                remote_path=remote_path,
+                file_size_mb=os.path.getsize(file_path) / (1024 * 1024),
+                checksum=_database_payload_checksum(database, table, map_rows),
+            )
+        )
 
-    return result if result else [_write_single_database_payload(database, table, rows, output_path, remote_path)]
+    return outputs
 
 
-def _group_rows_by_name(rows: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
-    grouped: Dict[str, List[Dict[str, Any]]] = {}
-    for row in rows:
-        name = row.get("name") or "_unnamed"
-        if name not in grouped:
-            grouped[name] = []
-        grouped[name].append(row)
-    return grouped
+def _write_single_database_payload(
+    database: str,
+    table: str,
+    rows: List[Dict[str, Any]],
+    output_path: Path,
+    remote_path: str,
+) -> DownloadedFile:
+    payload = _extract_essential_fields(rows[0]) if rows else {}
+
+    with output_path.open("w", encoding="utf-8") as file:
+        json.dump(
+            payload,
+            file,
+            ensure_ascii=False,
+            indent=2,
+            default=_json_default,
+        )
+
+    file_size_mb = os.path.getsize(output_path) / (1024 * 1024)
+
+    return DownloadedFile(
+        file_name=output_path.name,
+        local_path=str(output_path),
+        remote_path=remote_path,
+        file_size_mb=file_size_mb,
+        checksum=_database_payload_checksum(database, table, rows),
+    )
+
+
+def _extract_essential_fields(row: Dict[str, Any]) -> Dict[str, Any]:
+    return {key: value for key, value in row.items() if key != "id"}
 
 
 def _json_default(value):
@@ -358,27 +360,92 @@ def _json_default(value):
     return str(value)
 
 
-def _load_all_split_database_dumps(
-    base_path: Path,
-    stem: str,
-) -> List[Dict[str, Any]]:
-    """Load and merge all split database files from {stem}.ros_maps/ into one rows list"""
-    ros_maps_dir = base_path.parent / f"{stem}.ros_maps"
-    all_rows: List[Dict[str, Any]] = []
+def _ensure_mysql_handshake(host: str, port: int, timeout: int) -> None:
+    try:
+        with socket.create_connection((host, port), timeout=timeout) as sock:
+            sock.settimeout(timeout)
+            header = sock.recv(4)
+    except OSError as exc:
+        raise RuntimeError(f"MySQL port check failed: {exc}") from exc
 
-    if not ros_maps_dir.is_dir():
-        return all_rows
+    if len(header) < 4:
+        raise RuntimeError("MySQL port check failed: incomplete handshake")
 
-    for split_file in sorted(ros_maps_dir.glob("*.json")):
+
+def _connect_ssh_with_retry(ssh, host: str, port: int, username: str, password: str) -> None:
+    last_error = None
+    for attempt in range(2):
         try:
-            with split_file.open("r", encoding="utf-8") as file:
-                payload = json.load(file)
-                if isinstance(payload.get("rows"), list):
-                    all_rows.extend(payload["rows"])
-        except (OSError, ValueError):
-            continue
+            ssh.connect(
+                hostname=host,
+                port=port,
+                username=username,
+                password=password,
+                timeout=10,
+                banner_timeout=15,
+                auth_timeout=15,
+            )
+            return
+        except Exception as exc:
+            last_error = exc
+            if attempt == 0:
+                time.sleep(1)
 
-    return all_rows
+    raise last_error
+
+
+def _mysql_batch_output_to_rows(output_data: str) -> List[Dict[str, Any]]:
+    lines = output_data.splitlines()
+    if not lines:
+        return []
+
+    reader = csv.reader(lines, delimiter="\t")
+    headers = next(reader)
+    rows = []
+
+    for values in reader:
+        row = {}
+        for index, header in enumerate(headers):
+            value = values[index] if index < len(values) else None
+            row[header] = None if value == "NULL" else value
+        rows.append(row)
+
+    return rows
+
+
+def _load_database_dump(
+    input_path: Path,
+    database_override: Optional[str],
+    table_override: Optional[str],
+) -> Tuple[str, str, List[Dict[str, Any]]]:
+    try:
+        with input_path.open("r", encoding="utf-8") as file:
+            payload = json.load(file)
+    except (OSError, ValueError) as exc:
+        raise RuntimeError(f"Invalid database backup JSON: {exc}") from exc
+
+    if not isinstance(payload, dict):
+        raise RuntimeError("Invalid database backup JSON: object payload is required")
+
+    if isinstance(payload.get("rows"), list):
+        database = database_override or payload.get("database")
+        table = table_override or payload.get("table")
+        rows = payload["rows"]
+        if not database or not table:
+            raise RuntimeError("Invalid database backup JSON: database, table, and rows are required")
+        for row in rows:
+            if not isinstance(row, dict):
+                raise RuntimeError("Invalid database backup JSON: every row must be an object")
+        return str(database), str(table), rows
+
+    if database_override and table_override:
+        if not isinstance(payload, dict):
+            raise RuntimeError("Invalid database backup JSON: object payload is required")
+        if not all(isinstance(value, (dict, list, str, int, float, bool, type(None))) for value in payload.values()):
+            raise RuntimeError("Invalid database backup JSON: direct row payload is malformed")
+        return str(database_override), str(table_override), [payload]
+
+    raise RuntimeError("Invalid database backup JSON: database, table, and rows are required")
 
 
 def _expand_related_row_names(
@@ -446,98 +513,34 @@ def _related_name_definition(column_name: str) -> Optional[Tuple[str, str, str]]
     return aliases.get(column_name)
 
 
-def _ensure_mysql_handshake(host: str, port: int, timeout: int) -> None:
-    try:
-        with socket.create_connection((host, port), timeout=timeout) as sock:
-            sock.settimeout(timeout)
-            header = sock.recv(4)
-    except OSError as exc:
-        raise RuntimeError(f"MySQL port check failed: {exc}") from exc
+def _load_all_split_database_dumps(
+    base_path: Path,
+    stem: str,
+) -> List[Dict[str, Any]]:
+    """Load and merge all split database files from the database-named folder into one rows list."""
+    candidate_dirs = [
+        base_path.parent / f"{stem}.ros_maps",
+        base_path.parent / (stem.rsplit("_", 1)[0] if "_" in stem else stem),
+    ]
+    all_rows: List[Dict[str, Any]] = []
 
-    if len(header) < 4:
-        raise RuntimeError("MySQL port check failed: incomplete handshake")
-
-
-def _connect_ssh_with_retry(ssh, host: str, port: int, username: str, password: str) -> None:
-    last_error = None
-    for attempt in range(2):
-        try:
-            ssh.connect(
-                hostname=host,
-                port=port,
-                username=username,
-                password=password,
-                timeout=10,
-                banner_timeout=15,
-                auth_timeout=15,
-            )
-            return
-        except Exception as exc:
-            last_error = exc
-            if attempt == 0:
-                time.sleep(1)
-
-    raise last_error
-
-
-def _mysql_batch_output_to_rows(output_data: str) -> List[Dict[str, Any]]:
-    lines = output_data.splitlines()
-    if not lines:
-        return []
-
-    reader = csv.reader(lines, delimiter="\t")
-    headers = next(reader)
-    rows = []
-
-    for values in reader:
-        row = {}
-        for index, header in enumerate(headers):
-            value = values[index] if index < len(values) else None
-            row[header] = None if value == "NULL" else value
-        rows.append(row)
-
-    return rows
-
-
-def _load_database_dump(
-    input_path: Path,
-    database_override: Optional[str],
-    table_override: Optional[str],
-) -> Tuple[str, str, List[Dict[str, Any]]]:
-    try:
-        with input_path.open("r", encoding="utf-8") as file:
-            payload = json.load(file)
-    except (OSError, ValueError) as exc:
-        raise RuntimeError(f"Invalid database backup JSON: {exc}") from exc
-
-    database = database_override or payload.get("database")
-    table = table_override or payload.get("table")
-    rows = payload.get("rows")
-
-    if not database or not table or not isinstance(rows, list):
-        raise RuntimeError("Invalid database backup JSON: database, table, and rows are required")
-
-    for row in rows:
-        if not isinstance(row, dict):
-            raise RuntimeError("Invalid database backup JSON: every row must be an object")
-
-    # Check if there is a {stem}.ros_maps/ folder with split files
-    stem = input_path.stem
-    ros_maps_dir = input_path.parent / f"{stem}.ros_maps"
-    if ros_maps_dir.is_dir():
-        all_rows: List[Dict[str, Any]] = []
+    for ros_maps_dir in dict.fromkeys(candidate_dirs):
+        if not ros_maps_dir.is_dir():
+            continue
         for split_file in sorted(ros_maps_dir.glob("*.json")):
             try:
                 with split_file.open("r", encoding="utf-8") as file:
-                    split_payload = json.load(file)
-                    if isinstance(split_payload.get("rows"), list):
-                        all_rows.extend(split_payload["rows"])
+                    payload = json.load(file)
+                if isinstance(payload, dict):
+                    rows = payload.get("rows")
+                    if isinstance(rows, list):
+                        all_rows.extend(rows)
+                    elif payload and any(key in payload for key in ("name", "objects", "description", "is_default")):
+                        all_rows.append(payload)
             except (OSError, ValueError):
                 continue
-        if all_rows:
-            rows = all_rows
 
-    return str(database), str(table), rows
+    return all_rows
 
 
 def _build_replace_table_sql(table: str, rows: List[Dict[str, Any]]) -> str:
