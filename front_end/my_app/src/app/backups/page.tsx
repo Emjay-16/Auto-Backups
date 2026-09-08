@@ -13,9 +13,12 @@ export default async function BackupsPage({ searchParams }: BackupsPageProps) {
     getDevicesForUi(),
     getBackupTargets().catch(() => []),
   ]);
+  const computerDeviceIds = devices
+    .filter((device) => device.group.trim().toLowerCase() === "computer")
+    .map((device) => device.id);
   const filteredBackups = backups.filter((backup) =>
     matchesQuery(query, [backup.name, backup.device, backup.type, backup.files, backup.size, backup.status, backup.createdAt]),
   );
 
-  return <BackupsWorkspace backups={filteredBackups} devices={devices} targets={targets} />;
+  return <BackupsWorkspace backups={filteredBackups} devices={devices} targets={targets} computerDeviceIds={computerDeviceIds} />;
 }

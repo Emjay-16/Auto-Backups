@@ -20,6 +20,7 @@ export type Device = {
 
 export type Backup = {
   id?: number;
+  deviceId?: number | null;
   name: string;
   device: string;
   type: string;

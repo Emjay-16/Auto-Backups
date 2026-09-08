@@ -50,10 +50,11 @@ export default function RestorePage() {
         setDevices(deviceItems);
 
         const params = new URLSearchParams(window.location.search);
-        const backupId = params.get("backup_id") ?? String(backupItems.find((backup) => backup.id)?.id ?? "");
+        const firstBackup = backupItems.find((backup) => backup.id);
+        const backupId = params.get("backup_id") ?? String(firstBackup?.id ?? "");
         const deviceId = params.get("device_id") ?? "";
         setSelectedBackupId(backupId);
-        setSelectedDeviceId(deviceId);
+        setSelectedDeviceId(deviceId || (firstBackup?.deviceId ? String(firstBackup.deviceId) : ""));
       })
       .catch((errorResponse) => {
         if (!mounted) return;
@@ -91,6 +92,7 @@ export default function RestorePage() {
       .then((detail) => {
         if (!mounted) return;
         setBackupDetail(detail);
+        setSelectedDeviceId((current) => current || String(detail.device_id));
         setSelectedFileIds(detail.files.map((file) => file.backup_file_id));
         setTargetPaths(
           Object.fromEntries(detail.files.map((file) => [file.backup_file_id, inferRestoreTarget(file)])),
@@ -282,6 +284,7 @@ export default function RestorePage() {
                         key={backup.id ?? `${backup.device}-${backup.name}-${backup.createdAtRaw ?? backup.createdAt}-${index}`}
                         onClick={() => {
                           setSelectedBackupId(String(backup.id ?? ""));
+                          setSelectedDeviceId(backup.deviceId ? String(backup.deviceId) : "");
                           setFilesDialogOpen(false);
                         }}
                         type="button"

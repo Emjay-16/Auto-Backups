@@ -553,6 +553,45 @@
   white-space: nowrap;
 }
 
+.segmentedControl {
+  display: inline-flex;
+  gap: 2px;
+  margin-top: 6px;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: #f1f5f9;
+}
+
+.backupCategoryField {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+}
+
+.fieldLabel {
+  color: #26364b;
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.segmentedControl button {
+  min-height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.segmentedControl .segmentActive {
+  background: #ffffff;
+  color: var(--primary);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.12);
+}
+
 .deviceBackupFooter {
   display: flex;
   align-items: center;
@@ -1549,14 +1588,17 @@
 }
 
 .targetList .targetRow {
-  flex-direction: row;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 0;
   padding: 0;
 }
 
 .targetChoice {
   min-width: 0;
-  display: flex;
-  flex-direction: row;
+  display: grid;
+  grid-template-columns: 19px minmax(0, 1fr) auto;
   align-items: center;
   gap: 11px;
   padding: 11px 12px;
@@ -1564,7 +1606,9 @@
 }
 
 .targetRow > button {
-  margin-right: 12px;
+  align-self: center;
+  margin: 0 12px 0 8px;
+  min-width: 52px;
   min-height: 29px;
   padding: 0 10px;
   border: 1px solid #dbe5ee;
@@ -1611,19 +1655,26 @@
 .targetList input,
 .fileRow input {
   appearance: none;
-  width: 19px;
-  height: 19px;
+  -webkit-appearance: none;
+
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+
   display: grid;
   place-items: center;
-  flex: 0 0 auto;
+
   margin: 0;
+  padding: 0;
+
   border: 1.5px solid #b8c9db;
   border-radius: 50%;
+
   background: #ffffff;
   color: #ffffff;
+
   cursor: pointer;
-  box-shadow:
-    inset 0 1px 2px rgba(15, 23, 42, 0.035);
+
   transition:
     border-color 0.15s ease,
     background 0.15s ease,
@@ -1634,21 +1685,30 @@
 .targetList input::before,
 .fileRow input::before {
   content: "";
+
   width: 7px;
   height: 7px;
+
   border-radius: 50%;
   background: #ffffff;
+
   transform: scale(0);
-  transition: transform 0.13s ease;
+
+  transition: transform 0.14s ease;
+}
+
+.targetList input:hover,
+.fileRow input:hover {
+  border-color: #8eabc3;
 }
 
 .targetList input:checked,
 .fileRow input:checked {
   border-color: var(--primary);
   background: var(--primary);
+
   box-shadow:
-    0 0 0 3px rgba(47, 126, 164, 0.08),
-    0 2px 5px rgba(47, 126, 164, 0.12);
+    0 0 0 3px rgba(47, 126, 164, 0.08);
 }
 
 .targetList input:checked::before,
@@ -1658,7 +1718,8 @@
 
 .targetList input:focus-visible,
 .fileRow input:focus-visible {
-  outline: 0;
+  outline: none;
+
   box-shadow:
     var(--control-focus),
     0 0 0 3px rgba(47, 126, 164, 0.05);
@@ -1666,11 +1727,12 @@
 
 .targetList input:active,
 .fileRow input:active {
-  transform: scale(0.9);
+  transform: scale(0.92);
 }
 
 .targetText {
   min-width: 0;
+  overflow: hidden;
   display: grid;
   gap: 3px;
 }
@@ -1695,6 +1757,7 @@
 
 .targetMeta {
   min-width: 72px;
+  align-self: center;
   justify-self: end;
   padding: 5px 8px;
   border: 1px solid var(--primary-soft);

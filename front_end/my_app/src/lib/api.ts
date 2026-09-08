@@ -373,8 +373,12 @@ export async function deleteDeviceBackupPath(deviceId: number, path: string): Pr
   }
 }
 
-export async function getBackupTargets(): Promise<BackupTarget[]> {
-  return getJson<BackupTarget[]>("/devices/backup-targets", 5000);
+export async function getBackupTargets(deviceId?: number, category?: "robot" | "computer"): Promise<BackupTarget[]> {
+  const params = new URLSearchParams();
+  if (deviceId) params.set("device_id", String(deviceId));
+  if (category) params.set("category", category);
+  const query = params.toString() ? `?${params.toString()}` : "";
+  return getJson<BackupTarget[]>(`/devices/backup-targets${query}`, 5000);
 }
 
 export async function saveCustomBackupPath(path: string, label = ""): Promise<CustomBackupPathResult> {
@@ -611,6 +615,7 @@ function inferDeviceGroup(deviceName: string, deviceCode: string): string {
 function mapBackup(backup: ApiBackup): Backup {
   return {
     id: backup.backup_id,
+    deviceId: backup.device_id,
     name: backup.backup_name,
     device: backup.device_name ?? `Device #${backup.device_id}`,
     type: mapBackupType(backup.backup_type),

@@ -83,7 +83,51 @@ def get_device_name_by_ip(ip_address: str):
 
 
 @router.get("/backup-targets", response_model=List[BackupTargetResponse])
-def get_backup_targets():
+def get_backup_targets(
+    device_id: Optional[int] = None,
+    category: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    if device_id is not None:
+        device_paths = get_device_backup_paths(db, device_id)
+        device = db.query(Device).filter(Device.device_id == device_id).first()
+        if category == "computer":
+            if not device or not device.group or device.group.group_name.strip().lower() != "computer":
+                return []
+            targets = []
+            for index, target in enumerate(device_paths, start=1):
+                target_type = _backup_target_type_from_path(target.path)
+                targets.append(
+                    BackupTargetResponse(
+                        key=f"device_{device_id}_{index}",
+                        label=target.label,
+                        path=target.path,
+                        target_type=target_type,
+                        browsable=target_type == "directory",
+                        backup_api="file",
+                        removable=True,
+                    )
+                )
+            return targets
+        if device_paths:
+            targets = []
+            for index, target in enumerate(device_paths, start=1):
+                target_type = _backup_target_type_from_path(target.path)
+                targets.append(
+                    BackupTargetResponse(
+                        key=f"device_{device_id}_{index}",
+                        label=target.label,
+                        path=target.path,
+                        target_type=target_type,
+                        browsable=target_type == "directory",
+                        backup_api="file",
+                        removable=True,
+                    )
+                )
+            return targets
+        if category not in (None, "robot"):
+            return []
+
     targets = []
     flow_path = os.getenv("ROBOT_NODE_RED_FLOW_PATH")
     maps_path = os.getenv("ROBOT_MAPS_PATH")
@@ -114,19 +158,20 @@ def get_backup_targets():
             )
         )
 
-    for index, custom_target in enumerate(get_custom_auto_backup_targets(), start=1):
-        target_type = _backup_target_type_from_path(custom_target.path)
-        targets.append(
-            BackupTargetResponse(
-                key=f"custom_{index}",
-                label=custom_target.label,
-                path=custom_target.path,
-                target_type=target_type,
-                browsable=target_type == "directory",
-                backup_api="file",
-                removable=True,
+    if category != "computer":
+        for index, custom_target in enumerate(get_custom_auto_backup_targets(), start=1):
+            target_type = _backup_target_type_from_path(custom_target.path)
+            targets.append(
+                BackupTargetResponse(
+                    key=f"custom_{index}",
+                    label=custom_target.label,
+                    path=custom_target.path,
+                    target_type=target_type,
+                    browsable=target_type == "directory",
+                    backup_api="file",
+                    removable=True,
+                )
             )
-        )
 
     if db_name and db_table:
         database_path = f"{db_name}.{db_table}"
@@ -234,15 +279,20 @@ def list_device_files(
     files = []
     try:
         for remote_path in remote_paths:
-            files.extend(
-                list_remote_path(
-                    host=device.ip_address,
-                    username=username,
-                    password=password,
-                    port=port,
-                    remote_path=remote_path,
+            try:
+                files.extend(
+                    list_remote_path(
+                        host=device.ip_address,
+                        username=username,
+                        password=password,
+                        port=port,
+                        remote_path=remote_path,
+                    )
                 )
-            )
+            except RemotePathNotFound:
+                if path:
+                    raise
+                continue
     except RemotePathNotFound as exc:
         device.device_status = constants.DEVICE_STATUS_ONLINE
         device.last_seen_at = now_local()

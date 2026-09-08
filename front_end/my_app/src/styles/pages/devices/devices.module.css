@@ -836,7 +836,10 @@
 }
 
 .browser {
-  max-height: 260px;
+  grid-column: 1 / -1;
+  height: min(54vh, 520px);
+  min-height: 280px;
+  max-height: min(54vh, 520px);
   overflow: auto;
   padding: 12px;
   border: 1px solid rgba(191, 219, 254, 0.82);
@@ -1139,6 +1142,12 @@
   .targetList label,
   .fileRow {
     grid-template-columns: 1fr;
+  }
+
+  .browser {
+    height: min(50vh, 420px);
+    min-height: 220px;
+    max-height: min(50vh, 420px);
   }
 
   .targetList span,

@@ -5,11 +5,14 @@ import { useEffect, useMemo, useState } from "react";
 import {
   backupDownloadUrl,
   backupTargetTypeFromPath,
+  addDeviceBackupPath,
   cleanupBackups,
   deleteCustomBackupPath,
   getAutoBackupSettings,
   getAutoCleanupSettings,
   getBackupDetail,
+  getBackupTargets,
+  deleteDeviceBackupPath,
   listDeviceFiles,
   runCombinedBackup,
   saveBackupPathLabel,
@@ -39,16 +42,21 @@ export function BackupsWorkspace({
   backups,
   devices,
   targets,
+  computerDeviceIds,
 }: {
   backups: Backup[];
   devices: Device[];
   targets: BackupTarget[];
+  computerDeviceIds: number[];
 }) {
   const router = useRouter();
   const { showToast } = useToast();
   const usableDevices = devices.filter((device) => device.id);
   const [mode, setMode] = useState<ModalMode>(null);
   const [deviceId, setDeviceId] = useState("");
+  const [backupCategory, setBackupCategory] = useState<"robot" | "computer">("robot");
+  const [liveTargets, setLiveTargets] = useState<BackupTarget[]>(targets);
+  const [targetsLoading, setTargetsLoading] = useState(false);
   const [backupName, setBackupName] = useState("");
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
   const [customPathLabel, setCustomPathLabel] = useState("");
@@ -82,11 +90,37 @@ export function BackupsWorkspace({
   const [pendingDeleteBackup, setPendingDeleteBackup] = useState<Backup | null>(null);
   const [pendingDeletePath, setPendingDeletePath] = useState<string | null>(null);
   const [editingPathTarget, setEditingPathTarget] = useState<BackupTarget | null>(null);
+  const [pathScope, setPathScope] = useState<"fleet" | "computer">("fleet");
   const [selectedDeviceBackups, setSelectedDeviceBackups] = useState("");
   const backupTargets = useMemo(
-    () => mergeBackupTargets(targets, addedBackupTargets),
-    [targets, addedBackupTargets],
+    () => mergeBackupTargets(liveTargets, addedBackupTargets),
+    [liveTargets, addedBackupTargets],
   );
+
+  useEffect(() => {
+    const numericDeviceId = Number(deviceId);
+
+    if (!numericDeviceId) {
+      return;
+    }
+
+    let cancelled = false;
+    getBackupTargets(numericDeviceId, backupCategory)
+      .then((fetched) => {
+        if (!cancelled) setLiveTargets(fetched);
+      })
+      .catch(() => {
+        if (!cancelled) setLiveTargets(backupCategory === "robot" ? targets : []);
+      })
+      .finally(() => {
+        if (!cancelled) setTargetsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deviceId, backupCategory]);
   const defaultBrowsePath = backupTargets.find((target) => target.browsable)?.path ?? backupTargets[0]?.path ?? "";
   const backupSelectionCount = selectedPaths.length + (includeDatabase ? 1 : 0);
   const backupStats = useMemo(() => buildBackupStats(backups, usableDevices), [backups, usableDevices]);
@@ -153,13 +187,47 @@ export function BackupsWorkspace({
     setCustomPathLabel("");
     setCustomPath("");
     setIncludeDatabase(databaseOnly);
+    setBackupCategory("robot");
     setZipOutput(false);
     setRemoteFiles([]);
     setOpenedPath("");
     openModal("backup");
   }
 
+  function changeDevice(nextDeviceId: string) {
+    setDeviceId(nextDeviceId);
+    setSelectedPaths([]);
+    setAddedBackupTargets([]);
+    setIncludeDatabase(false);
+    if (!Number(nextDeviceId)) {
+      setLiveTargets(backupCategory === "robot" ? targets : []);
+      setTargetsLoading(false);
+    } else {
+      setTargetsLoading(true);
+    }
+  }
+
+  function changeBackupCategory(nextCategory: "robot" | "computer") {
+    setBackupCategory(nextCategory);
+    setDeviceId("");
+    setSelectedPaths([]);
+    setIncludeDatabase(false);
+    setAddedBackupTargets([]);
+    setLiveTargets(nextCategory === "robot" ? targets : []);
+    setTargetsLoading(Boolean(Number(deviceId)));
+  }
+
   function openPathModal(target: BackupTarget | null = null) {
+    setPathScope("fleet");
+    setEditingPathTarget(target);
+    setCustomPathLabel(target?.label ?? "");
+    setCustomPath(target?.path ?? "");
+    openModal("path");
+  }
+
+  function openComputerPathModal(target: BackupTarget | null = null) {
+    if (!Number(deviceId)) return;
+    setPathScope("computer");
     setEditingPathTarget(target);
     setCustomPathLabel(target?.label ?? "");
     setCustomPath(target?.path ?? "");
@@ -453,7 +521,9 @@ export function BackupsWorkspace({
     }
     setSaving(true);
     try {
-      const savedPath = editingPathTarget && !editingPathTarget.removable
+      const savedPath = pathScope === "computer"
+        ? await addDeviceBackupPath(Number(deviceId), path, customPathLabel)
+        : editingPathTarget && !editingPathTarget.removable
         ? await saveBackupPathLabel(path, customPathLabel)
         : await saveCustomBackupPath(path, customPathLabel);
       if (!editingPathTarget && savedPath.path.startsWith("/")) {
@@ -487,7 +557,9 @@ export function BackupsWorkspace({
       setError("");
       showToast({
         tone: "success",
-        title: editingPathTarget ? "Backup path renamed" : "Auto backup path added",
+        title: pathScope === "computer"
+          ? editingPathTarget ? "Computer path renamed" : "Computer path added"
+          : editingPathTarget ? "Backup path renamed" : "Auto backup path added",
         message: `${savedPath.label}: ${savedPath.path}`,
       });
       setEditingPathTarget(null);
@@ -495,8 +567,8 @@ export function BackupsWorkspace({
     } catch (errorResponse) {
       showToast({
         tone: "error",
-        title: "Save auto backup path failed",
-        message: getErrorMessage(errorResponse, "Save auto backup path failed"),
+        title: pathScope === "computer" ? "Save computer path failed" : "Save auto backup path failed",
+        message: getErrorMessage(errorResponse, pathScope === "computer" ? "Save computer path failed" : "Save auto backup path failed"),
       });
     } finally {
       setSaving(false);
@@ -512,6 +584,22 @@ export function BackupsWorkspace({
       setCustomPath("");
     }
     setError("");
+  }
+
+  async function deleteComputerPath(path: string) {
+    setSaving(true);
+    try {
+      await deleteDeviceBackupPath(Number(deviceId), path);
+      setPendingDeletePath(null);
+      setEditingPathTarget(null);
+      setLiveTargets((current) => current.filter((target) => target.path !== path));
+      showToast({ tone: "success", title: "Computer path removed", message: path });
+      router.refresh();
+    } catch (errorResponse) {
+      showToast({ tone: "error", title: "Delete computer path failed", message: getErrorMessage(errorResponse, "Delete computer path failed") });
+    } finally {
+      setSaving(false);
+    }
   }
 
   function toggleDownloadFile(fileId: number) {
@@ -801,8 +889,8 @@ export function BackupsWorkspace({
             )}
           >
             <div className={styles.pathList}>
-              {backupTargets.length ? (
-                backupTargets.map((target) => (
+              {targets.length ? (
+                targets.map((target) => (
                   <div className={styles.pathItem} key={`${target.backup_api}:${target.path}:${target.key}`}>
                     <p>
                       <strong>{target.label}</strong>
@@ -859,8 +947,13 @@ export function BackupsWorkspace({
               ) : null}
               {mode === "browse" ? <button onClick={browseFiles} disabled={saving} type="button">{saving ? "Loading..." : "Load files"}</button> : null}
               {mode === "path" && editingPathTarget?.removable ? (
-                <button className={styles.dangerButton} onClick={() => requestDeleteCustomPath(editingPathTarget.path)} disabled={saving} type="button">
-                  Delete path
+                <button
+                  className={styles.dangerButton}
+                  onClick={() => pathScope === "computer" ? void deleteComputerPath(editingPathTarget.path) : requestDeleteCustomPath(editingPathTarget.path)}
+                  disabled={saving}
+                  type="button"
+                >
+                  Delete {pathScope === "computer" ? "computer " : ""}path
                 </button>
               ) : null}
               {mode === "path" ? (
@@ -1013,8 +1106,8 @@ export function BackupsWorkspace({
               </div>
               <div className={`${styles.formGrid} ${styles.pathForm}`}>
                 <div className={styles.pathFormTitle}>
-                  <span>{editingPathTarget ? "Editing path" : "Add custom path"}</span>
-                  <strong>{editingPathTarget ? editingPathTarget.label : "เพิ่ม path ใหม่สำหรับ auto backup"}</strong>
+                  <span>{editingPathTarget ? "Editing path" : pathScope === "computer" ? "Add computer path" : "Add custom path"}</span>
+                  <strong>{editingPathTarget ? editingPathTarget.label : pathScope === "computer" ? "เพิ่ม path เฉพาะเครื่องนี้" : "เพิ่ม path ใหม่สำหรับ auto backup"}</strong>
                   {editingPathTarget ? (
                     <button
                       onClick={() => {
@@ -1033,7 +1126,7 @@ export function BackupsWorkspace({
                   <input
                     value={customPathLabel}
                     onChange={(event) => setCustomPathLabel(event.target.value)}
-                    placeholder="เช่น Robot rules"
+                    placeholder={pathScope === "computer" ? "เช่น App data" : "เช่น Robot rules"}
                   />
                   <span className={styles.fieldHint}>
                     ชื่อนี้จะแสดงใน Backup Paths และรายการ selection
@@ -1054,7 +1147,7 @@ export function BackupsWorkspace({
                     placeholder="/home/matrix/path/to/file-or-folder"
                   />
                   <span className={styles.fieldHint}>
-                    {editingPathTarget ? "แก้ path ไม่ได้ ถ้าต้องการเปลี่ยน path ให้ลบแล้วเพิ่มใหม่" : "เพิ่ม custom path ใหม่สำหรับ auto backup"}
+                    {editingPathTarget ? "แก้ path ไม่ได้ ถ้าต้องการเปลี่ยน path ให้ลบแล้วเพิ่มใหม่" : pathScope === "computer" ? "path นี้จะใช้เฉพาะกับ Computer เครื่องที่เลือก" : "เพิ่ม custom path ใหม่สำหรับ auto backup"}
                   </span>
                 </label>
               </div>
@@ -1090,11 +1183,20 @@ export function BackupsWorkspace({
             </div>
           ) : (
             <div className={mode === "backup" ? `${styles.formGrid} ${styles.backupForm}` : styles.formGrid}>
+              {mode === "backup" ? (
+                <div className={styles.backupCategoryField}>
+                  <span className={styles.fieldLabel}>Backup source</span>
+                  <span className={styles.segmentedControl} role="group" aria-label="Backup category">
+                    <button className={backupCategory === "robot" ? styles.segmentActive : ""} onClick={() => changeBackupCategory("robot")} type="button">Robot</button>
+                    <button className={backupCategory === "computer" ? styles.segmentActive : ""} onClick={() => changeBackupCategory("computer")} type="button">Computer</button>
+                  </span>
+                </div>
+              ) : null}
               <label>
-                Device
-                <select value={deviceId} onChange={(event) => setDeviceId(event.target.value)}>
-                  <option value="">Select a device</option>
-                  {usableDevices.map((device) => (
+                {mode === "backup" && backupCategory === "computer" ? "Computer" : mode === "backup" ? "Robot" : "Device"}
+                <select value={deviceId} onChange={(event) => changeDevice(event.target.value)}>
+                  <option value="">Select a {mode === "backup" && backupCategory === "computer" ? "computer" : "robot"}</option>
+                  {usableDevices.filter((device) => backupCategory === "robot" || computerDeviceIds.includes(device.id)).map((device) => (
                     <option key={device.id} value={device.id}>{device.name} · {device.ip}</option>
                   ))}
                 </select>
@@ -1136,15 +1238,29 @@ export function BackupsWorkspace({
                     <div className={styles.selectionHeader}>
                       <div>
                         <strong>Backup targets</strong>
-                        <span>{backupSelectionCount} selected</span>
+                        <span>
+                          {backupSelectionCount} selected
+                          {backupCategory === "computer"
+                            ? " · computer paths เฉพาะเครื่องนี้"
+                            : liveTargets.some((target) => target.key.startsWith("device_"))
+                              ? " · path เฉพาะเครื่องนี้"
+                            : deviceId
+                              ? " · path กลางของฟลีต"
+                              : ""}
+                        </span>
                       </div>
                       <div className={styles.selectionActions}>
                         <button onClick={selectAllBackupTargets} type="button">Select all</button>
                         <button disabled={!backupSelectionCount} onClick={clearBackupTargets} type="button">Clear</button>
+                        {backupCategory === "computer" && deviceId ? (
+                          <button onClick={() => openComputerPathModal()} type="button">Manage paths</button>
+                        ) : null}
                       </div>
                     </div>
                     <div className={styles.targetList}>
-                      {backupTargets.length ? backupTargets.map((target) => (
+                      {targetsLoading ? (
+                        <p className={styles.emptyText}>กำลังโหลด path ของเครื่องนี้...</p>
+                      ) : backupTargets.length ? backupTargets.map((target) => (
                         <div className={styles.targetRow} key={`${target.backup_api}:${target.path}:${target.key}`}>
                           <label className={styles.targetChoice}>
                             <input
@@ -1175,8 +1291,14 @@ export function BackupsWorkspace({
                             </button>
                           ) : null}
                         </div>
-                      )) : (
-                        <p className={styles.emptyText}>No backup targets configured</p>
+                      )) : deviceId ? (
+                        <p className={styles.emptyText}>
+                          {backupCategory === "computer"
+                            ? "Computer นี้ยังไม่มี path — ไปเพิ่มที่หน้า Devices → แก้ไขเครื่องนี้ → \"Backup path เฉพาะเครื่องนี้\""
+                            : "เครื่องนี้ยังไม่มี path ให้เลือก backup — ไปเพิ่ม path ได้ที่หน้า Devices → แก้ไขเครื่องนี้ → \"Backup path เฉพาะเครื่องนี้\""}
+                        </p>
+                      ) : (
+                        <p className={styles.emptyText}>เลือกเครื่องก่อน เพื่อดู path ที่ backup ได้</p>
                       )}
                     </div>
                   </div>
