@@ -885,6 +885,19 @@
   background: rgba(255, 255, 255, 0.82);
 }
 
+.fileList .browseFolder {
+  cursor: pointer;
+  transition: border-color 0.14s ease, background 0.14s ease, transform 0.14s ease;
+}
+
+.fileList .browseFolder:hover,
+.fileList .browseFolder:focus-visible {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  outline: 0;
+  transform: translateY(-1px);
+}
+
 .fileList strong,
 .resultBox strong {
   display: block;

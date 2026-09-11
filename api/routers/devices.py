@@ -129,13 +129,22 @@ def get_backup_targets(
             return []
 
     targets = []
+    seen_paths = set()
+
+    def append_unique_target(target: BackupTargetResponse):
+        normalized_path = target.path.rstrip("/") or "/"
+        if normalized_path in seen_paths:
+            return
+        seen_paths.add(normalized_path)
+        targets.append(target)
+
     flow_path = os.getenv("ROBOT_NODE_RED_FLOW_PATH")
     maps_path = os.getenv("ROBOT_MAPS_PATH")
     db_name = os.getenv("ROBOT_DB_NAME")
     db_table = os.getenv("ROBOT_DB_TABLE")
 
     if flow_path:
-        targets.append(
+        append_unique_target(
             BackupTargetResponse(
                 key="flows",
                 label=get_backup_path_label(flow_path, "Node-RED flows"),
@@ -147,7 +156,7 @@ def get_backup_targets(
         )
 
     if maps_path:
-        targets.append(
+        append_unique_target(
             BackupTargetResponse(
                 key="maps",
                 label=get_backup_path_label(maps_path, "Maps folder"),
@@ -161,7 +170,7 @@ def get_backup_targets(
     if category != "computer":
         for index, custom_target in enumerate(get_custom_auto_backup_targets(), start=1):
             target_type = _backup_target_type_from_path(custom_target.path)
-            targets.append(
+            append_unique_target(
                 BackupTargetResponse(
                     key=f"custom_{index}",
                     label=custom_target.label,
@@ -175,7 +184,7 @@ def get_backup_targets(
 
     if db_name and db_table:
         database_path = f"{db_name}.{db_table}"
-        targets.append(
+        append_unique_target(
             BackupTargetResponse(
                 key="robot_db",
                 label=get_backup_path_label(database_path, f"{db_name}.{db_table} -> JSON"),

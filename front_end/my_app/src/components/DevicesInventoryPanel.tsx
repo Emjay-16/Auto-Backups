@@ -46,6 +46,8 @@ type DeviceFilter =
   | { key: `group:${number}`; label: string; kind: "group"; groupId: number }
   | { key: "online"; label: "Online"; kind: "online" };
 
+const DEFAULT_BROWSE_PATH = "/home";
+
 function makeEmptyForm(groups: DeviceGroupOption[]): FormState {
   return {
     groupId: String(groups[0]?.group_id ?? ""),
@@ -73,7 +75,7 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
   const [devicePathsLoading, setDevicePathsLoading] = useState(false);
   const [newDevicePath, setNewDevicePath] = useState("");
   const [newDevicePathLabel, setNewDevicePathLabel] = useState("");
-  const [remotePath, setRemotePath] = useState("");
+  const [remotePath, setRemotePath] = useState(DEFAULT_BROWSE_PATH);
   const [backupTargets, setBackupTargets] = useState<BackupTarget[]>([]);
   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
   const [customBackupPathLabel, setCustomBackupPathLabel] = useState("");
@@ -169,8 +171,9 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
     setRemoteFiles([]);
     setBackupResult(null);
     setError("");
+    setRemotePath(DEFAULT_BROWSE_PATH);
     setActionMode("browse");
-    await loadRemoteFiles(device.id, remotePath);
+    await loadRemoteFiles(device.id, DEFAULT_BROWSE_PATH);
   }
 
   async function openBackup(device: Device) {
@@ -209,6 +212,13 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
       showToast({ tone: "error", title: "Load files failed", message: getErrorMessage(errorResponse, "Load files failed") });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function openBrowsePath(path: string) {
+    setRemotePath(path);
+    if (selectedDevice?.id) {
+      await loadRemoteFiles(selectedDevice.id, path);
     }
   }
 
@@ -562,7 +572,7 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
             <div className={styles.modalHeader}>
               <div>
                 <p>{selectedDevice?.ip}</p>
-                <h2>{actionMode === "browse" ? `Browse ${selectedDevice?.name}` : `Backup ${selectedDevice?.name}`}</h2>
+                <h2>{actionMode === "browse" ? "Browse robot files" : `Backup ${selectedDevice?.name}`}</h2>
               </div>
               <button className={styles.closeButton} onClick={closeModal} aria-label="Close" type="button">
                 ×
@@ -587,7 +597,21 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
                 <div className={styles.fileList}>
                   {remoteFiles.length ? (
                     remoteFiles.map((file) => (
-                      <article key={file.path}>
+                      <article
+                        className={file.file_type === "directory" ? styles.browseFolder : ""}
+                        key={file.path}
+                        onClick={() => {
+                          if (file.file_type === "directory") void openBrowsePath(file.path);
+                        }}
+                        onKeyDown={(event) => {
+                          if (file.file_type === "directory" && (event.key === "Enter" || event.key === " ")) {
+                            event.preventDefault();
+                            void openBrowsePath(file.path);
+                          }
+                        }}
+                        role={file.file_type === "directory" ? "button" : undefined}
+                        tabIndex={file.file_type === "directory" ? 0 : undefined}
+                      >
                         <div>
                           <strong>{file.name}</strong>
                           <span>{file.path}</span>
