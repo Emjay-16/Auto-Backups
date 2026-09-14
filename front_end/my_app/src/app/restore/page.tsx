@@ -499,65 +499,65 @@ function inferRestoreTarget(file: BackupFileDetail): string {
   if (isLikelyDatabaseBackupFile(file)) return "";
 
   const remotePath = typeof file.remote_path === "string" ? file.remote_path.trim() : "";
-  if (remotePath && !remotePath.startsWith("ssh+mysql://") && !remotePath.startsWith("mysql://")) {
+  if (
+    remotePath &&
+    !remotePath.startsWith("ssh+mysql://") &&
+    !remotePath.startsWith("mysql://") &&
+    !remotePath.startsWith("database://")
+  ) {
     return remotePath;
   }
 
   if (file.file_name === "flows.json") return "/home/matrix/node-red-dev/node-red-user/flows.json";
+  if (file.file_name === "matrix_robot.rules") return "/etc/udev/rules.d/matrix_robot.rules";
 
-  const filePath = (file.file_path ?? "").trim();
+  const filePath = (file.file_path ?? "").replace(/\\/g, "/");
+  const lowerPath = filePath.toLowerCase();
   const mapsRoot = "/home/matrix/public_web/ist_web_release/writable/uploads/maps";
+  const soundsRoot = "/home/matrix/public_web/ist_web_release/writable/uploads/sounds";
 
-  const derivedFromFilePath = deriveFileParentDirectory(filePath, file.file_name);
-  if (derivedFromFilePath) {
-    return derivedFromFilePath;
+  // Check if file is part of maps directory
+  if (lowerPath.includes("/maps/")) {
+    const mapsIndex = lowerPath.lastIndexOf("/maps/");
+    const rel = filePath.slice(mapsIndex + "/maps/".length);
+    return `${mapsRoot}/${rel}`;
+  }
+
+  // Check if file is part of sounds directory
+  if (lowerPath.includes("/sounds/")) {
+    const soundsIndex = lowerPath.lastIndexOf("/sounds/");
+    const rel = filePath.slice(soundsIndex + "/sounds/".length);
+    return `${soundsRoot}/${rel}`;
   }
 
   if (isZipBackupFile(file)) {
-    if (file.file_name.toLowerCase().includes("maps") || filePath.toLowerCase().includes("/maps/") || filePath.toLowerCase().includes("/layouts/")) {
+    if (file.file_name.toLowerCase().includes("maps") || lowerPath.includes("maps")) {
       return mapsRoot;
     }
-    return "";
-  }
-
-  const mapsMarker = "/maps/";
-  const mapsIndex = file.file_path.indexOf(mapsMarker);
-  if (mapsIndex >= 0) {
-    return `${mapsRoot}/${file.file_path.slice(mapsIndex + mapsMarker.length)}`;
-  }
-  if (file.file_name.includes("maps")) {
+    if (file.file_name.toLowerCase().includes("sounds") || lowerPath.includes("sounds")) {
+      return soundsRoot;
+    }
     return mapsRoot;
   }
-  return file.file_name;
-}
 
-function deriveFileParentDirectory(filePath: string, fileName: string): string {
-  if (!filePath) return "";
-
-  const normalized = filePath.replace(/\\/g, "/").trim();
-  if (!normalized || normalized.startsWith("ssh+mysql://") || normalized.startsWith("mysql://")) {
-    return "";
-  }
-
-  const lastSlashIndex = normalized.lastIndexOf("/");
-  const parentDir = lastSlashIndex >= 0 ? normalized.slice(0, lastSlashIndex) : "";
-  if (!parentDir) return "";
-
-  const lowerFileName = fileName.toLowerCase();
-  const lowerPath = normalized.toLowerCase();
-  const isMapLike = lowerPath.includes("/maps/") || lowerPath.includes("/layouts/") || lowerFileName.includes("maps") || lowerFileName.includes("layout");
-  if (!isMapLike) {
-    return "";
-  }
-
-  if (normalized.endsWith(`/${fileName}`) || normalized.endsWith(`\\${fileName}`)) {
-    return parentDir;
-  }
-
-  return parentDir;
+  return `${mapsRoot}/${file.file_name}`;
 }
 
 function isLikelyDatabaseBackupFile(file: BackupFileDetail): boolean {
+  const remotePath = typeof file.remote_path === "string" ? file.remote_path.trim().toLowerCase() : "";
+  if (
+    remotePath.startsWith("database://") ||
+    remotePath.startsWith("ssh+mysql://") ||
+    remotePath.startsWith("mysql://")
+  ) {
+    return true;
+  }
+  const filePath = (file.file_path ?? "").replace(/\\/g, "/").toLowerCase();
+  const parts = filePath.split("/");
+  const parentName = parts.length > 1 ? parts[parts.length - 2] : "";
+  if (parentName.includes("ros_maps") || parentName === "istuvd") {
+    return true;
+  }
   const name = file.file_name.toLowerCase();
   return name.endsWith(".json") && (name.includes("ros_maps") || name.includes("istuvd_ros_maps"));
 }

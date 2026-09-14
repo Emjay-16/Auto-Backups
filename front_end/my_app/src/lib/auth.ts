@@ -1,7 +1,9 @@
 import type { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+function getAuthApiUrl(): string {
+  return process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+}
 
 type BackendLoginResponse = {
   user_id: number;
@@ -33,7 +35,8 @@ export const authOptions: NextAuthOptions = {
 
         if (!userName || !password) return null;
 
-        const response = await fetch(`${API_URL}/auth/login`, {
+        const apiUrl = getAuthApiUrl();
+        const response = await fetch(`${apiUrl}/auth/login`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

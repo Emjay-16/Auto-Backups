@@ -8,7 +8,13 @@ import {
   type JobStatus,
 } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+export function getApiBaseUrl(): string {
+  if (typeof window === "undefined") {
+    return process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  }
+  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+}
+
 const API_AUTH_TOKEN = process.env.NEXT_PUBLIC_API_AUTH_TOKEN?.trim() ?? "";
 
 type ApiDevice = {
@@ -467,7 +473,8 @@ export function backupDownloadUrl(backupId: number, fileIds: number[] = [], file
     ...fileIds.map((fileId) => `file_ids=${encodeURIComponent(fileId)}`),
     ...(filename.trim() ? [`filename=${encodeURIComponent(filename.trim())}`] : []),
   ].join("&");
-  return `${API_URL}/backups/${backupId}/download${params ? `?${params}` : ""}`;
+  const publicApiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  return `${publicApiUrl}/backups/${backupId}/download${params ? `?${params}` : ""}`;
 }
 
 export async function restoreBackup(backupId: number, payload: RestoreRunPayload): Promise<RestoreRunResult> {
@@ -546,7 +553,8 @@ export async function fetchApi(path: string, init: RequestInit = {}): Promise<Re
     headers.set("Authorization", `Bearer ${API_AUTH_TOKEN}`);
   }
 
-  return fetch(`${API_URL}${path}`, {
+  const baseUrl = getApiBaseUrl();
+  return fetch(`${baseUrl}${path}`, {
     ...init,
     headers,
   });

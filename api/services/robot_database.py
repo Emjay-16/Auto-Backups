@@ -143,7 +143,7 @@ def restore_mysql_table_from_json(
     except ModuleNotFoundError as exc:
         raise RuntimeError("Missing dependency: install pymysql") from exc
 
-    target_database, target_table, rows = _load_database_dump(input_path, database, table)
+    target_database, target_table, rows, is_full_table_dump = _load_database_dump(input_path, database, table)
     _ensure_mysql_handshake(host, port, timeout=5)
 
     connection = pymysql.connect(
@@ -161,7 +161,15 @@ def restore_mysql_table_from_json(
 
     try:
         with connection.cursor() as cursor:
-            cursor.execute(f"DELETE FROM {_quote_mysql_identifier(target_table)}")
+            if is_full_table_dump:
+                cursor.execute(f"DELETE FROM {_quote_mysql_identifier(target_table)}")
+            elif rows and any(r.get("name") for r in rows):
+                names = [r["name"] for r in rows if r.get("name")]
+                placeholders = ", ".join(["%s"] * len(names))
+                cursor.execute(
+                    f"DELETE FROM {_quote_mysql_identifier(target_table)} WHERE `name` IN ({placeholders})",
+                    tuple(names),
+                )
             if rows:
                 columns = _ordered_row_columns(rows)
                 placeholders = ", ".join(["%s"] * len(columns))
@@ -203,8 +211,8 @@ def restore_mysql_table_via_ssh(
     except ModuleNotFoundError as exc:
         raise RuntimeError("Missing dependency: install paramiko") from exc
 
-    target_database, target_table, rows = _load_database_dump(input_path, database, table)
-    sql = _build_replace_table_sql(target_table, rows)
+    target_database, target_table, rows, is_full_table_dump = _load_database_dump(input_path, database, table)
+    sql = _build_replace_table_sql(target_table, rows, is_full_table_dump=is_full_table_dump)
     command = " ".join(
         [
             f"MYSQL_PWD={shlex.quote(db_password)}",
@@ -417,7 +425,7 @@ def _load_database_dump(
     input_path: Path,
     database_override: Optional[str],
     table_override: Optional[str],
-) -> Tuple[str, str, List[Dict[str, Any]]]:
+) -> Tuple[str, str, List[Dict[str, Any]], bool]:
     try:
         with input_path.open("r", encoding="utf-8") as file:
             payload = json.load(file)
@@ -427,23 +435,22 @@ def _load_database_dump(
     if not isinstance(payload, dict):
         raise RuntimeError("Invalid database backup JSON: object payload is required")
 
+    database = database_override or payload.get("database") or os.getenv("ROBOT_DB_NAME", "istuvd")
+    table = table_override or payload.get("table") or os.getenv("ROBOT_DB_TABLE", "ros_maps")
+
     if isinstance(payload.get("rows"), list):
-        database = database_override or payload.get("database")
-        table = table_override or payload.get("table")
         rows = payload["rows"]
-        if not database or not table:
-            raise RuntimeError("Invalid database backup JSON: database, table, and rows are required")
         for row in rows:
             if not isinstance(row, dict):
                 raise RuntimeError("Invalid database backup JSON: every row must be an object")
-        return str(database), str(table), rows
+        return str(database), str(table), rows, True
+
+    # Single map row (split json format: {"name": ..., ...})
+    if any(k in payload for k in ("name", "map_data", "objects", "description")):
+        return str(database), str(table), [payload], False
 
     if database_override and table_override:
-        if not isinstance(payload, dict):
-            raise RuntimeError("Invalid database backup JSON: object payload is required")
-        if not all(isinstance(value, (dict, list, str, int, float, bool, type(None))) for value in payload.values()):
-            raise RuntimeError("Invalid database backup JSON: direct row payload is malformed")
-        return str(database_override), str(table_override), [payload]
+        return str(database_override), str(table_override), [payload], False
 
     raise RuntimeError("Invalid database backup JSON: database, table, and rows are required")
 
@@ -543,12 +550,20 @@ def _load_all_split_database_dumps(
     return all_rows
 
 
-def _build_replace_table_sql(table: str, rows: List[Dict[str, Any]]) -> str:
+def _build_replace_table_sql(table: str, rows: List[Dict[str, Any]], is_full_table_dump: bool = False) -> str:
     statements = [
         "SET autocommit=0;",
         "START TRANSACTION;",
-        f"DELETE FROM {_quote_mysql_identifier(table)};",
     ]
+
+    if is_full_table_dump:
+        statements.append(f"DELETE FROM {_quote_mysql_identifier(table)};")
+    elif rows and any(r.get("name") for r in rows):
+        names = [_mysql_literal(r["name"]) for r in rows if r.get("name")]
+        if names:
+            statements.append(
+                f"DELETE FROM {_quote_mysql_identifier(table)} WHERE `name` IN ({', '.join(names)});"
+            )
 
     if rows:
         columns = _ordered_row_columns(rows)

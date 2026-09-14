@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 
 from api import constants, models, schemas
 from api.errors import api_exception
-from api.path_utils import project_path
+from api.path_utils import project_path, resolve_backup_file_path
 from api.services.activity_log import log_activity
 from api.services.backup_targets import get_default_auto_backup_paths
 from api.services.device_resolver import resolve_device, resolve_user
@@ -1038,64 +1038,104 @@ def _backup_file_remote_path(
     backup_file: models.BackupFile,
     manifest: Optional[Dict[str, Any]],
 ) -> Optional[str]:
+    file_path = resolve_backup_file_path(backup_file.file_path)
+    file_name = backup_file.file_name
+    parent_name = file_path.parent.name
+
+    # Check if this is a database backup file
     configured_database_file = _configured_robot_database_path(Path("/tmp"))
-    if configured_database_file:
-        db_stem = configured_database_file.stem
-        file_path = Path(backup_file.file_name)
-        file_stem = file_path.stem
-        parent_name = file_path.parent.name
-        # Match exact database file OR any file inside the database-named folder
-        if (
-            backup_file.file_name == configured_database_file.name
-            or file_stem.startswith(f"{db_stem}_")
-            or parent_name in {db_stem, f"{db_stem}.ros_maps"}
-        ):
-            return f"database://{backup_file.file_name}"
+    db_stem = configured_database_file.stem if configured_database_file else "ros_maps"
+    if (
+        (configured_database_file and file_name == configured_database_file.name)
+        or file_name.startswith(f"{db_stem}_")
+        or parent_name in {db_stem, f"{db_stem}.ros_maps", "istuvd.ros_maps", "ros_maps"}
+    ):
+        return f"database://{file_name}"
 
-    if not manifest:
-        return None
-
-    paths = manifest.get("paths")
-    if not isinstance(paths, dict):
-        return None
-
+    paths = manifest.get("paths", {}) if isinstance(manifest, dict) else {}
     remote_items = [
         item
         for item in paths.values()
         if isinstance(item, dict) and isinstance(item.get("remote_path"), str)
     ]
-    if not remote_items:
-        return None
+    database_items = [
+        item for item in remote_items
+        if item["remote_path"].lower().startswith(("ssh+mysql://", "mysql://"))
+    ]
+    non_db_items = [
+        item for item in remote_items
+        if not item["remote_path"].lower().startswith(("ssh+mysql://", "mysql://"))
+    ]
 
-    file_path = Path(backup_file.file_path)
+    # If it's a zip file
     if file_path.suffix.lower() == ".zip":
+        if non_db_items:
+            return _single_manifest_remote_path(non_db_items)
         return _single_manifest_remote_path(remote_items)
 
+    # 1. Match against single file targets (e.g. flows.json, matrix_robot.rules)
+    for item in non_db_items:
+        rp = item["remote_path"]
+        if posixpath.basename(rp.rstrip("/\\")) == file_name and not item.get("is_directory", False):
+            return rp
+
+    # 2. Match directory relative structure using manifest
     backup_root = next(
         (parent for parent in file_path.parents if (parent / ".auto_backup_manifest.json").exists()),
         None,
     )
     if backup_root:
-        relative_file_path = file_path.relative_to(backup_root).as_posix()
-        normalized_relative_path = relative_file_path.lstrip("/").lower()
-        database_items = [
-            item for item in remote_items
-            if item["remote_path"].lower().startswith(("ssh+mysql://", "mysql://"))
-        ]
-        if len(database_items) == 1 and "/" not in relative_file_path:
-            return database_items[0]["remote_path"]
-        for item in remote_items:
-            remote_path = item["remote_path"].replace("\\", "/")
-            normalized_remote_path = remote_path.rstrip("/").lstrip("/").lower()
-            if normalized_relative_path == normalized_remote_path or normalized_relative_path.startswith(f"{normalized_remote_path}/"):
-                suffix = relative_file_path[len(normalized_remote_path):].lstrip("/")
-                return posixpath.join(remote_path.rstrip("/"), suffix) if suffix else remote_path
+        try:
+            rel = file_path.relative_to(backup_root).as_posix()
+            parts = rel.split("/")
+            for item in non_db_items:
+                rp = item["remote_path"]
+                dir_name = posixpath.basename(rp.rstrip("/\\"))
+                if parts[0] == dir_name and len(parts) > 1:
+                    return posixpath.join(rp, *parts[1:])
+                elif parts[0] == dir_name and len(parts) == 1 and not item.get("is_directory", False):
+                    return rp
+        except ValueError:
+            pass
 
-    file_name = backup_file.file_name
-    for item in remote_items:
-        remote_path = item["remote_path"]
-        if posixpath.basename(remote_path.rstrip("/")) == file_name:
-            return remote_path
+    # 3. Check if file belongs to standard robot directory structures on disk
+    path_parts_lower = [part.lower() for part in file_path.parts]
+    if "maps" in path_parts_lower:
+        maps_idx = path_parts_lower.index("maps")
+        sub_parts = list(file_path.parts[maps_idx + 1:])
+        maps_root = os.getenv("ROBOT_MAPS_PATH", "/home/matrix/public_web/ist_web_release/writable/uploads/maps")
+        return posixpath.join(maps_root, *sub_parts) if sub_parts else maps_root
+
+    if "sounds" in path_parts_lower:
+        sounds_idx = path_parts_lower.index("sounds")
+        sub_parts = list(file_path.parts[sounds_idx + 1:])
+        sounds_root = "/home/matrix/public_web/ist_web_release/writable/uploads/sounds"
+        return posixpath.join(sounds_root, *sub_parts) if sub_parts else sounds_root
+
+    if file_name == "flows.json":
+        return os.getenv("ROBOT_NODE_RED_FLOW_PATH", "/home/matrix/node-red-dev/node-red-user/flows.json")
+
+    if file_name == "matrix_robot.rules":
+        return "/etc/udev/rules.d/matrix_robot.rules"
+
+    # 4. Check if root-level JSON file is a database map row
+    if file_path.suffix.lower() == ".json":
+        if parent_name in {"istuvd", "ros_maps", "istuvd.ros_maps"}:
+            return database_items[0]["remote_path"] if database_items else f"database://{file_name}"
+        try:
+            if file_path.exists():
+                with file_path.open("r", encoding="utf-8") as f:
+                    data = json.load(f)
+                if isinstance(data, dict) and any(k in data for k in ("map_data", "map_name", "objects", "canvas_json", "route_list")):
+                    return database_items[0]["remote_path"] if database_items else f"database://{file_name}"
+        except Exception:
+            pass
+
+    # 5. Default fallback to match file_name in non_db_items
+    for item in non_db_items:
+        rp = item["remote_path"]
+        if posixpath.basename(rp.rstrip("/\\")) == file_name:
+            return rp
 
     return None
 
@@ -1162,6 +1202,11 @@ def _create_combined_auto_backup(
 
         if manifest:
             _write_auto_backup_manifest(local_path, manifest)
+        elif database_dump:
+            _write_auto_backup_manifest(
+                local_path,
+                _build_auto_backup_manifest([], database_dump, backup_mode="manual"),
+            )
 
         zip_path = None
         if zip_output:
@@ -1477,7 +1522,7 @@ def _database_dump_changed(
         file_matched = False
         for backup in backups:
             for backup_file in backup.files:
-                file_path = Path(backup_file.file_path)
+                file_path = resolve_backup_file_path(backup_file.file_path)
                 if (
                     file_path.exists()
                     and backup_file.file_name == dump_file.file_name
@@ -1527,7 +1572,7 @@ def _latest_database_backup_stable_checksum(
         if backup_file.file_name != file_name:
             continue
 
-        file_path = Path(backup_file.file_path)
+        file_path = resolve_backup_file_path(backup_file.file_path)
         if not file_path.exists():
             continue
 
@@ -1608,7 +1653,7 @@ def _manifest_checksum_for_remote_path(latest_backup: models.Backup, remote_path
 
 def _read_auto_backup_manifest(latest_backup: models.Backup) -> Optional[Dict[str, Any]]:
     for backup_file in latest_backup.files:
-        file_path = Path(backup_file.file_path)
+        file_path = resolve_backup_file_path(backup_file.file_path)
         manifest = _read_manifest_near_backup_file(file_path)
         if manifest:
             return manifest
@@ -1792,7 +1837,7 @@ def _fail_backup_job(
 
 def _existing_zip_file(backup_files: List[models.BackupFile]) -> Optional[Path]:
     for backup_file in backup_files:
-        file_path = Path(backup_file.file_path)
+        file_path = resolve_backup_file_path(backup_file.file_path)
         if file_path.suffix.lower() == ".zip" and file_path.exists():
             return file_path
     return None
@@ -1811,7 +1856,7 @@ def _make_download_zip(backup: models.Backup, backup_files: List[models.BackupFi
     with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
         used_names = set()
         for backup_file in backup_files:
-            file_path = Path(backup_file.file_path)
+            file_path = resolve_backup_file_path(backup_file.file_path)
             if not file_path.exists():
                 raise api_exception(
                     status.HTTP_404_NOT_FOUND,
@@ -1924,7 +1969,7 @@ def _delete_backup_files_from_disk(backup_files: List[models.BackupFile]) -> int
     touched_dirs = set()
 
     for backup_file in backup_files:
-        file_path = Path(backup_file.file_path)
+        file_path = resolve_backup_file_path(backup_file.file_path)
         if not file_path.exists() or not file_path.is_file():
             continue
 
@@ -1959,12 +2004,12 @@ def _default_auto_backup_paths() -> List[str]:
 
 
 def _local_files_signature(backup_files: List[models.BackupFile]) -> str:
-    file_paths = [Path(file.file_path) for file in backup_files]
+    file_paths = [resolve_backup_file_path(file.file_path) for file in backup_files]
     common_root = Path(os.path.commonpath([str(path.parent) for path in file_paths]))
     digest = hashlib.sha256()
 
     for backup_file in sorted(backup_files, key=lambda value: value.file_path):
-        file_path = Path(backup_file.file_path)
+        file_path = resolve_backup_file_path(backup_file.file_path)
         relative_path = file_path.relative_to(common_root).as_posix()
         size_bytes = file_path.stat().st_size
         digest.update(relative_path.encode("utf-8"))

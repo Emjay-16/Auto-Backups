@@ -2,8 +2,10 @@ import errno
 import hashlib
 import os
 import posixpath
+import shlex
 import shutil
 import stat
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -115,6 +117,64 @@ def download_paths(
     return downloaded_files
 
 
+def _upload_single_file_with_fallback(
+    ssh,
+    sftp,
+    local_path: Path,
+    remote_path: str,
+    password: str,
+) -> None:
+    remote_path = remote_path.replace("\\", "/")
+    remote_dir = posixpath.dirname(remote_path)
+
+    # If remote_path is an existing directory on target, append the local filename
+    try:
+        remote_stat = sftp.stat(remote_path)
+        if stat.S_ISDIR(remote_stat.st_mode):
+            remote_path = posixpath.join(remote_path, local_path.name)
+            remote_dir = posixpath.dirname(remote_path)
+    except OSError:
+        pass
+
+    # 1. First attempt: standard SFTP put
+    try:
+        _ensure_remote_directory(sftp, remote_dir)
+        sftp.put(str(local_path), remote_path)
+        return
+    except Exception as exc:
+        error_msg = str(exc).lower()
+        is_permission_error = (
+            "permission denied" in error_msg
+            or getattr(exc, "errno", None) in (errno.EACCES, errno.EPERM)
+        )
+        if not is_permission_error or not password:
+            raise RuntimeError(f"Failed to upload '{local_path.name}' to '{remote_path}': {exc}") from exc
+
+    # 2. Fallback attempt: upload to /tmp where matrix user has write access, then sudo cp to destination
+    temp_remote_file = f"/tmp/restore_{uuid.uuid4().hex[:12]}_{local_path.name}"
+    try:
+        sftp.put(str(local_path), temp_remote_file)
+    except Exception as tmp_exc:
+        raise RuntimeError(f"SFTP failed to write temp file for '{remote_path}': {tmp_exc}") from tmp_exc
+
+    cmd = (
+        f"echo {shlex.quote(password)} | sudo -S mkdir -p {shlex.quote(remote_dir)} && "
+        f"echo {shlex.quote(password)} | sudo -S cp {shlex.quote(temp_remote_file)} {shlex.quote(remote_path)} && "
+        f"rm -f {shlex.quote(temp_remote_file)}"
+    )
+    try:
+        stdin, stdout, stderr = ssh.exec_command(cmd, timeout=60)
+        exit_status = stdout.channel.recv_exit_status()
+        if exit_status != 0:
+            err = stderr.read().decode("utf-8", errors="replace").strip()
+            raise RuntimeError(f"Failed to write to '{remote_path}' (sudo fallback failed: {err})")
+    finally:
+        try:
+            sftp.remove(temp_remote_file)
+        except Exception:
+            pass
+
+
 def upload_files(
     host: str,
     username: str,
@@ -149,8 +209,13 @@ def upload_files(
             for local_path in local_paths:
                 relative_path = local_path.relative_to(local_root).as_posix()
                 remote_path = posixpath.join(remote_root, relative_path)
-                _ensure_remote_directory(sftp, posixpath.dirname(remote_path))
-                sftp.put(str(local_path), remote_path)
+                _upload_single_file_with_fallback(
+                    ssh=ssh,
+                    sftp=sftp,
+                    local_path=local_path,
+                    remote_path=remote_path,
+                    password=password,
+                )
     finally:
         ssh.close()
 
@@ -182,8 +247,13 @@ def upload_files_to_targets(
         with ssh.open_sftp() as sftp:
             _configure_sftp_timeout(sftp)
             for local_path, remote_path in transfers:
-                _ensure_remote_directory(sftp, posixpath.dirname(remote_path))
-                sftp.put(str(local_path), remote_path)
+                _upload_single_file_with_fallback(
+                    ssh=ssh,
+                    sftp=sftp,
+                    local_path=local_path,
+                    remote_path=remote_path,
+                    password=password,
+                )
     finally:
         ssh.close()
 

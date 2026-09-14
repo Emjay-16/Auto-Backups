@@ -1,0 +1,13 @@
+.git
+.venv
+.env
+api/.env
+storage
+init_db.sql
+front_end/my_app/node_modules
+front_end/my_app/.next
+front_end/my_app/.env*.local
+front_end/my_app/tsconfig.tsbuildinfo
+**/__pycache__
+**/*.pyc
+npm-debug.log*

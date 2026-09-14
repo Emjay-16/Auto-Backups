@@ -12,10 +12,12 @@ from sqlalchemy.orm import Session
 from api import constants, models, schemas
 from api.database import get_db
 from api.errors import api_exception
+from api.path_utils import resolve_backup_file_path
 from api.services.activity_log import log_activity
 from api.services.device_resolver import resolve_user
 from api.services.robot_database import restore_mysql_table_from_json, restore_mysql_table_via_ssh
 from api.services.sftp_backup import upload_files_to_targets
+from api.services.ssh_credentials import require_ssh_credentials
 from api.utils.time import now_local
 
 
@@ -77,27 +79,22 @@ def restore_backup(
         if _is_database_backup_file(item["file"]):
             database_restore_items.append(item)
             continue
-
         file_restore_items.append(item)
-        local_path = Path(item["file"].file_path)
-        resolved_target_path = _resolve_restore_target_path(local_path, item["target_path"])
-        item["resolved_target_path"] = resolved_target_path
 
     temp_restore_dir = None
     try:
+        for item in file_restore_items:
+            local_path = resolve_backup_file_path(item["file"].file_path)
+            item["resolved_target_path"] = _resolve_restore_target_path(local_path, item["target_path"])
+
         for item in database_restore_items:
-            result = _restore_database_backup_file(device, Path(item["file"].file_path))
+            result = _restore_database_backup_file(device, resolve_backup_file_path(item["file"].file_path))
             item["resolved_target_path"] = f"mysql://{result.database}/{result.table}"
             item["result_message"] = f"Restored {result.row_count} row(s) into MySQL"
 
         if file_restore_items:
             temp_restore_dir = tempfile.TemporaryDirectory(prefix="restore-zip-")
-            username = os.getenv("ROBOT_SSH_USERNAME")
-            password = os.getenv("ROBOT_SSH_PASSWORD")
-            port = int(os.getenv("ROBOT_SSH_PORT", "22"))
-
-            if not username or not password:
-                raise RuntimeError("SSH username/password are required for file restore")
+            username, password, port = require_ssh_credentials(device)
 
             upload_files_to_targets(
                 host=device.ip_address,
@@ -244,7 +241,7 @@ def _build_restore_items(
 
 def _validate_restore_files_exist(restore_items: List[dict]) -> None:
     for item in restore_items:
-        file_path = Path(item["file"].file_path)
+        file_path = resolve_backup_file_path(item["file"].file_path)
         if not file_path.exists():
             raise api_exception(
                 status.HTTP_404_NOT_FOUND,
@@ -257,9 +254,23 @@ def _validate_restore_files_exist(restore_items: List[dict]) -> None:
 def _build_file_restore_transfers(restore_items: List[dict], temp_root: Path):
     transfers = []
     for item in restore_items:
-        file_path = Path(item["file"].file_path)
+        file_path = resolve_backup_file_path(item["file"].file_path)
         target_path = item["resolved_target_path"]
         if file_path.suffix.lower() != ".zip":
+            transfers.append((file_path, target_path))
+            continue
+
+        # Check if this zip is a backup bundle archive (contains .auto_backup_manifest.json)
+        # Regular user map/sound zip files on the robot should be transferred as-is without extraction
+        is_backup_bundle = False
+        try:
+            with zipfile.ZipFile(file_path) as archive:
+                if ".auto_backup_manifest.json" in archive.namelist():
+                    is_backup_bundle = True
+        except Exception:
+            pass
+
+        if not is_backup_bundle:
             transfers.append((file_path, target_path))
             continue
 
@@ -279,7 +290,13 @@ def _build_file_restore_transfers(restore_items: List[dict], temp_root: Path):
 
         for extracted_file in extracted_files:
             relative_path = extracted_file.relative_to(temp_root / file_path.stem).as_posix()
-            transfers.append((extracted_file, posixpath.join(target_root, relative_path)))
+            # If relative_path starts with target_name (e.g. relative_path is "maps/file.pgm" and target_root is ".../maps"),
+            # strip the leading folder to prevent duplicate folders like .../maps/maps/file.pgm
+            if target_name and relative_path.startswith(f"{target_name}/"):
+                sub_rel = relative_path[len(target_name) + 1:]
+                transfers.append((extracted_file, posixpath.join(target_root, sub_rel)))
+            else:
+                transfers.append((extracted_file, posixpath.join(target_root, relative_path)))
 
     return transfers
 
@@ -307,9 +324,14 @@ def _extract_restore_zip(zip_path: Path, extract_root: Path) -> List[Path]:
 
 
 def _is_database_backup_file(backup_file: models.BackupFile) -> bool:
-    file_path = Path(backup_file.file_path)
+    file_path = resolve_backup_file_path(backup_file.file_path)
     if file_path.suffix.lower() != ".json":
         return False
+
+    # Check parent folder name
+    parent_name = file_path.parent.name.lower()
+    if parent_name in {"istuvd.ros_maps", "ros_maps", "istuvd"} or "ros_maps" in file_path.stem.lower():
+        return True
 
     try:
         with file_path.open("r", encoding="utf-8") as file:
@@ -317,23 +339,33 @@ def _is_database_backup_file(backup_file: models.BackupFile) -> bool:
     except (OSError, ValueError):
         return False
 
-    return (
-        isinstance(payload, dict)
-        and isinstance(payload.get("database"), str)
+    if not isinstance(payload, dict):
+        return False
+
+    # Format 1: Full table dump {"database": ..., "table": ..., "rows": [...]}
+    if (
+        isinstance(payload.get("database"), str)
         and isinstance(payload.get("table"), str)
         and isinstance(payload.get("rows"), list)
-    )
+    ):
+        return True
+
+    # Format 2: Split row file from ros_maps (must NOT be inside maps/ or uploads/ directory)
+    parts = [p.lower() for p in file_path.parts]
+    if "maps" not in parts and "uploads" not in parts:
+        if any(k in payload for k in ("map_data", "canvas_json", "route_list")) or ("name" in payload and "objects" in payload):
+            return True
+
+    return False
 
 
 def _restore_database_backup_file(device: models.Device, input_path: Path):
-    database_name = os.getenv("ROBOT_DB_NAME")
-    table_name = os.getenv("ROBOT_DB_TABLE")
-    db_username = os.getenv("ROBOT_DB_USER")
-    db_password = os.getenv("ROBOT_DB_PASSWORD")
+    database_name = os.getenv("ROBOT_DB_NAME", "istuvd")
+    table_name = os.getenv("ROBOT_DB_TABLE", "ros_maps")
+    db_username = os.getenv("ROBOT_DB_USER", "istdbUser")
+    db_password = os.getenv("ROBOT_DB_PASSWORD", "interface2563")
     db_port = int(os.getenv("ROBOT_DB_PORT", "3306"))
-    ssh_username = os.getenv("ROBOT_SSH_USERNAME")
-    ssh_password = os.getenv("ROBOT_SSH_PASSWORD")
-    ssh_port = int(os.getenv("ROBOT_SSH_PORT", "22"))
+    ssh_username, ssh_password, ssh_port = require_ssh_credentials(device)
 
     if not db_username or not db_password:
         raise RuntimeError("Robot database username/password are required for database restore")
@@ -349,9 +381,6 @@ def _restore_database_backup_file(device: models.Device, input_path: Path):
             input_path=input_path,
         )
     except Exception as direct_exc:
-        if not ssh_username or not ssh_password:
-            raise RuntimeError(f"Robot database restore failed: {direct_exc}") from direct_exc
-
         return restore_mysql_table_via_ssh(
             host=device.ip_address,
             ssh_username=ssh_username,
@@ -370,6 +399,18 @@ def _resolve_restore_target_path(local_path: Path, target_path: str) -> str:
     normalized_target = target_path.replace("\\", "/").strip()
     if not normalized_target:
         raise RuntimeError("target_path is required for file restore")
+
+    # Safety check: reject server-local paths being sent as a restore destination
+    # (e.g. the backup storage path leaking into target_path by mistake) instead of
+    # silently guessing a different destination. Guessing meant the write could
+    # "succeed" while landing somewhere the user never intended or looked at —
+    # this fails loudly instead so the real target_path bug gets fixed at the source.
+    if normalized_target.startswith("/home/dev/") or "/storage/backups" in normalized_target:
+        raise RuntimeError(
+            "target_path looks like a server-local storage path, not a destination on the "
+            f"device: {normalized_target!r}. Please provide the actual remote path to restore "
+            f"'{local_path.name}' to."
+        )
 
     if normalized_target.endswith("/"):
         return posixpath.join(normalized_target, local_path.name)
