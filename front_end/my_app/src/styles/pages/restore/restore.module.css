@@ -770,6 +770,70 @@
   color: #3730a3;
 }
 
+.missingBadge {
+  border-color: #fca5a5;
+  background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%);
+  color: #b91c1c;
+}
+
+.missingWarning {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 12px 24px 0;
+  padding: 12px 14px;
+  border: 1px solid #fed7aa;
+  border-radius: 12px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 12px;
+}
+
+.missingWarning strong {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #9a3412;
+  margin-bottom: 2px;
+}
+
+.missingWarning p {
+  margin: 0;
+  color: #7c2d12;
+  line-height: 1.45;
+}
+
+.missingWarning code {
+  background: #ffedd5;
+  padding: 2px 5px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.missingWarningCompact {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.missingWarningCompact button {
+  background: none;
+  border: none;
+  color: #ea580c;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  font-weight: 700;
+  font-size: 12px;
+}
+
 .targetPathField {
   min-width: 0;
   display: grid;

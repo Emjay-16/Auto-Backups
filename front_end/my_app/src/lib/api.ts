@@ -12,7 +12,31 @@ export function getApiBaseUrl(): string {
   if (typeof window === "undefined") {
     return process.env.INTERNAL_API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
   }
-  return process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+  const configured = process.env.NEXT_PUBLIC_API_URL;
+  if (configured) {
+    try {
+      const url = new URL(configured);
+      if (
+        (url.hostname === "localhost" || url.hostname === "127.0.0.1") &&
+        window.location.hostname &&
+        window.location.hostname !== "localhost" &&
+        window.location.hostname !== "127.0.0.1"
+      ) {
+        url.hostname = window.location.hostname;
+        return url.origin;
+      }
+      return url.origin;
+    } catch {
+      // ignore parsing error
+    }
+  }
+
+  if (window.location.hostname && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+    return `${window.location.protocol}//${window.location.hostname}:8000`;
+  }
+
+  return "http://localhost:8000";
 }
 
 const API_AUTH_TOKEN = process.env.NEXT_PUBLIC_API_AUTH_TOKEN?.trim() ?? "";
@@ -178,6 +202,7 @@ export type BackupFileDetail = {
   file_status: number;
   created_at: string;
   remote_path?: string | null;
+  file_exists?: boolean;
 };
 
 export type BackupDetail = {

@@ -1031,6 +1031,8 @@ def _backup_file_detail(
 ) -> dict:
     detail = schemas.BackupFileResponse.model_validate(backup_file).model_dump()
     detail["remote_path"] = _backup_file_remote_path(backup_file, manifest)
+    file_path = resolve_backup_file_path(backup_file.file_path)
+    detail["file_exists"] = file_path.exists() and file_path.is_file()
     return detail
 
 

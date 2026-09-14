@@ -149,6 +149,11 @@ export default function RestorePage() {
       target_path: (targetPaths[backupFileId] || fallbackTargetPath).trim(),
     }));
     const selectedFiles = backupDetail.files.filter((file) => selectedFileIds.includes(file.backup_file_id));
+    const missingPhysicalFile = selectedFiles.find((file) => file.file_exists === false);
+    if (missingPhysicalFile) {
+      setError(`ไฟล์ "${missingPhysicalFile.file_name}" ไม่มีอยู่จริงบนเซิร์ฟเวอร์ (โฟลเดอร์ storage/backups) หากคุณย้ายเครื่องหรือยังไม่ได้ก๊อปปี้ไฟล์มา โปรดคัดลอกไฟล์มาใส่ หรือใช้แท็บ Upload ด้านบนแทน`);
+      return;
+    }
     const missingTargetFile = selectedFiles.find((file) => !isLikelyDatabaseBackupFile(file) && !items.find((item) => item.backup_file_id === file.backup_file_id)?.target_path);
     if (missingTargetFile) {
       setError(`Please enter restore target path for ${missingTargetFile.file_name}.`);
@@ -367,6 +372,12 @@ export default function RestorePage() {
                         Manage files
                       </button>
                     </div>
+                    {backupDetail && backupDetail.files.some((f) => f.file_exists === false) ? (
+                      <div className={styles.missingWarningCompact}>
+                        <span>⚠️</span>
+                        <span>ไม่พบไฟล์จริงบางรายการบนดิสก์ (<button type="button" onClick={() => setRestoreMode("upload")}>ใช้โหมด Upload</button>)</span>
+                      </div>
+                    ) : null}
                   </>
                 )}
 
@@ -409,12 +420,23 @@ export default function RestorePage() {
               <span>{selectedFileCount} selected</span>
             </div>
 
+            {backupDetail && backupDetail.files.some((f) => f.file_exists === false) ? (
+              <div className={styles.missingWarning}>
+                <span>⚠️</span>
+                <div>
+                  <strong>มีไฟล์ backup บางรายการไม่พบบนดิสก์เซิร์ฟเวอร์ (storage/backups)</strong>
+                  <p>หากย้ายระบบมาเครื่องใหม่โดยไม่ได้ก๊อปปี้ไฟล์ backup มาด้วย จะไม่สามารถกู้คืนไฟล์ที่มีป้ายเตือนสีแดงได้ คุณสามารถใช้โหมด Upload ด้านบนเพื่ออัปโหลดไฟล์จากเครื่องนี้แทนได้</p>
+                </div>
+              </div>
+            ) : null}
+
             <div className={styles.files}>
               {backupDetail ? (
                 <>
                   {backupDetail.files.map((file) => {
                     const isDatabase = isLikelyDatabaseBackupFile(file);
                     const isZip = isZipBackupFile(file);
+                    const isMissing = file.file_exists === false;
                     return (
                       <article
                         className={`${styles.fileRow} ${selectedFileIds.includes(file.backup_file_id) ? styles.selectedFile : ""}`}
@@ -432,6 +454,11 @@ export default function RestorePage() {
                               <b className={`${styles.fileTypeBadge} ${isDatabase ? styles.databaseBadge : ""} ${isZip ? styles.zipBadge : ""}`}>
                                 {restoreFileKindLabel(file)}
                               </b>
+                              {isMissing ? (
+                                <b className={`${styles.fileTypeBadge} ${styles.missingBadge}`} title="ไม่พบไฟล์จริงใน storage/backups ของเซิร์ฟเวอร์">
+                                  ⚠️ ไม่พบไฟล์บนดิสก์
+                                </b>
+                              ) : null}
                             </span>
                             <small>{Number(file.file_size_mb).toFixed(2)} MB · {file.file_type}</small>
                           </span>

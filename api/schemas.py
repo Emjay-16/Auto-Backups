@@ -399,6 +399,7 @@ class BackupFileResponse(BackupFileBase):
     backup_file_id: int
     created_at: datetime
     remote_path: Optional[str] = None
+    file_exists: bool = True
 
 
 class BackupDetailResponse(BackupHistoryResponse):
