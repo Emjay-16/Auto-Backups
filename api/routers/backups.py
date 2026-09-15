@@ -207,6 +207,7 @@ def download_backup(
     backup_id: int,
     file_ids: Optional[List[int]] = Query(None),
     filename: Optional[str] = None,
+    token: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     """ดาวน์โหลดไฟล์สำรองข้อมูล"""

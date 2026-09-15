@@ -627,23 +627,65 @@ export function BackupsWorkspace({
     setPendingDownloadConfirm(true);
   }
 
-  function confirmDownloadSelectedFiles() {
+  async function confirmDownloadSelectedFiles() {
     if (!backupDetail || !selectedDownloadFileIds.length) return;
+    setSaving(true);
     setError("");
     const selectedFileIds = backupDetail.files
       .filter((file) => selectedDownloadFileIds.includes(file.backup_file_id))
       .map((file) => file.backup_file_id);
-    const link = document.createElement("a");
-    link.href = backupDownloadUrl(
+    const filename = normalizeZipFilename(downloadFilename || backupDetail.backup_name);
+    const url = backupDownloadUrl(
       backupDetail.backup_id,
       selectedFileIds,
-      normalizeZipFilename(downloadFilename || backupDetail.backup_name),
+      filename,
     );
-    link.download = normalizeZipFilename(downloadFilename || backupDetail.backup_name);
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setPendingDownloadConfirm(false);
+
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        let message = `Download failed (${response.status})`;
+        try {
+          const errorJson = await response.json();
+          message = errorJson.message || errorJson.error_code || message;
+        } catch {
+          // not json
+        }
+        setError(message);
+        showToast({
+          tone: "error",
+          title: "Download failed",
+          message,
+        });
+        return;
+      }
+
+      const blob = await response.blob();
+      const blobUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(blobUrl);
+      setPendingDownloadConfirm(false);
+      showToast({
+        tone: "success",
+        title: "Download complete",
+        message: filename,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Download failed";
+      setError(message);
+      showToast({
+        tone: "error",
+        title: "Download failed",
+        message,
+      });
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function confirmDeleteCustomPath() {

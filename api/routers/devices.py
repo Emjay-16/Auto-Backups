@@ -216,7 +216,7 @@ def check_device_status(
             "Device not found",
         )
 
-    online = _can_connect(device.ip_address)
+    online = _can_connect(device.ip_address, getattr(device, "ssh_port", None))
     device.device_status = (
         constants.DEVICE_STATUS_ONLINE
         if online
@@ -657,7 +657,7 @@ def _refresh_devices_statuses(devices: List[Device], db: Session) -> None:
 
     max_workers = max(1, min(int(os.getenv("DEVICE_STATUS_WORKERS", "16")), len(devices)))
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        statuses = list(executor.map(lambda device: (device.device_id, _can_connect(device.ip_address)), devices))
+        statuses = list(executor.map(lambda device: (device.device_id, _can_connect(device.ip_address, getattr(device, "ssh_port", None))), devices))
 
     now = now_local()
     status_by_id = dict(statuses)
@@ -677,8 +677,9 @@ def _refresh_devices_statuses(devices: List[Device], db: Session) -> None:
         db.refresh(device)
 
 
-def _can_connect(ip_address: str) -> bool:
-    port = int(os.getenv("ROBOT_SSH_PORT", "22"))
+def _can_connect(ip_address: str, port: Optional[int] = None) -> bool:
+    if port is None:
+        port = int(os.getenv("ROBOT_SSH_PORT", "22"))
     timeout = float(os.getenv("DEVICE_STATUS_TIMEOUT_SECONDS", "1.5"))
     try:
         with socket.create_connection((ip_address, port), timeout=timeout):

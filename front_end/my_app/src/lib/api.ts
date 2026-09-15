@@ -494,11 +494,16 @@ export async function deleteBackup(backupId: number): Promise<void> {
 }
 
 export function backupDownloadUrl(backupId: number, fileIds: number[] = [], filename = ""): string {
-  const params = [
-    ...fileIds.map((fileId) => `file_ids=${encodeURIComponent(fileId)}`),
-    ...(filename.trim() ? [`filename=${encodeURIComponent(filename.trim())}`] : []),
-  ].join("&");
-  const publicApiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const queryParts: string[] = [];
+  if (API_AUTH_TOKEN) {
+    queryParts.push(`token=${encodeURIComponent(API_AUTH_TOKEN)}`);
+  }
+  fileIds.forEach((fileId) => queryParts.push(`file_ids=${encodeURIComponent(fileId)}`));
+  if (filename.trim()) {
+    queryParts.push(`filename=${encodeURIComponent(filename.trim())}`);
+  }
+  const params = queryParts.join("&");
+  const publicApiUrl = getApiBaseUrl();
   return `${publicApiUrl}/backups/${backupId}/download${params ? `?${params}` : ""}`;
 }
 

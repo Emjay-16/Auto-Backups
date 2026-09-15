@@ -165,7 +165,7 @@ def safe_download_filename(filename: Optional[str], fallback: str) -> str:
     raw_name = (filename or fallback).strip()
     safe_name = re.sub(r"[/\\:*?\"<>|\x00-\x1f]+", "_", raw_name).strip(" ._-")
     if not safe_name:
-        safe_name = fallback
+        safe_name = re.sub(r"[/\\:*?\"<>|\x00-\x1f]+", "_", fallback).strip(" ._-") or "backup"
     return safe_name if safe_name.lower().endswith(".zip") else f"{safe_name}.zip"
 
 
@@ -1838,16 +1838,45 @@ def _fail_backup_job(
 
 
 def _existing_zip_file(backup_files: List[models.BackupFile]) -> Optional[Path]:
-    for backup_file in backup_files:
-        file_path = resolve_backup_file_path(backup_file.file_path)
+    if len(backup_files) == 1:
+        file_path = resolve_backup_file_path(backup_files[0].file_path)
         if file_path.suffix.lower() == ".zip" and file_path.exists():
             return file_path
     return None
 
 
+def _cleanup_old_downloads(downloads_dir: Path, max_age_hours: int = 12) -> None:
+    """Removes temporary download zip files older than max_age_hours to save disk space."""
+    try:
+        cutoff = time.time() - (max_age_hours * 3600)
+        for entry in downloads_dir.iterdir():
+            if entry.is_file() and (entry.suffix == ".zip" or entry.name.startswith(".tmp_")):
+                try:
+                    if entry.stat().st_mtime < cutoff:
+                        entry.unlink()
+                except OSError:
+                    pass
+    except Exception:
+        pass
+
+
 def _make_download_zip(backup: models.Backup, backup_files: List[models.BackupFile], selected: bool = False) -> Path:
     base_path = project_path(os.getenv("BACKUP_STORAGE_PATH", "storage/backups")) / "downloads"
     base_path.mkdir(parents=True, exist_ok=True)
+
+    _cleanup_old_downloads(base_path)
+
+    try:
+        total, used, free = shutil.disk_usage(base_path)
+        if free < 30 * 1024 * 1024:
+            raise api_exception(
+                status.HTTP_507_INSUFFICIENT_STORAGE,
+                "DISK_SPACE_LOW",
+                "Server disk space is low, cannot create download archive",
+            )
+    except OSError:
+        pass
+
     if selected:
         selected_ids = ",".join(str(file.backup_file_id) for file in backup_files)
         selection_hash = hashlib.sha256(selected_ids.encode("ascii")).hexdigest()[:16]
@@ -1855,18 +1884,51 @@ def _make_download_zip(backup: models.Backup, backup_files: List[models.BackupFi
     else:
         zip_path = base_path / f"backup_{backup.backup_id}.zip"
 
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
-        used_names = set()
-        for backup_file in backup_files:
-            file_path = resolve_backup_file_path(backup_file.file_path)
-            if not file_path.exists():
-                raise api_exception(
-                    status.HTTP_404_NOT_FOUND,
-                    "BACKUP_FILE_MISSING_ON_SERVER",
-                    "Backup file missing on server",
-                    {"file_path": str(file_path)},
-                )
-            archive.write(file_path, arcname=_unique_archive_name(backup_file.file_name, used_names))
+    valid_files = []
+    missing_files = []
+    for backup_file in backup_files:
+        file_path = resolve_backup_file_path(backup_file.file_path)
+        if file_path.exists() and file_path.is_file():
+            valid_files.append((backup_file, file_path))
+        else:
+            missing_files.append(backup_file)
+
+    if not valid_files:
+        missing_paths = [str(resolve_backup_file_path(bf.file_path)) for bf in missing_files]
+        raise api_exception(
+            status.HTTP_404_NOT_FOUND,
+            "BACKUP_FILE_MISSING_ON_SERVER",
+            "None of the requested backup files exist on the server disk",
+            {"missing_files": missing_paths},
+        )
+
+    # Atomic write to unique temp file before replacing final zip to prevent partial/corrupted download
+    temp_zip = base_path / f".tmp_{backup.backup_id}_{int(time.time() * 1000)}.zip"
+    try:
+        with zipfile.ZipFile(temp_zip, "w", zipfile.ZIP_DEFLATED) as archive:
+            used_names = set()
+            for backup_file, file_path in valid_files:
+                archive.write(file_path, arcname=_unique_archive_name(backup_file.file_name, used_names))
+
+            if missing_files:
+                notice_lines = [
+                    "=== Missing Files Notice ===",
+                    "The following files were listed in the backup records but were not found on the server disk:",
+                    "",
+                ]
+                for mf in missing_files:
+                    notice_lines.append(f"- {mf.file_name} ({mf.file_path})")
+                notice_content = "\n".join(notice_lines)
+                archive.writestr("_MISSING_FILES_NOTICE.txt", notice_content)
+
+        temp_zip.replace(zip_path)
+    except Exception:
+        if temp_zip.exists():
+            try:
+                temp_zip.unlink()
+            except OSError:
+                pass
+        raise
 
     return zip_path
 

@@ -50,4 +50,15 @@ def _extract_token(request: Request) -> str:
     if auth_header.lower().startswith("bearer "):
         return auth_header[7:].strip()
 
-    return request.headers.get("x-api-token", "").strip()
+    header_token = request.headers.get("x-api-token", "").strip()
+    if header_token:
+        return header_token
+
+    query_token = (
+        request.query_params.get("token", "").strip()
+        or request.query_params.get("api_token", "").strip()
+    )
+    if query_token:
+        return query_token
+
+    return ""
