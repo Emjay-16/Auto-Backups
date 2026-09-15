@@ -57,6 +57,12 @@ def restore_backup(
         )
 
     restore_items = _build_restore_items(all_backup_files, data)
+    if not restore_items:
+        raise api_exception(
+            status.HTTP_400_BAD_REQUEST,
+            "RESTORE_ITEMS_EMPTY",
+            "No restore items were resolved from the request",
+        )
     _validate_restore_files_exist(restore_items)
 
     now = now_local()

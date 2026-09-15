@@ -170,6 +170,4 @@ async def root():
         "message": "Auto backup"
     }
 
-if __name__ == "__main__":
-     import uvicorn
-     uvicorn.run(app, host="172.30.39.6", port=8000)
+

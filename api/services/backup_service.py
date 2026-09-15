@@ -2075,7 +2075,10 @@ def _local_files_signature(backup_files: List[models.BackupFile]) -> str:
     for backup_file in sorted(backup_files, key=lambda value: value.file_path):
         file_path = resolve_backup_file_path(backup_file.file_path)
         relative_path = file_path.relative_to(common_root).as_posix()
-        size_bytes = file_path.stat().st_size
+        try:
+            size_bytes = file_path.stat().st_size
+        except OSError:
+            size_bytes = 0
         digest.update(relative_path.encode("utf-8"))
         digest.update(str(size_bytes).encode("ascii"))
         digest.update((backup_file.checksum or "").encode("ascii"))
