@@ -1966,6 +1966,32 @@ def _is_latest_backup_for_device(backup: models.Backup, db: Session) -> bool:
     return latest_backup_id == backup.backup_id
 
 
+def _is_full_baseline_by_manifest(backup: models.Backup) -> bool:
+    """ตรวจว่า backup นี้เป็น Full baseline โดยอ่านจาก manifest เท่านั้น
+    (ไม่ต้องการ device/remote_paths — ใช้สำหรับ cleanup)"""
+    manifest = _read_auto_backup_manifest(backup)
+    if not isinstance(manifest, dict):
+        return False
+    return manifest.get("backup_mode") == "full_baseline"
+
+
+def _has_newer_full_baseline_for_device(backup: models.Backup, db: Session) -> bool:
+    """คืนค่า True ถ้ามี Full baseline อื่นที่ใหม่กว่า backup นี้สำหรับ device เดียวกัน"""
+    newer_baselines = (
+        db.query(models.Backup)
+        .filter(
+            models.Backup.device_id == backup.device_id,
+            models.Backup.backup_type == constants.BACKUP_TYPE_AUTO,
+            models.Backup.backup_status == constants.BACKUP_STATUS_SUCCESS,
+            models.Backup.backup_id != backup.backup_id,
+            models.Backup.created_at >= backup.created_at,
+        )
+        .order_by(models.Backup.created_at.desc(), models.Backup.backup_id.desc())
+        .all()
+    )
+    return any(_is_full_baseline_by_manifest(b) for b in newer_baselines)
+
+
 def _backup_cleanup_skip_reason(
     backup: models.Backup,
     db: Session,
@@ -1977,6 +2003,10 @@ def _backup_cleanup_skip_reason(
 
     if keep_latest_per_device and not monthly_excess and _is_latest_backup_for_device(backup, db):
         return "Latest backup for this device"
+
+    # ป้องกัน Full baseline: ลบได้ก็ต่อเมื่อมี Full baseline ใหม่กว่ามาแทนที่แล้ว
+    if _is_full_baseline_by_manifest(backup) and not _has_newer_full_baseline_for_device(backup, db):
+        return "Full baseline protected: no newer full baseline exists yet"
 
     return None
 
