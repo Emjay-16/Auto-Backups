@@ -18,6 +18,14 @@ import {
 import type { Backup, Device } from "@/lib/types";
 import styles from "@/styles/pages/restore/restore.module.css";
 
+interface FileGroup {
+  groupKey: string;       // folder path ที่ใช้จัดกลุ่ม (parent directory)
+  groupLabel: string;     // แสดงผลใน UI
+  groupType: "database" | "zip" | "file";
+  files: BackupFileDetail[];
+  sharedTargetPath: string; // target path เริ่มต้นของกลุ่ม
+}
+
 const BACKUP_PAGE_SIZE = 6;
 
 export default function RestorePage() {
@@ -30,6 +38,8 @@ export default function RestorePage() {
   const [backupDetail, setBackupDetail] = useState<BackupDetail | null>(null);
   const [selectedFileIds, setSelectedFileIds] = useState<number[]>([]);
   const [targetPaths, setTargetPaths] = useState<Record<number, string>>({});
+  const [groupPaths, setGroupPaths] = useState<Record<string, string>>({}); // target path ต่อ group key
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [fallbackTargetPath, setFallbackTargetPath] = useState("");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [result, setResult] = useState<RestoreRunResult | UploadRunResult | null>(null);
@@ -37,6 +47,7 @@ export default function RestorePage() {
   const [saving, setSaving] = useState(false);
   const [backupPage, setBackupPage] = useState(0);
   const [filesDialogOpen, setFilesDialogOpen] = useState(false);
+  const [restoreSearchQuery, setRestoreSearchQuery] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -94,9 +105,20 @@ export default function RestorePage() {
         setBackupDetail(detail);
         setSelectedDeviceId((current) => current || String(detail.device_id));
         setSelectedFileIds(detail.files.map((file) => file.backup_file_id));
-        setTargetPaths(
-          Object.fromEntries(detail.files.map((file) => [file.backup_file_id, inferRestoreTarget(file)])),
+        const perFilePaths = Object.fromEntries(
+          detail.files.map((file) => [file.backup_file_id, inferRestoreTarget(file)]),
         );
+        setTargetPaths(perFilePaths);
+        // กำหนด groupPaths เริ่มต้น: ใช้ parent directory ของ target path เป็น key
+        const initGroupPaths: Record<string, string> = {};
+        for (const file of detail.files) {
+          const gKey = getGroupKey(file);
+          if (!(gKey in initGroupPaths)) {
+            initGroupPaths[gKey] = getGroupDefaultPath(file);
+          }
+        }
+        setGroupPaths(initGroupPaths);
+        setExpandedGroups(new Set());
       })
       .catch((errorResponse) => {
         if (mounted) {
@@ -134,6 +156,42 @@ export default function RestorePage() {
   const filesReady = restoreMode === "upload" ? uploadFiles.length > 0 : selectedFileCount > 0;
   const targetReady = restoreMode === "upload" ? Boolean(selectedDeviceId && fallbackTargetPath.trim()) : Boolean(selectedBackup && selectedDeviceId);
 
+  // จัดกลุ่มไฟล์ตาม folder
+  const fileGroups = useMemo<FileGroup[]>(() => {
+    if (!backupDetail) return [];
+    const groupMap = new Map<string, FileGroup>();
+    for (const file of backupDetail.files) {
+      const key = getGroupKey(file);
+      if (!groupMap.has(key)) {
+        groupMap.set(key, {
+          groupKey: key,
+          groupLabel: getGroupLabel(file),
+          groupType: isLikelyDatabaseBackupFile(file) ? "database" : isZipBackupFile(file) ? "zip" : "file",
+          files: [],
+          sharedTargetPath: getGroupDefaultPath(file),
+        });
+      }
+      groupMap.get(key)!.files.push(file);
+    }
+    return Array.from(groupMap.values());
+  }, [backupDetail]);
+
+  const filteredFileGroups = useMemo(() => {
+    const query = restoreSearchQuery.trim().toLowerCase();
+    if (!query) return fileGroups;
+    return fileGroups
+      .map((group) => ({
+        ...group,
+        files: group.files.filter(
+          (file) =>
+            file.file_name.toLowerCase().includes(query) ||
+            (file.remote_path && file.remote_path.toLowerCase().includes(query)) ||
+            (file.file_path && file.file_path.toLowerCase().includes(query)),
+        ),
+      }))
+      .filter((group) => group.files.length > 0);
+  }, [fileGroups, restoreSearchQuery]);
+
   async function submitRestore() {
     const backupId = Number(selectedBackupId);
     if (!backupId || !backupDetail) {
@@ -144,19 +202,26 @@ export default function RestorePage() {
       setError("Please select at least one backup file.");
       return;
     }
-    const items = selectedFileIds.map((backupFileId) => ({
-      backup_file_id: backupFileId,
-      target_path: (targetPaths[backupFileId] || fallbackTargetPath).trim(),
-    }));
     const selectedFiles = backupDetail.files.filter((file) => selectedFileIds.includes(file.backup_file_id));
     const missingPhysicalFile = selectedFiles.find((file) => file.file_exists === false);
     if (missingPhysicalFile) {
       setError(`ไฟล์ "${missingPhysicalFile.file_name}" ไม่มีอยู่จริงบนเซิร์ฟเวอร์ (โฟลเดอร์ storage/backups) หากคุณย้ายเครื่องหรือยังไม่ได้ก๊อปปี้ไฟล์มา โปรดคัดลอกไฟล์มาใส่ หรือใช้แท็บ Upload ด้านบนแทน`);
       return;
     }
-    const missingTargetFile = selectedFiles.find((file) => !isLikelyDatabaseBackupFile(file) && !items.find((item) => item.backup_file_id === file.backup_file_id)?.target_path);
+    // สร้าง items โดย resolve target path จาก groupPaths → fallbackTargetPath
+    const items = selectedFiles.map((file) => {
+      const gKey = getGroupKey(file);
+      const groupPath = groupPaths[gKey] ?? "";
+      const resolvedPath = (groupPath || fallbackTargetPath).trim();
+      // ถ้าเป็น database ไม่ต้องใส่ target path
+      const targetPath = isLikelyDatabaseBackupFile(file) ? "" : resolvedPath;
+      return { backup_file_id: file.backup_file_id, target_path: targetPath };
+    });
+    const missingTargetFile = selectedFiles.find(
+      (file) => !isLikelyDatabaseBackupFile(file) && !items.find((item) => item.backup_file_id === file.backup_file_id)?.target_path,
+    );
     if (missingTargetFile) {
-      setError(`Please enter restore target path for ${missingTargetFile.file_name}.`);
+      setError(`กรุณาระบุ Target path สำหรับกลุ่ม "${getGroupLabel(missingTargetFile)}"`);
       return;
     }
 
@@ -374,7 +439,7 @@ export default function RestorePage() {
                     </div>
                     {backupDetail && backupDetail.files.some((f) => f.file_exists === false) ? (
                       <div className={styles.missingWarningCompact}>
-                        <span>⚠️</span>
+                        <span>[!]</span>
                         <span>ไม่พบไฟล์จริงบางรายการบนดิสก์ (<button type="button" onClick={() => setRestoreMode("upload")}>ใช้โหมด Upload</button>)</span>
                       </div>
                     ) : null}
@@ -417,12 +482,20 @@ export default function RestorePage() {
                   Clear
                 </button>
               </div>
-              <span>{selectedFileCount} selected</span>
+              <div className={styles.dialogSearch}>
+                <input
+                  type="text"
+                  placeholder="ค้นหาไฟล์..."
+                  value={restoreSearchQuery}
+                  onChange={(e) => setRestoreSearchQuery(e.target.value)}
+                />
+              </div>
+              <span>{selectedFileCount} selected · {filteredFileGroups.length} group(s)</span>
             </div>
 
             {backupDetail && backupDetail.files.some((f) => f.file_exists === false) ? (
               <div className={styles.missingWarning}>
-                <span>⚠️</span>
+                <span>[!]</span>
                 <div>
                   <strong>มีไฟล์ backup บางรายการไม่พบบนดิสก์เซิร์ฟเวอร์ (storage/backups)</strong>
                   <p>หากย้ายระบบมาเครื่องใหม่โดยไม่ได้ก๊อปปี้ไฟล์ backup มาด้วย จะไม่สามารถกู้คืนไฟล์ที่มีป้ายเตือนสีแดงได้ คุณสามารถใช้โหมด Upload ด้านบนเพื่ออัปโหลดไฟล์จากเครื่องนี้แทนได้</p>
@@ -433,71 +506,110 @@ export default function RestorePage() {
             <div className={styles.files}>
               {backupDetail ? (
                 <>
-                  {backupDetail.files.map((file) => {
-                    const isDatabase = isLikelyDatabaseBackupFile(file);
-                    const isZip = isZipBackupFile(file);
-                    const isMissing = file.file_exists === false;
+                  {filteredFileGroups.map((group) => {
+                    const groupFileIds = group.files.map((f) => f.backup_file_id);
+                    const selectedInGroup = groupFileIds.filter((id) => selectedFileIds.includes(id));
+                    const allGroupSelected = selectedInGroup.length === groupFileIds.length;
+                    const someGroupSelected = selectedInGroup.length > 0 && !allGroupSelected;
+                    const isExpanded = expandedGroups.has(group.groupKey);
+                    const hasMissing = group.files.some((f) => f.file_exists === false);
+                    const currentGroupPath = groupPaths[group.groupKey] ?? group.sharedTargetPath;
+
                     return (
-                      <article
-                        className={`${styles.fileRow} ${selectedFileIds.includes(file.backup_file_id) ? styles.selectedFile : ""}`}
-                        key={file.backup_file_id}
-                      >
-                        <label>
-                          <input
-                            checked={selectedFileIds.includes(file.backup_file_id)}
-                            onChange={() => toggleFile(file.backup_file_id)}
-                            type="checkbox"
-                          />
-                          <span className={styles.fileMeta}>
-                            <span className={styles.fileTitleLine}>
-                              <strong>{file.file_name}</strong>
-                              <b className={`${styles.fileTypeBadge} ${isDatabase ? styles.databaseBadge : ""} ${isZip ? styles.zipBadge : ""}`}>
-                                {restoreFileKindLabel(file)}
-                              </b>
-                              {isMissing ? (
-                                <b className={`${styles.fileTypeBadge} ${styles.missingBadge}`} title="ไม่พบไฟล์จริงใน storage/backups ของเซิร์ฟเวอร์">
-                                  ⚠️ ไม่พบไฟล์บนดิสก์
+                      <article className={`${styles.groupRow} ${selectedInGroup.length > 0 ? styles.selectedFile : ""}`} key={group.groupKey}>
+                        {/* Group header */}
+                        <div className={styles.groupHeader}>
+                          <label className={styles.groupCheckLabel}>
+                            <input
+                              type="checkbox"
+                              checked={allGroupSelected}
+                              ref={(el) => { if (el) el.indeterminate = someGroupSelected; }}
+                              onChange={() => {
+                                if (allGroupSelected) {
+                                  setSelectedFileIds((cur) => cur.filter((id) => !groupFileIds.includes(id)));
+                                } else {
+                                  setSelectedFileIds((cur) => [...new Set([...cur, ...groupFileIds])]);
+                                }
+                              }}
+                            />
+                            <span className={styles.groupMeta}>
+                              <span className={styles.fileTitleLine}>
+                                <strong>{group.groupLabel}</strong>
+                                <b className={`${styles.fileTypeBadge} ${group.groupType === "database" ? styles.databaseBadge : group.groupType === "zip" ? styles.zipBadge : ""}`}>
+                                  {group.groupType}
                                 </b>
-                              ) : null}
+                                {hasMissing ? (
+                                  <b className={`${styles.fileTypeBadge} ${styles.missingBadge}`}>มีไฟล์หาย</b>
+                                ) : null}
+                              </span>
+                              <small>{group.files.length} file(s) · {selectedInGroup.length} selected</small>
                             </span>
-                            <small>{Number(file.file_size_mb).toFixed(2)} MB · {file.file_type}</small>
-                          </span>
-                        </label>
-                        {isDatabase ? (
-                          <div className={`${styles.targetPathField} ${styles.databaseTarget}`}>
+                          </label>
+                          <button
+                            className={styles.expandBtn}
+                            type="button"
+                            onClick={() => setExpandedGroups((cur) => {
+                              const next = new Set(cur);
+                              next.has(group.groupKey) ? next.delete(group.groupKey) : next.add(group.groupKey);
+                              return next;
+                            })}
+                            aria-expanded={isExpanded}
+                          >
+                            {isExpanded ? "ซ่อน" : "ดูไฟล์"}
+                          </button>
+                        </div>
+
+                        {/* Group target path input (ไม่แสดงสำหรับ database) */}
+                        {group.groupType !== "database" ? (
+                          <div className={styles.groupPathRow}>
+                            <span>TARGET FOLDER</span>
+                            <input
+                              value={currentGroupPath}
+                              onChange={(e) => setGroupPaths((cur) => ({ ...cur, [group.groupKey]: e.target.value }))}
+                              placeholder="/remote/path/on/robot"
+                            />
+                            {currentGroupPath !== group.sharedTargetPath && group.sharedTargetPath ? (
+                              <button
+                                className={styles.resetPathButton}
+                                type="button"
+                                onClick={() => setGroupPaths((cur) => ({ ...cur, [group.groupKey]: group.sharedTargetPath }))}
+                              >
+                                ใช้ path เดิม
+                              </button>
+                            ) : null}
+                            {group.groupType === "zip" ? <p className={styles.hint}>ถ้า zip มีหลายไฟล์ ต้องใส่ path เป็นโฟลเดอร์ปลายทาง</p> : null}
+                          </div>
+                        ) : (
+                          <div className={`${styles.groupPathRow} ${styles.databaseTarget}`}>
                             <span>Database restore</span>
                             <p>ใช้ค่า MySQL ของหุ่นตัวนี้ ไม่ต้องใส่ path ไฟล์</p>
                           </div>
-                        ) : (
-                          <div className={styles.targetPathField}>
-                            <span>{isZip ? "Target folder" : "Restore to"}</span>
-                            <input
-                              value={targetPaths[file.backup_file_id] || fallbackTargetPath}
-                              onChange={(event) => setTargetPaths({ ...targetPaths, [file.backup_file_id]: event.target.value })}
-                              placeholder={isZip ? "/remote/folder/on/robot" : "Path ปลายทางของไฟล์นี้"}
-                            />
-                            {(() => {
-                              const originalPath = inferRestoreTarget(file);
-                              const currentPath = targetPaths[file.backup_file_id] || fallbackTargetPath;
-                              if (!originalPath) return null;
-                              return (
-                                <div className={styles.originalPathRow}>
-                                  <code title={originalPath}>{originalPath}</code>
-                                  {currentPath !== originalPath ? (
-                                    <button
-                                      className={styles.resetPathButton}
-                                      onClick={() => setTargetPaths({ ...targetPaths, [file.backup_file_id]: originalPath })}
-                                      type="button"
-                                    >
-                                      ใช้ path เดิม
-                                    </button>
-                                  ) : null}
-                                </div>
-                              );
-                            })()}
-                            {isZip ? <p>ถ้า zip มีหลายไฟล์ ต้องใส่ path เป็นโฟลเดอร์ปลายทาง</p> : null}
-                          </div>
                         )}
+
+                        {/* Expanded file list */}
+                        {isExpanded ? (
+                          <ul className={styles.groupFileList}>
+                            {group.files.map((file) => {
+                              const isMissing = file.file_exists === false;
+                              return (
+                                <li key={file.backup_file_id} className={`${styles.groupFileItem} ${selectedFileIds.includes(file.backup_file_id) ? styles.groupFileSelected : ""}`}>
+                                  <label>
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedFileIds.includes(file.backup_file_id)}
+                                      onChange={() => toggleFile(file.backup_file_id)}
+                                    />
+                                    <span>{file.file_name}</span>
+                                  </label>
+                                  <small>{Number(file.file_size_mb).toFixed(2)} MB</small>
+                                  {isMissing ? (
+                                    <b className={`${styles.fileTypeBadge} ${styles.missingBadge}`}>ไม่พบไฟล์</b>
+                                  ) : null}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        ) : null}
                       </article>
                     );
                   })}
@@ -602,3 +714,50 @@ function restoreFileKindLabel(file: BackupFileDetail): string {
 function getErrorMessage(errorResponse: unknown, fallback: string): string {
   return errorResponse instanceof Error ? errorResponse.message : fallback;
 }
+
+const MAPS_ROOT = "/home/matrix/public_web/ist_web_release/writable/uploads/maps";
+const SOUNDS_ROOT = "/home/matrix/public_web/ist_web_release/writable/uploads/sounds";
+
+/** Key สำหรับจัดกลุ่มไฟล์ตาม category (maps / sounds / database / etc.) */
+function getGroupKey(file: BackupFileDetail): string {
+  if (isLikelyDatabaseBackupFile(file)) return "__database__";
+
+  const target = inferRestoreTarget(file);
+  if (!target) return "__other__";
+
+  // จัดกลุ่มทุกไฟล์ที่ target อยู่ใต้ maps root เข้ากลุ่มเดียวกัน
+  if (target === MAPS_ROOT || target.startsWith(MAPS_ROOT + "/")) return MAPS_ROOT;
+  if (target === SOUNDS_ROOT || target.startsWith(SOUNDS_ROOT + "/")) return SOUNDS_ROOT;
+
+  // ไฟล์เดี่ยวที่รู้จัก
+  if (target === "/home/matrix/node-red-dev/node-red-user/flows.json") return "__nodered__";
+  if (target === "/etc/udev/rules.d/matrix_robot.rules") return "__udev__";
+
+  // fallback: group by parent directory
+  const slashIdx = target.lastIndexOf("/");
+  return slashIdx > 0 ? target.slice(0, slashIdx) : target;
+}
+
+/** Label ที่แสดงใน group header */
+function getGroupLabel(file: BackupFileDetail): string {
+  const key = getGroupKey(file);
+  if (key === "__database__") return "Database";
+  if (key === MAPS_ROOT) return "Maps";
+  if (key === SOUNDS_ROOT) return "Sounds";
+  if (key === "__nodered__") return "Node-RED flows";
+  if (key === "__udev__") return "udev rules";
+  if (key === "__other__") return "Other files";
+  const parts = key.split("/").filter(Boolean);
+  const lastTwo = parts.slice(-2).join("/");
+  return lastTwo;
+}
+
+/** Target path เริ่มต้นสำหรับ group (ใช้ category root) */
+function getGroupDefaultPath(file: BackupFileDetail): string {
+  const key = getGroupKey(file);
+  if (key === "__database__" || key === "__other__") return "";
+  if (key === "__nodered__") return "/home/matrix/node-red-dev/node-red-user/flows.json";
+  if (key === "__udev__") return "/etc/udev/rules.d/matrix_robot.rules";
+  return key; // maps root, sounds root, or parent directory
+}
+
