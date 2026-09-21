@@ -268,6 +268,7 @@ class BackupJobResponse(BaseModel):
     job_type: str
     job_status: int
     device_id: Optional[int] = None
+    device_name: Optional[str] = None
     backup_id: Optional[int] = None
     requested_by: Optional[int] = None
     total_devices: int
@@ -464,4 +465,5 @@ class ActivityLogResponse(ActivityLogBase):
     model_config = ConfigDict(from_attributes=True)
 
     log_id: int
+    device_name: Optional[str] = None
     created_at: datetime

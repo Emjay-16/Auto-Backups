@@ -3,7 +3,7 @@ from datetime import datetime, time, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from api import models, schemas
 from api.database import get_db
@@ -28,7 +28,7 @@ def list_jobs(
 ):
     recover_stale_running_records(db)
     limit = max(1, min(limit, 500))
-    query = db.query(models.BackupJob)
+    query = db.query(models.BackupJob).options(joinedload(models.BackupJob.device))
 
     if job_type:
         query = query.filter(models.BackupJob.job_type == job_type)
@@ -59,6 +59,7 @@ def get_job(
     recover_stale_running_records(db)
     job = (
         db.query(models.BackupJob)
+        .options(joinedload(models.BackupJob.device))
         .filter(models.BackupJob.job_id == job_id)
         .first()
     )

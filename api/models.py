@@ -1,3 +1,5 @@
+from typing import Optional
+
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, Numeric, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
@@ -140,6 +142,10 @@ class BackupJob(Base):
     backup = relationship("Backup", back_populates="jobs")
     requester = relationship("User", back_populates="backup_jobs")
 
+    @property
+    def device_name(self) -> Optional[str]:
+        return self.device.device_name if self.device else None
+
 
 class JobLock(Base):
     __tablename__ = "job_locks"
@@ -231,3 +237,7 @@ class ActivityLog(Base):
     user = relationship("User", back_populates="activity_logs")
     device = relationship("Device", back_populates="activity_logs")
     backup = relationship("Backup", back_populates="activity_logs")
+
+    @property
+    def device_name(self) -> Optional[str]:
+        return self.device.device_name if self.device else None

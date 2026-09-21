@@ -3,7 +3,7 @@ from datetime import datetime, time, timedelta
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from api.database import get_db
 from api.errors import api_exception
@@ -29,7 +29,7 @@ def get_activity_logs(
     db: Session = Depends(get_db),
 ):
     limit = max(1, min(limit, 500))
-    query = db.query(ActivityLog)
+    query = db.query(ActivityLog).options(joinedload(ActivityLog.device))
 
     if user_id is not None:
         query = query.filter(ActivityLog.user_id == user_id)
@@ -63,6 +63,7 @@ def get_activity_log(
 ):
     log = (
         db.query(ActivityLog)
+        .options(joinedload(ActivityLog.device))
         .filter(ActivityLog.log_id == log_id)
         .first()
     )

@@ -16,7 +16,7 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
   const selectedDate = params?.date || todayDateInputValue();
   const activities = await getActivitiesForUi(selectedDate);
   const filteredActivities = activities.filter((activity) =>
-    matchesQuery(query, [activity.kind, activity.text, activity.meta, activity.time]),
+    matchesQuery(query, [activity.kind, activity.text, activity.meta, activity.time, activity.device]),
   );
   const successCount = filteredActivities.filter((activity) => activity.kind === "ok").length;
   const failedCount = filteredActivities.filter((activity) => activity.kind === "fail").length;

@@ -15,7 +15,10 @@ RUN npm run build
 
 FROM node:22-alpine AS runner
 WORKDIR /app
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+    TZ=Asia/Bangkok
+
+RUN apk add --no-cache tzdata
 
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./

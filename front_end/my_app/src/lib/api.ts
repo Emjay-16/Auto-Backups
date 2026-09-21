@@ -258,6 +258,7 @@ type ApiJob = {
   job_type: string;
   job_status: number;
   device_id?: number | null;
+  device_name?: string | null;
   backup_id?: number | null;
   checked_devices: number;
   total_devices: number;
@@ -276,6 +277,7 @@ type ApiJob = {
 type ApiActivity = {
   log_id: number;
   device_id: number;
+  device_name?: string | null;
   backup_id?: number | null;
   action: string;
   activity_status: number;
@@ -679,11 +681,12 @@ function mapBackupStatus(backupStatus: number): JobStatus {
 
 function mapJob(job: ApiJob): Job {
   const message = job.job_message ?? "";
+  const deviceLabel = job.device_name || (job.device_id ? `Device #${job.device_id}` : "Fleet");
   return {
     id: job.job_id,
     deviceId: job.device_id,
     backupId: job.backup_id,
-    device: job.device_id ? `Device #${job.device_id}` : "Fleet",
+    device: deviceLabel,
     type: job.job_type.replaceAll("_", " "),
     target: message || `checked ${job.checked_devices}/${job.total_devices}`,
     status: mapJobStatus(job.job_status),
@@ -720,15 +723,16 @@ function mapJobProgress(jobStatus: number): number {
 }
 
 function mapActivity(activity: ApiActivity): Activity {
+  const deviceLabel = activity.device_name || (activity.device_id ? `Device #${activity.device_id}` : "-");
   return {
     id: activity.log_id,
     kind: mapActivityKind(activity.activity_status),
     text: activity.action,
-    meta: activity.activity_message ?? `Device #${activity.device_id}`,
+    meta: activity.activity_message ?? deviceLabel,
     time: formatTime(activity.created_at),
     action: activity.action,
     status: mapActivityStatusLabel(activity.activity_status),
-    device: `Device #${activity.device_id}`,
+    device: deviceLabel,
     backup: activity.backup_id ? `Backup #${activity.backup_id}` : "-",
   };
 }
@@ -749,10 +753,11 @@ function mapActivityStatusLabel(activityStatus: number): string {
 
 function mapJobNotification(job: ApiJob, tone: NotificationItem["tone"]): NotificationItem & { sortTime: number } {
   const timeValue = job.updated_at ?? job.started_at;
+  const deviceLabel = job.device_name || (job.device_id ? `Device #${job.device_id}` : "Fleet");
   return {
     id: `job-${job.job_id}`,
     title: tone === "fail" ? "Job failed" : "Job pending",
-    detail: job.job_message ?? `${job.job_type.replaceAll("_", " ")} · Device #${job.device_id ?? "fleet"}`,
+    detail: job.job_message ?? `${job.job_type.replaceAll("_", " ")} · ${deviceLabel}`,
     tone,
     time: formatDateTime(timeValue),
     sortTime: toTime(timeValue),
@@ -760,10 +765,11 @@ function mapJobNotification(job: ApiJob, tone: NotificationItem["tone"]): Notifi
 }
 
 function mapActivityNotification(activity: ApiActivity): NotificationItem & { sortTime: number } {
+  const deviceLabel = activity.device_name || (activity.device_id ? `Device #${activity.device_id}` : "-");
   return {
     id: `activity-${activity.log_id}`,
     title: activity.action,
-    detail: activity.activity_message ?? `Device #${activity.device_id}`,
+    detail: activity.activity_message ?? deviceLabel,
     tone: activity.activity_status === 2 ? "fail" : "info",
     time: formatDateTime(activity.created_at),
     sortTime: toTime(activity.created_at),

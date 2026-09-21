@@ -3,10 +3,14 @@ services:
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
+      TZ: ${TZ:-Asia/Bangkok}
+      PGTZ: ${TZ:-Asia/Bangkok}
       POSTGRES_DB: ${POSTGRES_DB:-postgres}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
       - postgres_data:/var/lib/postgresql/data
       - ./init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
     healthcheck:
@@ -23,6 +27,7 @@ services:
     env_file:
       - .env
     environment:
+      TZ: ${TZ:-Asia/Bangkok}
       POSTGRESQL_DB: ${POSTGRESQL_DB:-postgresql+psycopg2://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-postgres}}
       BACKUP_STORAGE_PATH: /app/storage/backups
       AUTO_BACKUP_PATHS_FILE: /app/storage/config/auto_backup_paths.json
@@ -33,6 +38,8 @@ services:
       db:
         condition: service_healthy
     volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
       - ./storage:/app/storage
     ports:
       - "${API_PORT:-8000}:8000"
@@ -46,6 +53,7 @@ services:
         NEXT_PUBLIC_API_AUTH_TOKEN: ${API_AUTH_TOKEN:-}
     restart: unless-stopped
     environment:
+      TZ: ${TZ:-Asia/Bangkok}
       AUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env}
       NEXTAUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
@@ -53,6 +61,9 @@ services:
     depends_on:
       api:
         condition: service_started
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     ports:
       - "${WEB_PORT:-3000}:3000"
 
