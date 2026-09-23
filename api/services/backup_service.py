@@ -202,17 +202,26 @@ def cleanup_old_backups(
     data: schemas.BackupCleanupRequest,
     db: Session,
 ) -> schemas.BackupCleanupResponse:
-    cutoff = now_local() - cleanup_age_delta(data)
-    age_candidates = (
-        db.query(models.Backup)
-        .filter(models.Backup.created_at < cutoff)
-        .order_by(models.Backup.created_at, models.Backup.backup_id)
-        .all()
-    )
-    monthly_candidates = _monthly_backup_excess(db, max_per_month=_MAX_AUTO_BACKUPS_PER_MONTH)
-    monthly_candidate_ids = {backup.backup_id for backup in monthly_candidates}
-    backups = list({backup.backup_id: backup for backup in age_candidates + monthly_candidates}.values())
-    backups.sort(key=lambda backup: (backup.created_at, backup.backup_id))
+    monthly_candidate_ids: set[int] = set()
+    if data.ignore_retention:
+        backups = (
+            db.query(models.Backup)
+            .filter(models.Backup.backup_status != constants.BACKUP_STATUS_RUNNING)
+            .order_by(models.Backup.created_at, models.Backup.backup_id)
+            .all()
+        )
+    else:
+        cutoff = now_local() - cleanup_age_delta(data)
+        age_candidates = (
+            db.query(models.Backup)
+            .filter(models.Backup.created_at < cutoff)
+            .order_by(models.Backup.created_at, models.Backup.backup_id)
+            .all()
+        )
+        monthly_candidates = _monthly_backup_excess(db, max_per_month=_MAX_AUTO_BACKUPS_PER_MONTH)
+        monthly_candidate_ids = {backup.backup_id for backup in monthly_candidates}
+        backups = list({backup.backup_id: backup for backup in age_candidates + monthly_candidates}.values())
+        backups.sort(key=lambda backup: (backup.created_at, backup.backup_id))
 
     items = []
     deleted = 0
@@ -223,8 +232,9 @@ def cleanup_old_backups(
         reason = _backup_cleanup_skip_reason(
             backup,
             db,
-            keep_latest_per_device=data.keep_latest_per_device,
+            keep_latest_per_device=False if data.ignore_retention else data.keep_latest_per_device,
             monthly_excess=monthly_excess,
+            protect_any_full_baseline=data.ignore_retention,
         )
         if reason:
             skipped += 1
@@ -1997,12 +2007,16 @@ def _backup_cleanup_skip_reason(
     db: Session,
     keep_latest_per_device: bool,
     monthly_excess: bool = False,
+    protect_any_full_baseline: bool = False,
 ) -> Optional[str]:
     if backup.backup_type != constants.BACKUP_TYPE_AUTO:
         return "Manual backup is protected"
 
     if keep_latest_per_device and not monthly_excess and _is_latest_backup_for_device(backup, db):
         return "Latest backup for this device"
+
+    if protect_any_full_baseline and _is_full_baseline_by_manifest(backup):
+        return "Full baseline is protected"
 
     # ป้องกัน Full baseline: ลบได้ก็ต่อเมื่อมี Full baseline ใหม่กว่ามาแทนที่แล้ว
     if _is_full_baseline_by_manifest(backup) and not _has_newer_full_baseline_for_device(backup, db):

@@ -153,6 +153,7 @@ export type BackupCleanupPayload = {
   older_than_days: number;
   older_than_hours?: number;
   keep_latest_per_device: boolean;
+  ignore_retention?: boolean;
 };
 
 export type BackupCleanupResult = {

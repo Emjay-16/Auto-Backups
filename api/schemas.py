@@ -295,6 +295,7 @@ class BackupCleanupRequest(BaseModel):
     older_than_days: int = 90
     older_than_hours: Optional[int] = None
     keep_latest_per_device: bool = True
+    ignore_retention: bool = False
 
 
 class BackupCleanupItemResponse(BaseModel):

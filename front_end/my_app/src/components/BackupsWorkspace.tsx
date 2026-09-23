@@ -73,7 +73,6 @@ export function BackupsWorkspace({
   const [downloadFilename, setDownloadFilename] = useState("");
   const [pendingDownloadConfirm, setPendingDownloadConfirm] = useState(false);
   const [cleanupDays, setCleanupDays] = useState("90");
-  const [cleanupHours, setCleanupHours] = useState("0");
   const [cleanupEnabled, setCleanupEnabled] = useState(false);
   const [cleanupIntervalHours, setCleanupIntervalHours] = useState("720");
   const [cleanupKeepLatest, setCleanupKeepLatest] = useState(true);
@@ -159,7 +158,6 @@ export function BackupsWorkspace({
         setCleanupSettings(cleanupRule);
         if (!cleanupRule) return;
         setCleanupDays(String(cleanupRule.older_than_days));
-        setCleanupHours(String(cleanupRule.older_than_hours ?? 0));
         setCleanupEnabled(cleanupRule.enabled);
         setCleanupIntervalHours(String(cleanupRule.interval_hours));
         setCleanupKeepLatest(cleanupRule.keep_latest_per_device);
@@ -363,16 +361,20 @@ export function BackupsWorkspace({
     setError("");
     setResult(null);
     try {
+      const daysValue = Number(cleanupDays);
+      const olderThanDays = Math.max(Number.isFinite(daysValue) ? Math.floor(daysValue) : 1, 1);
       const response = await cleanupBackups({
-        older_than_days: Number(cleanupDays) || 90,
-        older_than_hours: Number(cleanupHours) > 0 ? Number(cleanupHours) : undefined,
+        older_than_days: olderThanDays,
         keep_latest_per_device: cleanupKeepLatest,
+        ignore_retention: true,
       });
       setResult(response);
       showToast({
         tone: "success",
         title: "Cleanup completed",
-        message: `${response.deleted} deleted · ${response.skipped} skipped`,
+        message: response.candidates > 0
+          ? `${response.candidates} candidates · ${response.deleted} deleted · ${response.skipped} skipped`
+          : "No backups matched the cleanup rule",
       });
       router.refresh();
     } catch (errorResponse) {
@@ -386,16 +388,16 @@ export function BackupsWorkspace({
     setSaving(true);
     setError("");
     try {
+      const daysValue = Number(cleanupDays);
       const settings = await updateAutoCleanupSettings({
         enabled: cleanupEnabled,
-        older_than_days: Number(cleanupDays) || 90,
-        older_than_hours: Number(cleanupHours) > 0 ? Number(cleanupHours) : 0,
+        older_than_days: Math.max(Number.isFinite(daysValue) ? Math.floor(daysValue) : 90, 1),
+        older_than_hours: 0,
         interval_hours: Number(cleanupIntervalHours) || 720,
         keep_latest_per_device: cleanupKeepLatest,
       });
       setCleanupSettings(settings);
       setCleanupDays(String(settings.older_than_days));
-      setCleanupHours(String(settings.older_than_hours ?? 0));
       setCleanupEnabled(settings.enabled);
       setCleanupIntervalHours(String(settings.interval_hours));
       setCleanupKeepLatest(settings.keep_latest_per_device);
@@ -1503,7 +1505,11 @@ function ResultBox({ result }: { result: BackupRunResult | BackupCleanupResult }
   return (
     <div className={styles.resultBox}>
       <strong>Cleanup completed</strong>
-      <span>{result.candidates} candidates · {result.deleted} deleted · {result.skipped} skipped</span>
+      <span>
+        {result.candidates > 0
+          ? `${result.candidates} candidates · ${result.deleted} deleted · ${result.skipped} skipped`
+          : "No backups matched the cleanup rule"}
+      </span>
     </div>
   );
 }
