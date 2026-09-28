@@ -17,6 +17,7 @@ import {
 } from "@/lib/api";
 import type { Device } from "@/lib/types";
 import { ClockIcon } from "./ActionIcons";
+import { BackupProgressModal, type BackupProgressStatus } from "./BackupProgressModal";
 import { RobotGroupBadge, robotGroupTone } from "./RobotGroupBadge";
 import { useToast } from "./ToastProvider";
 import styles from "@/styles/components/DeviceStatusPanel.module.css";
@@ -43,6 +44,18 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
   const [isBackupNamePromptOpen, setIsBackupNamePromptOpen] = useState(false);
   const [loading, setLoading] = useState("");
   const [error, setError] = useState("");
+  const [backupProgress, setBackupProgress] = useState<{
+    isOpen: boolean;
+    status: BackupProgressStatus;
+    deviceName?: string;
+    backupName?: string;
+    targetCount?: number;
+    result?: BackupRunResult | null;
+    errorMessage?: string;
+  }>({
+    isOpen: false,
+    status: "loading",
+  });
   const [openingDeviceId, setOpeningDeviceId] = useState<string | null>(null);
   const [openingPath, setOpeningPath] = useState<string | null>(null);
   const [isClosing, setIsClosing] = useState(false);
@@ -208,6 +221,10 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
     setIsBackupNamePromptOpen(true);
   }
 
+  function handleCloseBackupProgress() {
+    setBackupProgress((current) => ({ ...current, isOpen: false }));
+  }
+
   async function backupNow() {
     if (!selectedDevice?.id) return;
     const remotePaths = selectedPaths.filter((path) => path.startsWith("/"));
@@ -220,18 +237,36 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
       return;
     }
 
+    const resolvedBackupName = backupName.trim() || undefined;
+    const targetCount = remotePaths.length + (includeDatabase ? 1 : 0);
+
     setLoading("backup");
     setError("");
     setBackupResult(null);
+    setIsBackupNamePromptOpen(false);
+    setBackupProgress({
+      isOpen: true,
+      status: "loading",
+      deviceName: selectedDevice.name,
+      backupName: resolvedBackupName,
+      targetCount,
+    });
+
     try {
       const result = await runCombinedBackup({
         device_id: selectedDevice.id,
         remote_paths: remotePaths,
         include_database: includeDatabase,
-        backup_name: backupName.trim() || undefined,
+        backup_name: resolvedBackupName,
       });
       setBackupResult(result);
-      setIsBackupNamePromptOpen(false);
+      setBackupProgress({
+        isOpen: true,
+        status: "success",
+        deviceName: result.device_name || selectedDevice.name,
+        backupName: result.backup_name,
+        result,
+      });
       showToast({
         tone: "success",
         title: "Backup completed",
@@ -239,7 +274,14 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
       });
       router.refresh();
     } catch (errorResponse) {
-      showToast({ tone: "error", title: "Backup failed", message: getErrorMessage(errorResponse, "Backup failed") });
+      const errorMsg = getErrorMessage(errorResponse, "Backup failed");
+      setBackupProgress({
+        isOpen: true,
+        status: "error",
+        deviceName: selectedDevice.name,
+        errorMessage: errorMsg,
+      });
+      showToast({ tone: "error", title: "Backup failed", message: errorMsg });
     } finally {
       setLoading("");
     }
@@ -554,6 +596,8 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
           </section>
         </div>
       ), document.body) : null}
+
+      <BackupProgressModal {...backupProgress} onClose={handleCloseBackupProgress} />
     </>
   );
 

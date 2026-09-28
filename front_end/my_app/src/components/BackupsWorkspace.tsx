@@ -31,6 +31,7 @@ import type { Backup, Device } from "@/lib/types";
 import styles from "@/styles/pages/backups/backups.module.css";
 import { BackupIcon, CleanupIcon, FolderIcon } from "./ActionIcons";
 import { AppModal } from "./AppModal";
+import { BackupProgressModal, type BackupProgressStatus } from "./BackupProgressModal";
 import { PaginatedBackupsTable } from "./PaginatedBackupsTable";
 import { Panel } from "./Panel";
 import { StatusBadge } from "./StatusBadge";
@@ -86,6 +87,18 @@ export function BackupsWorkspace({
   const [result, setResult] = useState<BackupRunResult | BackupCleanupResult | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [backupProgress, setBackupProgress] = useState<{
+    isOpen: boolean;
+    status: BackupProgressStatus;
+    deviceName?: string;
+    backupName?: string;
+    targetCount?: number;
+    result?: BackupRunResult | null;
+    errorMessage?: string;
+  }>({
+    isOpen: false,
+    status: "loading",
+  });
   const [pendingDeleteBackup, setPendingDeleteBackup] = useState<Backup | null>(null);
   const [pendingDeletePath, setPendingDeletePath] = useState<string | null>(null);
   const [editingPathTarget, setEditingPathTarget] = useState<BackupTarget | null>(null);
@@ -255,6 +268,14 @@ export function BackupsWorkspace({
     setOpenedPath("");
   }
 
+  function handleCloseBackupProgress() {
+    const wasSuccess = backupProgress.status === "success";
+    setBackupProgress((current) => ({ ...current, isOpen: false }));
+    if (wasSuccess) {
+      closeModal();
+    }
+  }
+
   async function submitBackup(databaseOnly = false) {
     const numericDeviceId = Number(deviceId);
     const remotePaths = databaseOnly ? [] : selectedPaths.filter((path) => path.startsWith("/"));
@@ -269,18 +290,37 @@ export function BackupsWorkspace({
       return;
     }
 
+    const selectedDeviceObj = usableDevices.find((device) => device.id === numericDeviceId);
+    const resolvedDeviceName = selectedDeviceObj?.name ?? `Device #${numericDeviceId}`;
+    const resolvedBackupName = backupName.trim() || undefined;
+
     setSaving(true);
     setError("");
     setResult(null);
+    setBackupProgress({
+      isOpen: true,
+      status: "loading",
+      deviceName: resolvedDeviceName,
+      backupName: resolvedBackupName,
+      targetCount: remotePaths.length + (databaseSelected ? 1 : 0),
+    });
+
     try {
       const response = await runCombinedBackup({
         device_id: numericDeviceId,
-        backup_name: backupName.trim() || undefined,
+        backup_name: resolvedBackupName,
         remote_paths: remotePaths,
         include_database: databaseSelected,
         zip_output: zipOutput,
       });
       setResult(response);
+      setBackupProgress({
+        isOpen: true,
+        status: "success",
+        deviceName: response.device_name || resolvedDeviceName,
+        backupName: response.backup_name,
+        result: response,
+      });
       showToast({
         tone: "success",
         title: "Backup completed",
@@ -288,7 +328,14 @@ export function BackupsWorkspace({
       });
       router.refresh();
     } catch (errorResponse) {
-      showToast({ tone: "error", title: "Backup failed", message: getErrorMessage(errorResponse, "Backup failed") });
+      const errorMsg = getErrorMessage(errorResponse, "Backup failed");
+      setBackupProgress({
+        isOpen: true,
+        status: "error",
+        deviceName: resolvedDeviceName,
+        errorMessage: errorMsg,
+      });
+      showToast({ tone: "error", title: "Backup failed", message: errorMsg });
     } finally {
       setSaving(false);
     }
@@ -1488,6 +1535,8 @@ export function BackupsWorkspace({
           </section>
         </div>
       ) : null}
+
+      <BackupProgressModal {...backupProgress} onClose={handleCloseBackupProgress} />
     </div>
   );
 }

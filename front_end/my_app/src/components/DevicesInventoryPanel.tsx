@@ -22,6 +22,7 @@ import {
   type RemoteFile,
 } from "@/lib/api";
 import styles from "@/styles/pages/devices/devices.module.css";
+import { BackupProgressModal, type BackupProgressStatus } from "./BackupProgressModal";
 import { Panel } from "./Panel";
 import { PaginatedDevicesTable } from "./PaginatedDevicesTable";
 import { robotGroupTone } from "./RobotGroupBadge";
@@ -88,6 +89,18 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
   const [backupResult, setBackupResult] = useState<BackupRunResult | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [backupProgress, setBackupProgress] = useState<{
+    isOpen: boolean;
+    status: BackupProgressStatus;
+    deviceName?: string;
+    backupName?: string;
+    targetCount?: number;
+    result?: BackupRunResult | null;
+    errorMessage?: string;
+  }>({
+    isOpen: false,
+    status: "loading",
+  });
   const filterOptions = useMemo<DeviceFilter[]>(() => [
     { key: "all", label: "All", kind: "all" },
     ...groupOptions.map((group) => ({
@@ -222,6 +235,14 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
     }
   }
 
+  function handleCloseBackupProgress() {
+    const wasSuccess = backupProgress.status === "success";
+    setBackupProgress((current) => ({ ...current, isOpen: false }));
+    if (wasSuccess) {
+      closeModal();
+    }
+  }
+
   async function submitBackup() {
     if (!selectedDevice?.id) {
       setError("Device is missing an API id. Please reload devices.");
@@ -235,17 +256,35 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
       return;
     }
 
+    const resolvedBackupName = backupName.trim() || undefined;
+    const targetCount = remotePaths.length + (includeDatabase ? 1 : 0);
+
     setSaving(true);
     setError("");
+    setBackupProgress({
+      isOpen: true,
+      status: "loading",
+      deviceName: selectedDevice.name,
+      backupName: resolvedBackupName,
+      targetCount,
+    });
+
     try {
       const result = await runCombinedBackup({
         device_id: selectedDevice.id,
         remote_paths: remotePaths,
         include_database: includeDatabase,
-        backup_name: backupName.trim() || undefined,
+        backup_name: resolvedBackupName,
         zip_output: zipOutput,
       });
       setBackupResult(result);
+      setBackupProgress({
+        isOpen: true,
+        status: "success",
+        deviceName: result.device_name || selectedDevice.name,
+        backupName: result.backup_name,
+        result,
+      });
       showToast({
         tone: "success",
         title: "Backup completed",
@@ -253,7 +292,14 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
       });
       router.refresh();
     } catch (errorResponse) {
-      showToast({ tone: "error", title: "Backup failed", message: getErrorMessage(errorResponse, "Backup failed") });
+      const errorMsg = getErrorMessage(errorResponse, "Backup failed");
+      setBackupProgress({
+        isOpen: true,
+        status: "error",
+        deviceName: selectedDevice.name,
+        errorMessage: errorMsg,
+      });
+      showToast({ tone: "error", title: "Backup failed", message: errorMsg });
     } finally {
       setSaving(false);
     }
@@ -759,6 +805,8 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
           </section>
         </div>
       ) : null}
+
+      <BackupProgressModal {...backupProgress} onClose={handleCloseBackupProgress} />
     </>
   );
 }
