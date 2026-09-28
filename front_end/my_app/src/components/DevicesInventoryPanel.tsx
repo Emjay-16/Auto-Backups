@@ -14,6 +14,7 @@ import {
   getDeviceBackupPaths,
   addDeviceBackupPath,
   deleteDeviceBackupPath,
+  getErrorMessage,
   type BackupRunResult,
   type BackupTarget,
   type DeviceFormPayload,
@@ -152,7 +153,11 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
       const paths = await getDeviceBackupPaths(device.id);
       setDevicePaths(paths);
     } catch (errorResponse) {
-      showToast({ tone: "error", title: "Load device paths failed", message: getErrorMessage(errorResponse, "Load device paths failed") });
+      showToast({
+        tone: "error",
+        title: "โหลด Path ของอุปกรณ์ไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "ไม่สามารถโหลดรายการ Path ของอุปกรณ์ได้"),
+      });
     } finally {
       setDevicePathsLoading(false);
     }
@@ -206,7 +211,11 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
       setBackupTargets(await getBackupTargets());
     } catch (errorResponse) {
       setBackupTargets([]);
-      showToast({ tone: "error", title: "Load backup targets failed", message: getErrorMessage(errorResponse, "Load backup targets failed") });
+      showToast({
+        tone: "error",
+        title: "โหลดรายการเป้าหมายสำรองข้อมูลไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "ไม่สามารถโหลดรายการเป้าหมายสำรองข้อมูลได้"),
+      });
     }
   }
 
@@ -222,7 +231,11 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
       setRemoteFiles(files);
       router.refresh();
     } catch (errorResponse) {
-      showToast({ tone: "error", title: "Load files failed", message: getErrorMessage(errorResponse, "Load files failed") });
+      showToast({
+        tone: "error",
+        title: "โหลดรายการไฟล์ไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "ไม่สามารถดึงรายการไฟล์จากอุปกรณ์ได้"),
+      });
     } finally {
       setSaving(false);
     }
@@ -245,14 +258,14 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
 
   async function submitBackup() {
     if (!selectedDevice?.id) {
-      setError("Device is missing an API id. Please reload devices.");
+      setError("ไม่พบรหัสอุปกรณ์ในระบบ กรุณารีเฟรชหน้านี้ใหม่");
       return;
     }
 
     const remotePaths = selectedPaths.filter((path) => path.startsWith("/"));
 
     if (!remotePaths.length && !includeDatabase) {
-      setError("Please select at least one file, folder, or database JSON target.");
+      setError("กรุณาเลือกไฟล์ โฟลเดอร์ หรือฐานข้อมูลที่ต้องการสำรองข้อมูลอย่างน้อย 1 รายการ");
       return;
     }
 
@@ -292,14 +305,14 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
       });
       router.refresh();
     } catch (errorResponse) {
-      const errorMsg = getErrorMessage(errorResponse, "Backup failed");
+      const errorMsg = getErrorMessage(errorResponse, "เกิดข้อผิดพลาดในการสำรองข้อมูล");
       setBackupProgress({
         isOpen: true,
         status: "error",
         deviceName: selectedDevice.name,
         errorMessage: errorMsg,
       });
-      showToast({ tone: "error", title: "Backup failed", message: errorMsg });
+      showToast({ tone: "error", title: "การสำรองข้อมูลไม่สำเร็จ", message: errorMsg });
     } finally {
       setSaving(false);
     }
@@ -307,7 +320,7 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
 
   async function openBackupTargetPath(path: string) {
     if (!selectedDevice?.id) {
-      setError("Device is missing an API id. Please reload devices.");
+      setError("ไม่พบรหัสอุปกรณ์ในระบบ กรุณารีเฟรชหน้านี้ใหม่");
       return;
     }
 
@@ -318,7 +331,11 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
       setRemoteFiles(files);
       setOpenedPath(path);
     } catch (errorResponse) {
-      showToast({ tone: "error", title: "Open folder failed", message: getErrorMessage(errorResponse, "Open folder failed") });
+      showToast({
+        tone: "error",
+        title: "เปิดโฟลเดอร์ไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "ไม่สามารถเปิดดูโฟลเดอร์บนอุปกรณ์ได้"),
+      });
     } finally {
       setSaving(false);
     }
@@ -357,7 +374,7 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
     const path = customBackupPath.trim();
     if (!path) return;
     if (!path.startsWith("/")) {
-      setError("Custom backup path must start with /");
+      setError("Path สำหรับสำรองข้อมูลต้องขึ้นต้นด้วยเครื่องหมาย / เสมอ");
       return;
     }
     try {
@@ -384,14 +401,14 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
       setError("");
       showToast({
         tone: "success",
-        title: "Auto backup path added",
+        title: "เพิ่ม Path สำรองข้อมูลสำเร็จ",
         message: `${savedPath.label}: ${savedPath.path}`,
       });
     } catch (errorResponse) {
       showToast({
         tone: "error",
-        title: "Save auto backup path failed",
-        message: getErrorMessage(errorResponse, "Save auto backup path failed"),
+        title: "บันทึก Path สำรองข้อมูลไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "ไม่สามารถบันทึก Path สำหรับสำรองข้อมูลได้"),
       });
     }
   }
@@ -403,9 +420,13 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
       setDevicePaths((current) => [...current.filter((target) => target.path !== saved.path), saved]);
       setNewDevicePath("");
       setNewDevicePathLabel("");
-      showToast({ tone: "success", title: "Backup path added", message: `${saved.label}: ${saved.path}` });
+      showToast({ tone: "success", title: "เพิ่ม Path สำรองข้อมูลสำเร็จ", message: `${saved.label}: ${saved.path}` });
     } catch (errorResponse) {
-      showToast({ tone: "error", title: "Add backup path failed", message: getErrorMessage(errorResponse, "Add backup path failed") });
+      showToast({
+        tone: "error",
+        title: "เพิ่ม Path สำรองข้อมูลไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "ไม่สามารถเพิ่ม Path สำหรับสำรองข้อมูลได้"),
+      });
     }
   }
 
@@ -415,7 +436,11 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
       await deleteDeviceBackupPath(selectedDevice.id, path);
       setDevicePaths((current) => current.filter((target) => target.path !== path));
     } catch (errorResponse) {
-      showToast({ tone: "error", title: "Remove backup path failed", message: getErrorMessage(errorResponse, "Remove backup path failed") });
+      showToast({
+        tone: "error",
+        title: "ลบ Path สำรองข้อมูลไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "ไม่สามารถลบ Path สำหรับสำรองข้อมูลได้"),
+      });
     }
   }
 
@@ -430,7 +455,7 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
 
       if (mode === "edit") {
         if (!selectedDevice?.id) {
-          throw new Error("Device is missing an API id. Please reload devices.");
+          throw new Error("ไม่พบรหัสอุปกรณ์ในระบบ กรุณารีเฟรชหน้านี้ใหม่");
         }
         await updateDevice(selectedDevice.id, buildUpdatePayload(form, selectedDevice));
       }
@@ -439,12 +464,16 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
       setSelectedDevice(null);
       showToast({
         tone: "success",
-        title: mode === "add" ? "Device added" : "Device updated",
-        message: form.deviceName.trim() || selectedDevice?.name || "Device saved",
+        title: mode === "add" ? "เพิ่มอุปกรณ์สำเร็จ" : "อัปเดตอุปกรณ์สำเร็จ",
+        message: form.deviceName.trim() || selectedDevice?.name || "บันทึกข้อมูลเรียบร้อยแล้ว",
       });
       router.refresh();
     } catch (errorResponse) {
-      showToast({ tone: "error", title: "Save device failed", message: getErrorMessage(errorResponse, "Save device failed") });
+      showToast({
+        tone: "error",
+        title: "บันทึกข้อมูลอุปกรณ์ไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "ไม่สามารถบันทึกข้อมูลอุปกรณ์ได้"),
+      });
     } finally {
       setSaving(false);
     }
@@ -814,7 +843,7 @@ export function DevicesInventoryPanel({ devices, groups }: { devices: Device[]; 
 function buildCreatePayload(form: FormState): DeviceFormPayload {
   const groupId = Number(form.groupId);
   if (!groupId) {
-    throw new Error("Please create a device group before adding devices.");
+    throw new Error("กรุณาสร้างกลุ่มอุปกรณ์ก่อนเพิ่มอุปกรณ์");
   }
 
   const payload: DeviceFormPayload = {
@@ -902,8 +931,4 @@ function findOpenedParentFolder(path: string, openedPath: string): string | null
 
 function uniquePaths(paths: string[]): string[] {
   return Array.from(new Set(paths));
-}
-
-function getErrorMessage(errorResponse: unknown, fallback: string): string {
-  return errorResponse instanceof Error ? errorResponse.message : fallback;
 }

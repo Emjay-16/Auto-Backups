@@ -10,6 +10,7 @@ import {
   getDevicesForUi,
   restoreBackup,
   uploadFilesToDevice,
+  getErrorMessage,
   type BackupDetail,
   type BackupFileDetail,
   type RestoreRunResult,
@@ -69,9 +70,9 @@ export default function RestorePage() {
       })
       .catch((errorResponse) => {
         if (!mounted) return;
-        const message = getErrorMessage(errorResponse, "Load restore data failed");
+        const message = getErrorMessage(errorResponse, "ไม่สามารถโหลดข้อมูลการกู้คืนได้");
         setError(message);
-        showToast({ tone: "error", title: "Load restore data failed", message });
+        showToast({ tone: "error", title: "โหลดข้อมูลการกู้คืนไม่สำเร็จ", message });
       })
       .finally(() => {
         if (mounted) setSaving(false);
@@ -122,7 +123,11 @@ export default function RestorePage() {
       })
       .catch((errorResponse) => {
         if (mounted) {
-          showToast({ tone: "error", title: "Load backup detail failed", message: getErrorMessage(errorResponse, "Load backup detail failed") });
+          showToast({
+            tone: "error",
+            title: "โหลดรายละเอียดไฟล์สำรองไม่สำเร็จ",
+            message: getErrorMessage(errorResponse, "ไม่สามารถโหลดรายละเอียดของไฟล์สำรองนี้ได้"),
+          });
         }
       })
       .finally(() => {
@@ -195,11 +200,11 @@ export default function RestorePage() {
   async function submitRestore() {
     const backupId = Number(selectedBackupId);
     if (!backupId || !backupDetail) {
-      setError("Please select a backup.");
+      setError("กรุณาเลือกไฟล์สำรองข้อมูลที่ต้องการกู้คืน");
       return;
     }
     if (!selectedFileIds.length) {
-      setError("Please select at least one backup file.");
+      setError("กรุณาเลือกไฟล์ที่ต้องการกู้คืนอย่างน้อย 1 ไฟล์");
       return;
     }
     const selectedFiles = backupDetail.files.filter((file) => selectedFileIds.includes(file.backup_file_id));
@@ -242,7 +247,11 @@ export default function RestorePage() {
         message: `${response.total_file} file(s) restored`,
       });
     } catch (errorResponse) {
-      showToast({ tone: "error", title: "Restore failed", message: getErrorMessage(errorResponse, "Restore failed") });
+      showToast({
+        tone: "error",
+        title: "การกู้คืนข้อมูลไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "เกิดข้อผิดพลาดในการกู้คืนข้อมูลไปยังอุปกรณ์"),
+      });
     } finally {
       setSaving(false);
     }
@@ -251,15 +260,15 @@ export default function RestorePage() {
   async function submitUpload() {
     const deviceId = Number(selectedDeviceId);
     if (!deviceId) {
-      setError("Please select a device from API data.");
+      setError("กรุณาเลือกอุปกรณ์ที่ต้องการอัปโหลดไฟล์ไป");
       return;
     }
     if (!fallbackTargetPath.trim()) {
-      setError("Please enter target path.");
+      setError("กรุณาระบุ Path ปลายทางบนอุปกรณ์");
       return;
     }
     if (!uploadFiles.length) {
-      setError("Please choose at least one file.");
+      setError("กรุณาเลือกไฟล์ที่ต้องการอัปโหลดอย่างน้อย 1 ไฟล์");
       return;
     }
 
@@ -279,7 +288,11 @@ export default function RestorePage() {
         message: `${response.total_file} file(s) uploaded to ${response.device_name}`,
       });
     } catch (errorResponse) {
-      showToast({ tone: "error", title: "Upload failed", message: getErrorMessage(errorResponse, "Upload failed") });
+      showToast({
+        tone: "error",
+        title: "การอัปโหลดไฟล์ไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "เกิดข้อผิดพลาดในการอัปโหลดไฟล์ไปยังอุปกรณ์"),
+      });
     } finally {
       setSaving(false);
     }
@@ -709,10 +722,6 @@ function restoreFileKindLabel(file: BackupFileDetail): string {
   if (isLikelyDatabaseBackupFile(file)) return "database";
   if (isZipBackupFile(file)) return "zip";
   return "file";
-}
-
-function getErrorMessage(errorResponse: unknown, fallback: string): string {
-  return errorResponse instanceof Error ? errorResponse.message : fallback;
 }
 
 const MAPS_ROOT = "/home/matrix/public_web/ist_web_release/writable/uploads/maps";

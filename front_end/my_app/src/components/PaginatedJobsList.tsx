@@ -34,7 +34,7 @@ export function PaginatedJobsList({ jobs }: { jobs: Job[] }) {
             <time>{job.time}</time>
           </article>
         )) : (
-          <p className={styles.emptyJobs}>No jobs in this status</p>
+          <p className={styles.emptyJobs}>ไม่มีรายการงานในสถานะนี้</p>
         )}
       </div>
       <PaginationControls

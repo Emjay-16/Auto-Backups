@@ -593,22 +593,154 @@ export async function fetchApi(path: string, init: RequestInit = {}): Promise<Re
   });
 }
 
+export function formatUserFriendlyError(error: unknown, fallback?: string): string {
+  let message = "";
+  let code = "";
+  let detailInfo = "";
+
+  if (typeof error === "string") {
+    message = error;
+  } else if (error instanceof Error) {
+    message = error.message;
+  } else if (error && typeof error === "object") {
+    const errObj = error as Record<string, unknown>;
+    message = typeof errObj.message === "string" ? errObj.message : "";
+    code = typeof errObj.error_code === "string" ? errObj.error_code : "";
+    if (!message && typeof errObj.detail === "string") {
+      message = errObj.detail;
+    }
+  }
+
+  // If message has code in bracket like [SFTP_CONNECTION_FAILED] ...
+  const codeMatch = message.match(/^\[([A-Z0-9_]+)\]\s*(.*)$/);
+  if (codeMatch) {
+    code = codeMatch[1];
+    message = codeMatch[2];
+  }
+
+  // Extract trailing device/IP detail if present e.g. (Robot 1 · 192.168.1.10)
+  const detailMatch = message.match(/\s*\(([^)]+)\)$/);
+  if (detailMatch) {
+    detailInfo = ` (${detailMatch[1]})`;
+  }
+
+  const normalized = message.toLowerCase();
+
+  // 1. Connection / Network / Socket Errors
+  if (normalized.includes("connection refused") || normalized.includes("errno 111")) {
+    return `ไม่สามารถเชื่อมต่ออุปกรณ์ได้ (อุปกรณ์ปฏิเสธการเชื่อมต่อ หรือ SSH service ปิดอยู่)${detailInfo}`;
+  }
+  if (normalized.includes("no route to host") || normalized.includes("errno 113")) {
+    return `ไม่พบอุปกรณ์ในเครือข่าย กรุณาตรวจสอบว่าอุปกรณ์เปิดอยู่และอยู่ในวง LAN เดียวกัน${detailInfo}`;
+  }
+  if (normalized.includes("timed out") || normalized.includes("timeout") || normalized.includes("errno 110")) {
+    return `การเชื่อมต่อไปยังอุปกรณ์หมดเวลา (อุปกรณ์อาจปิดอยู่หรือไม่ตอบสนอง)${detailInfo}`;
+  }
+  if (normalized.includes("authentication failed") || normalized.includes("bad authentication")) {
+    return `ชื่อผู้ใช้หรือรหัสผ่าน SSH ของอุปกรณ์ไม่ถูกต้อง กรุณาตรวจสอบข้อมูลเข้าสู่ระบบ${detailInfo}`;
+  }
+  if (normalized.includes("host key verification failed")) {
+    return `การยืนยันความปลอดภัย Host Key ของอุปกรณ์ล้มเหลว${detailInfo}`;
+  }
+  if (normalized.includes("permission denied")) {
+    return `ไม่มีสิทธิ์เข้าถึงไฟล์หรือโฟลเดอร์บนอุปกรณ์ (Permission Denied)${detailInfo}`;
+  }
+  if (normalized.includes("no such file or directory") || normalized.includes("errno 2")) {
+    return `ไม่พบไฟล์หรือโฟลเดอร์ที่ระบุบนอุปกรณ์${detailInfo}`;
+  }
+  if (normalized.includes("no space left") || normalized.includes("disk full") || normalized.includes("errno 28")) {
+    return "พื้นที่จัดเก็บข้อมูลบนอุปกรณ์หรือเซิร์ฟเวอร์เต็ม";
+  }
+  if (normalized.includes("failed to fetch") || normalized.includes("networkerror") || normalized.includes("fetch failed")) {
+    return "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่อเครือข่าย";
+  }
+
+  // 2. Specific Error Codes
+  if (code === "SFTP_CONNECTION_FAILED" || normalized.includes("sftp connect failed")) {
+    return `ไม่สามารถเชื่อมต่อ SFTP ไปยังอุปกรณ์ได้ กรุณาตรวจสอบว่าอุปกรณ์เปิดอยู่และต่อเครือข่ายเรียบร้อย${detailInfo}`;
+  }
+  if (code === "SSH_CREDENTIALS_MISSING" || normalized.includes("ssh credentials missing")) {
+    return `ไม่ได้ระบุชื่อผู้ใช้หรือรหัสผ่าน SSH ของอุปกรณ์นี้ กรุณาแก้ไขข้อมูลอุปกรณ์${detailInfo}`;
+  }
+  if (code === "ROBOT_DATABASE_CONFIG_MISSING" || normalized.includes("database config missing")) {
+    return "ไม่ได้ตั้งค่าการเชื่อมต่อฐานข้อมูลสำหรับหุ่นยนต์นี้";
+  }
+  if (code === "DATABASE_CONNECTION_FAILED" || normalized.includes("database connection failed")) {
+    return "ไม่สามารถเชื่อมต่อฐานข้อมูลหลักของระบบได้ กรุณาตรวจสอบเซิร์ฟเวอร์ฐานข้อมูล";
+  }
+  if (code === "AUTO_BACKUP_ALREADY_RUNNING" || code === "JOB_ALREADY_RUNNING" || normalized.includes("already running")) {
+    return "กำลังมีการสำรองข้อมูลอื่นทำงานอยู่ กรุณารอสักครู่ให้งานปัจจุบันเสร็จสิ้น";
+  }
+  if (code === "DEVICE_NOT_FOUND" || (normalized.includes("device") && normalized.includes("not found"))) {
+    return "ไม่พบข้อมูลอุปกรณ์นี้ในระบบ";
+  }
+  if (code === "DEVICE_GROUP_NOT_FOUND") {
+    return "ไม่พบกลุ่มอุปกรณ์ที่ระบุในระบบ";
+  }
+  if (code === "BACKUP_NOT_FOUND" || normalized.includes("backup not found")) {
+    return "ไม่พบข้อมูลการสำรองข้อมูลในระบบ";
+  }
+  if (code === "BACKUP_FILE_NOT_FOUND" || normalized.includes("backup file not found")) {
+    return "ไม่พบไฟล์สำรองข้อมูลบนเซิร์ฟเวอร์ (ไฟล์อาจถูกลบหรือย้ายที่อยู่)";
+  }
+  if (code === "RESOURCE_ALREADY_EXISTS" || normalized.includes("already exists")) {
+    if (normalized.includes("code")) return "รหัสอุปกรณ์ (Device Code) นี้มีอยู่ในระบบแล้ว";
+    if (normalized.includes("ip")) return "IP Address นี้มีอยู่ในระบบแล้ว";
+    return "ข้อมูลนี้มีอยู่ในระบบแล้ว";
+  }
+  if (code === "INVALID_IP_ADDRESS" || normalized.includes("invalid ip")) {
+    return "รูปแบบ IP Address ไม่ถูกต้อง กรุณาตรวจสอบใหม่อีกครั้ง";
+  }
+  if (code === "INVALID_LOGIN" || normalized.includes("ชื่อ หรือ รหัสไม่ถูกต้อง")) {
+    return "ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง";
+  }
+  if (code === "VALIDATION_ERROR" || normalized.includes("validation failed")) {
+    return "ข้อมูลที่ระบุไม่ถูกต้องหรือไม่ครบถ้วน กรุณาตรวจสอบข้อมูลที่กรอก";
+  }
+  if (code === "TARGET_PATH_REQUIRED" || code === "SELECTION_REQUIRED") {
+    return "กรุณาเลือกไฟล์หรือโฟลเดอร์เป้าหมายอย่างน้อย 1 รายการ";
+  }
+
+  // 3. HTTP status pattern
+  const statusMatch = message.match(/failed:\s*(\d{3})/i);
+  if (statusMatch) {
+    const statusCode = statusMatch[1];
+    if (statusCode === "401") return "เซสชันหมดอายุหรือไม่ได้รับอนุญาต กรุณาเข้าสู่ระบบใหม่";
+    if (statusCode === "403") return "คุณไม่มีสิทธิ์ในการดำเนินการนี้";
+    if (statusCode === "404") return "ไม่พบข้อมูลที่ต้องการบนเซิร์ฟเวอร์ (404)";
+    if (statusCode === "409") return "ข้อมูลมีความขัดแย้ง หรือมีการทำงานซ้ำซ้อนกันอยู่ในขณะนี้";
+    if (statusCode === "500") return "เซิร์ฟเวอร์เกิดข้อผิดพลาดภายใน กรุณาลองใหม่อีกครั้ง";
+    if (statusCode === "502" || statusCode === "503") return "ระบบเซิร์ฟเวอร์ปลายทางไม่พร้อมให้บริการในขณะนี้";
+  }
+
+  // 4. Fallback
+  if (fallback && fallback.trim()) {
+    return fallback;
+  }
+
+  return message || "เกิดข้อผิดพลาดในการดำเนินการ กรุณาลองใหม่อีกครั้ง";
+}
+
+export function getErrorMessage(errorResponse: unknown, fallback?: string): string {
+  return formatUserFriendlyError(errorResponse, fallback);
+}
+
 async function readApiError(response: Response, fallback: string): Promise<string> {
   const contentType = response.headers.get("content-type") ?? "";
   if (contentType.includes("application/json")) {
     try {
       const data = await response.json() as ApiErrorResponse;
       const message = data.message || (typeof data.detail === "string" ? data.detail : "");
-      const code = data.error_code ? `[${data.error_code}] ` : "";
       const detail = formatApiErrorDetail(data.detail);
-      return message ? `${code}${message}${detail}` : fallback;
+      const combined = message ? `${message}${detail}` : fallback;
+      return formatUserFriendlyError({ error_code: data.error_code, message: combined, detail: data.detail }, fallback);
     } catch {
-      return fallback;
+      return formatUserFriendlyError(fallback);
     }
   }
 
   const text = await response.text();
-  return text || fallback;
+  return formatUserFriendlyError(text || fallback);
 }
 
 function formatApiErrorDetail(detail: unknown): string {

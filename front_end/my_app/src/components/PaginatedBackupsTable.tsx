@@ -70,8 +70,8 @@ export function PaginatedBackupsTable({
             )) : (
               <tr>
                 <td className={styles.emptyTableCell} colSpan={8}>
-                  <strong>No backups found</strong>
-                  <span>Create a new backup or adjust your search.</span>
+                  <strong>ไม่พบข้อมูลการสำรองข้อมูล</strong>
+                  <span>สร้างการสำรองข้อมูลใหม่ หรือปรับเงื่อนไขการค้นหา</span>
                 </td>
               </tr>
             )}

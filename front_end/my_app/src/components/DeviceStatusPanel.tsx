@@ -10,6 +10,7 @@ import {
   listDeviceFiles,
   runCombinedBackup,
   saveCustomBackupPath,
+  getErrorMessage,
   type BackupTarget,
   type BackupRunResult,
   type DeviceStatusResult,
@@ -116,7 +117,11 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
       setCustomPathLabel("");
     } catch (errorResponse) {
       if (deviceRequestIdRef.current !== requestId) return;
-      showToast({ tone: "error", title: "Load device status failed", message: getErrorMessage(errorResponse, "Load device status failed") });
+      showToast({
+        tone: "error",
+        title: "ไม่สามารถโหลดสถานะอุปกรณ์ได้",
+        message: getErrorMessage(errorResponse, "ไม่สามารถตรวจสอบการเชื่อมต่อกับอุปกรณ์ได้"),
+      });
     } finally {
       if (deviceRequestIdRef.current === requestId) {
         setLoading("");
@@ -206,7 +211,11 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
       setBrowserPath(path);
     } catch (errorResponse) {
       if (browseRequestIdRef.current !== requestId) return;
-      showToast({ tone: "error", title: "Browse files failed", message: getErrorMessage(errorResponse, "Browse files failed") });
+      showToast({
+        tone: "error",
+        title: "ไม่สามารถเปิดดูไฟล์ได้",
+        message: getErrorMessage(errorResponse, "ไม่สามารถดึงรายการไฟล์จากอุปกรณ์ได้"),
+      });
     } finally {
       if (browseRequestIdRef.current === requestId) {
         setLoading("");
@@ -233,7 +242,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
     ));
 
     if (!remotePaths.length && !includeDatabase) {
-      setError("Please select at least one file or folder path.");
+      setError("กรุณาเลือกไฟล์หรือโฟลเดอร์ที่ต้องการสำรองข้อมูลอย่างน้อย 1 รายการ");
       return;
     }
 
@@ -274,14 +283,14 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
       });
       router.refresh();
     } catch (errorResponse) {
-      const errorMsg = getErrorMessage(errorResponse, "Backup failed");
+      const errorMsg = getErrorMessage(errorResponse, "เกิดข้อผิดพลาดในการสำรองข้อมูล");
       setBackupProgress({
         isOpen: true,
         status: "error",
         deviceName: selectedDevice.name,
         errorMessage: errorMsg,
       });
-      showToast({ tone: "error", title: "Backup failed", message: errorMsg });
+      showToast({ tone: "error", title: "การสำรองข้อมูลไม่สำเร็จ", message: errorMsg });
     } finally {
       setLoading("");
     }
@@ -637,7 +646,7 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
     const path = customPath.trim();
     if (!path) return;
     if (!path.startsWith("/")) {
-      setError("Custom backup path must start with /");
+      setError("Path สำหรับสำรองข้อมูลต้องขึ้นต้นด้วยเครื่องหมาย / เสมอ");
       return;
     }
     setLoading("addPath");
@@ -665,14 +674,14 @@ export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
       setError("");
       showToast({
         tone: "success",
-        title: "Auto backup path added",
+        title: "เพิ่ม Path สำรองข้อมูลสำเร็จ",
         message: savedPath.path,
       });
     } catch (errorResponse) {
       showToast({
         tone: "error",
-        title: "Save auto backup path failed",
-        message: getErrorMessage(errorResponse, "Save auto backup path failed"),
+        title: "บันทึก Path สำรองข้อมูลไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "ไม่สามารถบันทึก Path สำหรับสำรองข้อมูลได้"),
       });
     } finally {
       setLoading((current) => (current === "addPath" ? "" : current));
@@ -729,8 +738,4 @@ function defaultBackupName(device: Device | null): string {
   const date = now.toISOString().slice(0, 10).replace(/-/g, "");
   const time = now.toTimeString().slice(0, 5).replace(":", "");
   return `manual_${device.name}_${date}_${time}`;
-}
-
-function getErrorMessage(errorResponse: unknown, fallback: string): string {
-  return errorResponse instanceof Error ? errorResponse.message : fallback;
 }

@@ -78,8 +78,8 @@ export function PaginatedDevicesTable({
             )) : (
               <tr>
                 <td className={styles.emptyTableCell} colSpan={6}>
-                  <strong>No devices found</strong>
-                  <span>Try a different filter or add a new device.</span>
+                  <strong>ไม่พบอุปกรณ์ในระบบ</strong>
+                  <span>ลองเปลี่ยนตัวกรอง หรือเพิ่มอุปกรณ์ใหม่</span>
                 </td>
               </tr>
             )}

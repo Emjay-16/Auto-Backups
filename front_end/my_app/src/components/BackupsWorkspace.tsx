@@ -19,6 +19,7 @@ import {
   saveCustomBackupPath,
   updateAutoBackupSettings,
   updateAutoCleanupSettings,
+  getErrorMessage,
   type AutoBackupSettings,
   type AutoCleanupSettings,
   type BackupDetail,
@@ -282,11 +283,11 @@ export function BackupsWorkspace({
     const databaseSelected = databaseOnly || includeDatabase;
 
     if (!numericDeviceId) {
-      setError("Please select a device.");
+      setError("กรุณาเลือกอุปกรณ์ที่ต้องการสำรองข้อมูล");
       return;
     }
     if (!remotePaths.length && !databaseSelected) {
-      setError("Please select at least one backup target.");
+      setError("กรุณาเลือกเป้าหมายที่ต้องการสำรองข้อมูลอย่างน้อย 1 รายการ");
       return;
     }
 
@@ -328,14 +329,14 @@ export function BackupsWorkspace({
       });
       router.refresh();
     } catch (errorResponse) {
-      const errorMsg = getErrorMessage(errorResponse, "Backup failed");
+      const errorMsg = getErrorMessage(errorResponse, "เกิดข้อผิดพลาดในการสำรองข้อมูล");
       setBackupProgress({
         isOpen: true,
         status: "error",
         deviceName: resolvedDeviceName,
         errorMessage: errorMsg,
       });
-      showToast({ tone: "error", title: "Backup failed", message: errorMsg });
+      showToast({ tone: "error", title: "การสำรองข้อมูลไม่สำเร็จ", message: errorMsg });
     } finally {
       setSaving(false);
     }
@@ -344,7 +345,7 @@ export function BackupsWorkspace({
   async function browseFiles() {
     const numericDeviceId = Number(deviceId);
     if (!numericDeviceId) {
-      setError("Please select a device.");
+      setError("กรุณาเลือกอุปกรณ์ที่ต้องการเปิดดูไฟล์");
       return;
     }
 
@@ -354,7 +355,11 @@ export function BackupsWorkspace({
       const files = await listDeviceFiles(numericDeviceId, browsePath);
       setRemoteFiles(files);
     } catch (errorResponse) {
-      showToast({ tone: "error", title: "Browse failed", message: getErrorMessage(errorResponse, "Browse failed") });
+      showToast({
+        tone: "error",
+        title: "เปิดดูไฟล์ไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "ไม่สามารถดึงรายการไฟล์จากอุปกรณ์ได้"),
+      });
     } finally {
       setSaving(false);
     }
@@ -363,7 +368,7 @@ export function BackupsWorkspace({
   async function openTargetPath(path: string) {
     const numericDeviceId = Number(deviceId);
     if (!numericDeviceId) {
-      setError("Please select a device.");
+      setError("กรุณาเลือกอุปกรณ์");
       return;
     }
 
@@ -374,7 +379,11 @@ export function BackupsWorkspace({
       setRemoteFiles(files);
       setOpenedPath(path);
     } catch (errorResponse) {
-      showToast({ tone: "error", title: "Open folder failed", message: getErrorMessage(errorResponse, "Open folder failed") });
+      showToast({
+        tone: "error",
+        title: "เปิดโฟลเดอร์ไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "ไม่สามารถเปิดดูโฟลเดอร์บนอุปกรณ์ได้"),
+      });
     } finally {
       setSaving(false);
     }
@@ -397,7 +406,11 @@ export function BackupsWorkspace({
       setCollapsedBackupFolders(new Set(groupBackupFiles(detail.files).map((group) => group.name)));
       setDownloadFilename(`${detail.backup_name}.zip`);
     } catch (errorResponse) {
-      showToast({ tone: "error", title: "Load backup detail failed", message: getErrorMessage(errorResponse, "Load backup detail failed") });
+      showToast({
+        tone: "error",
+        title: "โหลดรายละเอียดไฟล์สำรองไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "ไม่สามารถโหลดรายละเอียดของไฟล์สำรองนี้ได้"),
+      });
     } finally {
       setSaving(false);
     }
@@ -425,7 +438,11 @@ export function BackupsWorkspace({
       });
       router.refresh();
     } catch (errorResponse) {
-      showToast({ tone: "error", title: "Cleanup failed", message: getErrorMessage(errorResponse, "Cleanup failed") });
+      showToast({
+        tone: "error",
+        title: "ล้างไฟล์สำรองข้อมูลเก่าไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "ไม่สามารถดำเนินการล้างไฟล์สำรองเก่าได้"),
+      });
     } finally {
       setSaving(false);
     }
@@ -454,7 +471,11 @@ export function BackupsWorkspace({
         message: `${settings.enabled ? "Enabled" : "Disabled"} · ${formatCleanupRetention(settings)}`,
       });
     } catch (errorResponse) {
-      showToast({ tone: "error", title: "Save cleanup settings failed", message: getErrorMessage(errorResponse, "Save cleanup settings failed") });
+      showToast({
+        tone: "error",
+        title: "บันทึกการตั้งค่า Auto Cleanup ไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "ไม่สามารถบันทึกการตั้งค่า Auto Cleanup ได้"),
+      });
     } finally {
       setSaving(false);
     }
@@ -483,7 +504,11 @@ export function BackupsWorkspace({
         message: `${settings.enabled ? "Enabled" : "Disabled"} · incremental every ${settings.interval_hours} hour(s) · full every ${settings.full_baseline_interval_days} day(s)`,
       });
     } catch (errorResponse) {
-      showToast({ tone: "error", title: "Save auto backup settings failed", message: getErrorMessage(errorResponse, "Save auto backup settings failed") });
+      showToast({
+        tone: "error",
+        title: "บันทึกการตั้งค่า Auto Backup ไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "ไม่สามารถบันทึกการตั้งค่า Auto Backup ได้"),
+      });
     } finally {
       setSaving(false);
     }
@@ -505,7 +530,7 @@ export function BackupsWorkspace({
       const { deleteBackup } = await import("@/lib/api");
       await deleteBackup(backup.id);
       setPendingDeleteBackup(null);
-      showToast({ tone: "success", title: "Backup deleted", message: backup.name });
+      showToast({ tone: "success", title: "ลบไฟล์สำรองข้อมูลสำเร็จ", message: backup.name });
       if (backupDetail?.backup_id === backup.id) {
         setBackupDetail(null);
         setSelectedDownloadFileIds([]);
@@ -514,7 +539,11 @@ export function BackupsWorkspace({
       }
       router.refresh();
     } catch (errorResponse) {
-      showToast({ tone: "error", title: "Delete backup failed", message: getErrorMessage(errorResponse, "Delete backup failed") });
+      showToast({
+        tone: "error",
+        title: "ลบไฟล์สำรองข้อมูลไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "ไม่สามารถลบไฟล์สำรองข้อมูลนี้ได้"),
+      });
     } finally {
       setSaving(false);
     }
@@ -565,7 +594,7 @@ export function BackupsWorkspace({
     const path = customPath.trim();
     if (!path) return;
     if (!editingPathTarget && !path.startsWith("/")) {
-      setError("Custom backup path must start with /");
+      setError("Path สำหรับสำรองข้อมูลต้องขึ้นต้นด้วยเครื่องหมาย / เสมอ");
       return;
     }
     setSaving(true);
@@ -607,8 +636,8 @@ export function BackupsWorkspace({
       showToast({
         tone: "success",
         title: pathScope === "computer"
-          ? editingPathTarget ? "Computer path renamed" : "Computer path added"
-          : editingPathTarget ? "Backup path renamed" : "Auto backup path added",
+          ? editingPathTarget ? "เปลี่ยนชื่อ Path ของ Computer สำเร็จ" : "เพิ่ม Path ของ Computer สำเร็จ"
+          : editingPathTarget ? "เปลี่ยนชื่อ Path สำรองข้อมูลสำเร็จ" : "เพิ่ม Path สำรองข้อมูลสำเร็จ",
         message: `${savedPath.label}: ${savedPath.path}`,
       });
       setEditingPathTarget(null);
@@ -616,8 +645,8 @@ export function BackupsWorkspace({
     } catch (errorResponse) {
       showToast({
         tone: "error",
-        title: pathScope === "computer" ? "Save computer path failed" : "Save auto backup path failed",
-        message: getErrorMessage(errorResponse, pathScope === "computer" ? "Save computer path failed" : "Save auto backup path failed"),
+        title: pathScope === "computer" ? "บันทึก Path ของ Computer ไม่สำเร็จ" : "บันทึก Path สำรองข้อมูลไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, pathScope === "computer" ? "ไม่สามารถบันทึก Path ของ Computer ได้" : "ไม่สามารถบันทึก Path สำรองข้อมูลได้"),
       });
     } finally {
       setSaving(false);
@@ -642,10 +671,14 @@ export function BackupsWorkspace({
       setPendingDeletePath(null);
       setEditingPathTarget(null);
       setLiveTargets((current) => current.filter((target) => target.path !== path));
-      showToast({ tone: "success", title: "Computer path removed", message: path });
+      showToast({ tone: "success", title: "ลบ Path ของ Computer สำเร็จ", message: path });
       router.refresh();
     } catch (errorResponse) {
-      showToast({ tone: "error", title: "Delete computer path failed", message: getErrorMessage(errorResponse, "Delete computer path failed") });
+      showToast({
+        tone: "error",
+        title: "ลบ Path ของ Computer ไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "ไม่สามารถลบ Path ของ Computer ได้"),
+      });
     } finally {
       setSaving(false);
     }
@@ -670,7 +703,7 @@ export function BackupsWorkspace({
   function downloadSelectedFiles() {
     if (!backupDetail) return;
     if (!selectedDownloadFileIds.length) {
-      setError("Please select at least one file to download.");
+      setError("กรุณาเลือกไฟล์ที่ต้องการดาวน์โหลดอย่างน้อย 1 รายการ");
       return;
     }
     setPendingDownloadConfirm(true);
@@ -693,18 +726,19 @@ export function BackupsWorkspace({
     try {
       const response = await fetch(url);
       if (!response.ok) {
-        let message = `Download failed (${response.status})`;
+        let message = `ดาวน์โหลดไม่สำเร็จ (${response.status})`;
         try {
           const errorJson = await response.json();
           message = errorJson.message || errorJson.error_code || message;
         } catch {
           // not json
         }
-        setError(message);
+        const friendly = getErrorMessage(message, "ไม่สามารถดาวน์โหลดไฟล์ได้");
+        setError(friendly);
         showToast({
           tone: "error",
-          title: "Download failed",
-          message,
+          title: "ดาวน์โหลดไฟล์ไม่สำเร็จ",
+          message: friendly,
         });
         return;
       }
@@ -721,15 +755,15 @@ export function BackupsWorkspace({
       setPendingDownloadConfirm(false);
       showToast({
         tone: "success",
-        title: "Download complete",
+        title: "ดาวน์โหลดไฟล์เรียบร้อยแล้ว",
         message: filename,
       });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Download failed";
+      const message = getErrorMessage(err, "ไม่สามารถดาวน์โหลดไฟล์ได้");
       setError(message);
       showToast({
         tone: "error",
-        title: "Download failed",
+        title: "ดาวน์โหลดไฟล์ไม่สำเร็จ",
         message,
       });
     } finally {
@@ -750,15 +784,15 @@ export function BackupsWorkspace({
       setAddedBackupTargets((current) => current.filter((target) => target.path !== path));
       showToast({
         tone: "success",
-        title: "Auto backup path removed",
+        title: "ลบ Path สำรองข้อมูลสำเร็จ",
         message: path,
       });
       router.refresh();
     } catch (errorResponse) {
       showToast({
         tone: "error",
-        title: "Delete auto backup path failed",
-        message: getErrorMessage(errorResponse, "Delete auto backup path failed"),
+        title: "ลบ Path สำรองข้อมูลไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "ไม่สามารถลบ Path สำรองข้อมูลได้"),
       });
     } finally {
       setSaving(false);
@@ -1561,10 +1595,6 @@ function ResultBox({ result }: { result: BackupRunResult | BackupCleanupResult }
       </span>
     </div>
   );
-}
-
-function getErrorMessage(errorResponse: unknown, fallback: string): string {
-  return errorResponse instanceof Error ? errorResponse.message : fallback;
 }
 
 function buildBackupStats(backups: Backup[], devices: Device[]) {

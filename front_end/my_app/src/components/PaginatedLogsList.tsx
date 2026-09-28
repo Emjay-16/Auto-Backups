@@ -35,7 +35,7 @@ export function PaginatedLogsList({ activities }: { activities: Activity[] }) {
             </div>
           </article>
         )) : (
-          <p className={styles.emptyLogs}>No activity logs found</p>
+          <p className={styles.emptyLogs}>ไม่พบประวัติกิจกรรม</p>
         )}
       </div>
       <PaginationControls
