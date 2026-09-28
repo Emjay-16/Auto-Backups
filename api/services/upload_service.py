@@ -145,3 +145,4 @@ def upload_files_to_device(
 def _mark_device_offline(db: Session, device: models.Device) -> None:
     device.device_status = constants.DEVICE_STATUS_OFFLINE
     device.updated_at = now_local()
+    db.commit()

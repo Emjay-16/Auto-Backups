@@ -33,6 +33,11 @@ from api.services.backup_targets import (
 )
 from api.services.credential_crypto import encrypt_secret
 from api.services.device_resolver import map_device_name
+from api.services.device_status_service import (
+    can_connect,
+    refresh_devices_statuses,
+    update_device_status_and_mode,
+)
 from api.services.sftp_backup import RemotePathNotFound, list_remote_path
 from api.services.ssh_credentials import require_ssh_credentials
 from api.utils.time import now_local
@@ -216,15 +221,8 @@ def check_device_status(
             "Device not found",
         )
 
-    online = _can_connect(device.ip_address, getattr(device, "ssh_port", None))
-    device.device_status = (
-        constants.DEVICE_STATUS_ONLINE
-        if online
-        else constants.DEVICE_STATUS_OFFLINE
-    )
-    if online:
-        device.last_seen_at = now_local()
-    device.updated_at = now_local()
+    online = can_connect(device.ip_address, getattr(device, "ssh_port", None))
+    update_device_status_and_mode(device, online, db)
     db.commit()
     db.refresh(device)
 
@@ -303,9 +301,7 @@ def list_device_files(
                     raise
                 continue
     except RemotePathNotFound as exc:
-        device.device_status = constants.DEVICE_STATUS_ONLINE
-        device.last_seen_at = now_local()
-        device.updated_at = now_local()
+        update_device_status_and_mode(device, True, db)
         db.commit()
         raise api_exception(
             404,
@@ -325,8 +321,7 @@ def list_device_files(
             str(exc),
         )
     except Exception as exc:
-        device.device_status = constants.DEVICE_STATUS_OFFLINE
-        device.updated_at = now_local()
+        update_device_status_and_mode(device, False, db)
         db.commit()
         raise api_exception(
             502,
@@ -334,9 +329,7 @@ def list_device_files(
             f"SFTP list files failed: {exc}",
         )
 
-    device.device_status = constants.DEVICE_STATUS_ONLINE
-    device.last_seen_at = now_local()
-    device.updated_at = now_local()
+    update_device_status_and_mode(device, True, db)
     db.commit()
 
     return [
@@ -652,40 +645,11 @@ def delete_device(
     }
 
 def _refresh_devices_statuses(devices: List[Device], db: Session) -> None:
-    if not devices:
-        return
-
-    max_workers = max(1, min(int(os.getenv("DEVICE_STATUS_WORKERS", "16")), len(devices)))
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        statuses = list(executor.map(lambda device: (device.device_id, _can_connect(device.ip_address, getattr(device, "ssh_port", None))), devices))
-
-    now = now_local()
-    status_by_id = dict(statuses)
-    for device in devices:
-        online = status_by_id.get(device.device_id, False)
-        device.device_status = (
-            constants.DEVICE_STATUS_ONLINE
-            if online
-            else constants.DEVICE_STATUS_OFFLINE
-        )
-        if online:
-            device.last_seen_at = now
-        device.updated_at = now
-
-    db.commit()
-    for device in devices:
-        db.refresh(device)
+    refresh_devices_statuses(devices, db)
 
 
 def _can_connect(ip_address: str, port: Optional[int] = None) -> bool:
-    if port is None:
-        port = int(os.getenv("ROBOT_SSH_PORT", "22"))
-    timeout = float(os.getenv("DEVICE_STATUS_TIMEOUT_SECONDS", "1.5"))
-    try:
-        with socket.create_connection((ip_address, port), timeout=timeout):
-            return True
-    except OSError:
-        return False
+    return can_connect(ip_address, port)
 
 
 def _get_device_or_404(device_id: int, db: Session) -> Device:

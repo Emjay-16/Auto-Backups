@@ -56,6 +56,7 @@ class DeviceBase(BaseModel):
     device_status: int
     auto_backup_enabled: bool = True
     last_seen_at: Optional[datetime] = None
+    status_changed_at: Optional[datetime] = None
 
 
 class DeviceCreate(DeviceBase):
@@ -72,6 +73,7 @@ class DeviceUpdate(BaseModel):
     device_status: Optional[int] = None
     auto_backup_enabled: Optional[bool] = None
     last_seen_at: Optional[datetime] = None
+    status_changed_at: Optional[datetime] = None
     ssh_username: Optional[str] = None
     ssh_password: Optional[str] = None
     ssh_port: Optional[int] = None

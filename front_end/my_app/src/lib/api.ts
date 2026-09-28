@@ -51,6 +51,7 @@ type ApiDevice = {
   device_status: number;
   auto_backup_enabled?: boolean;
   last_seen_at: string | null;
+  status_changed_at?: string | null;
   has_ssh_override?: boolean;
   ssh_username?: string | null;
   ssh_port?: number | null;
@@ -768,6 +769,7 @@ function mapDevice(device: ApiDevice, pendingDeviceIds: Set<number>): Device {
     ip: device.ip_address,
     status: pendingDeviceIds.has(device.device_id) ? "pending" : mapDeviceStatus(device.device_status),
     lastSeen: formatTime(device.last_seen_at),
+    statusChangedAt: formatTime(device.status_changed_at),
     hasSshOverride: device.has_ssh_override ?? false,
     sshUsername: device.ssh_username ?? undefined,
     sshPort: device.ssh_port ?? undefined,
