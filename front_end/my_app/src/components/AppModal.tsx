@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import styles from "@/styles/components/AppModal.module.css";
 
@@ -25,12 +25,34 @@ export function AppModal({
   bodyClassName = "",
   labelledBy = "app-modal-title",
 }: AppModalProps) {
-  if (typeof document === "undefined") return null;
+  const [mounted, setMounted] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  useEffect(() => {
+    if (mounted && modalRef.current) {
+      const focusable = modalRef.current.querySelector<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+      );
+      focusable?.focus();
+    }
+  }, [mounted]);
+
+  if (!mounted) return null;
 
   return createPortal(
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby={labelledBy}>
-      <button className={styles.backdrop} onClick={onClose} aria-label="Close" type="button" />
-      <section className={`${styles.modal} ${className}`}>
+      <div role="none" aria-hidden="true" className={styles.backdrop} onClick={onClose} />
+      <section ref={modalRef} className={`${styles.modal} ${className}`}>
         <header className={styles.header}>
           <div>
             {eyebrow ? <p>{eyebrow}</p> : null}

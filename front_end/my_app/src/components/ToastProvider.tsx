@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 import styles from "@/styles/components/ToastProvider.module.css";
 
 type ToastTone = "success" | "error" | "warning" | "info";
@@ -20,15 +20,27 @@ const ToastContext = createContext<ToastContextValue | null>(null);
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const idCounter = useRef(0);
+  const timers = useRef<Map<number, number>>(new Map());
 
   const removeToast = useCallback((id: number) => {
+    const existingTimer = timers.current.get(id);
+    if (existingTimer) {
+      window.clearTimeout(existingTimer);
+      timers.current.delete(id);
+    }
     setToasts((current) => current.filter((toast) => toast.id !== id));
   }, []);
 
   const showToast = useCallback((toast: Omit<Toast, "id">) => {
-    const id = Date.now() + Math.floor(Math.random() * 1000);
-    setToasts((current) => [...current.slice(-3), { ...toast, id }]);
-    window.setTimeout(() => removeToast(id), toast.tone === "error" ? 6500 : 4200);
+    idCounter.current += 1;
+    const id = Date.now() * 1000 + idCounter.current;
+    setToasts((current) => [...current.slice(-4), { ...toast, id }]);
+    const timeoutId = window.setTimeout(
+      () => removeToast(id),
+      toast.tone === "error" ? 6500 : 4200,
+    );
+    timers.current.set(id, timeoutId);
   }, [removeToast]);
 
   const value = useMemo(() => ({ showToast }), [showToast]);

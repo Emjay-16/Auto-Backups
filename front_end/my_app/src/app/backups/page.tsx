@@ -9,15 +9,23 @@ type BackupsPageProps = {
 export default async function BackupsPage({ searchParams }: BackupsPageProps) {
   const query = (await searchParams)?.q ?? "";
   const [backups, devices, targets] = await Promise.all([
-    getBackupsForUi(),
-    getDevicesForUi(),
+    getBackupsForUi().catch(() => []),
+    getDevicesForUi().catch(() => []),
     getBackupTargets().catch(() => []),
   ]);
   const computerDeviceIds = devices
-    .filter((device) => device.group.trim().toLowerCase() === "computer")
+    .filter((device) => (device.group ?? "").trim().toLowerCase() === "computer")
     .map((device) => device.id);
   const filteredBackups = backups.filter((backup) =>
-    matchesQuery(query, [backup.name, backup.device, backup.type, backup.files, backup.size, backup.status, backup.createdAt]),
+    matchesQuery(query, [
+      backup.name ?? "",
+      backup.device ?? "",
+      backup.type ?? "",
+      String(backup.files ?? ""),
+      backup.size ?? "",
+      backup.status ?? "",
+      backup.createdAt ?? "",
+    ]),
   );
 
   return <BackupsWorkspace backups={filteredBackups} devices={devices} targets={targets} computerDeviceIds={computerDeviceIds} />;

@@ -4,6 +4,7 @@ import { PaginatedLogsList } from "@/components/PaginatedLogsList";
 import { getActivitiesForUi } from "@/lib/api";
 import { todayDateInputValue } from "@/lib/date";
 import { matchesQuery } from "@/lib/search";
+import type { Activity } from "@/lib/types";
 import styles from "@/styles/pages/logs/logs.module.css";
 
 type LogsPageProps = {
@@ -14,9 +15,20 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
   const params = await searchParams;
   const query = params?.q ?? "";
   const selectedDate = params?.date || todayDateInputValue();
-  const activities = await getActivitiesForUi(selectedDate);
+  let activities: Activity[] = [];
+  try {
+    activities = await getActivitiesForUi(selectedDate);
+  } catch {
+    activities = [];
+  }
   const filteredActivities = activities.filter((activity) =>
-    matchesQuery(query, [activity.kind, activity.text, activity.meta, activity.time, activity.device]),
+    matchesQuery(query, [
+      activity.kind ?? "",
+      activity.text ?? "",
+      activity.meta ?? "",
+      activity.time ?? "",
+      activity.device ?? "",
+    ]),
   );
   const successCount = filteredActivities.filter((activity) => activity.kind === "ok").length;
   const failedCount = filteredActivities.filter((activity) => activity.kind === "fail").length;

@@ -44,7 +44,7 @@
   margin: 0;
   color: #63718a;
   font-size: 12px;
-  font-weight: 760;
+  font-weight: 600;
   letter-spacing: 0.035em;
   text-transform: uppercase;
 }
@@ -52,9 +52,9 @@
 .header h2 {
   margin: 3px 0 0;
   color: #0f172a;
-  font-size: 23px;
-  font-weight: 820;
-  line-height: 1.15;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .closeButton {
@@ -90,6 +90,7 @@
   overflow: auto;
   scrollbar-width: thin;
   scrollbar-color: #c7d8ed transparent;
+  padding: 20px 24px;
 }
 
 .footer {
@@ -110,7 +111,7 @@
   background: #ffffff;
   color: #223149;
   font-size: 13px;
-  font-weight: 760;
+  font-weight: 600;
   transition: transform 0.15s var(--ease-out-expo), border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 

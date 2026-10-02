@@ -1,741 +1,333 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createPortal } from "react-dom";
-import {
-  checkDeviceStatus,
-  backupTargetTypeFromPath,
-  getBackupTargets,
-  listDeviceFiles,
-  runCombinedBackup,
-  saveCustomBackupPath,
-  getErrorMessage,
-  type BackupTarget,
-  type BackupRunResult,
-  type DeviceStatusResult,
-  type RemoteFile,
-} from "@/lib/api";
-import type { Device } from "@/lib/types";
-import { ClockIcon } from "./ActionIcons";
-import { BackupProgressModal, type BackupProgressStatus } from "./BackupProgressModal";
+import type { Backup, Device } from "@/lib/types";
 import { RobotGroupBadge, robotGroupTone } from "./RobotGroupBadge";
-import { useToast } from "./ToastProvider";
 import styles from "@/styles/components/DeviceStatusPanel.module.css";
 
 type DeviceStatusPanelProps = {
   devices: Device[];
+  backups: Backup[];
 };
 
-const CLOSE_ANIMATION_MS = 150;
+function parseSizeToBytes(sizeStr: string): number {
+  if (!sizeStr) return 0;
+  const match = sizeStr.trim().match(/^([\d.]+)\s*([a-zA-Z]+)?$/);
+  if (!match) return 0;
+  const num = parseFloat(match[1]);
+  const unit = (match[2] || "B").toUpperCase();
+  if (unit === "KB") return num * 1024;
+  if (unit === "MB") return num * 1024 * 1024;
+  if (unit === "GB") return num * 1024 * 1024 * 1024;
+  if (unit === "TB") return num * 1024 * 1024 * 1024 * 1024;
+  return num;
+}
 
-export function DeviceStatusPanel({ devices }: DeviceStatusPanelProps) {
-  const router = useRouter();
-  const { showToast } = useToast();
+function formatBytes(bytes: number): string {
+  if (bytes <= 0) return "0 MB";
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+export function DeviceStatusPanel({ devices, backups }: DeviceStatusPanelProps) {
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
-  const [liveStatus, setLiveStatus] = useState<DeviceStatusResult | null>(null);
-  const [remoteFiles, setRemoteFiles] = useState<RemoteFile[]>([]);
-  const [backupResult, setBackupResult] = useState<BackupRunResult | null>(null);
-  const [backupTargets, setBackupTargets] = useState<BackupTarget[]>([]);
-  const [browserPath, setBrowserPath] = useState("");
-  const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
-  const [customPathLabel, setCustomPathLabel] = useState("");
-  const [customPath, setCustomPath] = useState("");
-  const [backupName, setBackupName] = useState("");
-  const [isBackupNamePromptOpen, setIsBackupNamePromptOpen] = useState(false);
-  const [loading, setLoading] = useState("");
-  const [error, setError] = useState("");
-  const [backupProgress, setBackupProgress] = useState<{
-    isOpen: boolean;
-    status: BackupProgressStatus;
-    deviceName?: string;
-    backupName?: string;
-    targetCount?: number;
-    result?: BackupRunResult | null;
-    errorMessage?: string;
-  }>({
-    isOpen: false,
-    status: "loading",
-  });
-  const [openingDeviceId, setOpeningDeviceId] = useState<string | null>(null);
-  const [openingPath, setOpeningPath] = useState<string | null>(null);
-  const [isClosing, setIsClosing] = useState(false);
-
-  const modalRef = useRef<HTMLElement | null>(null);
+  const [modalSearch, setModalSearch] = useState("");
+  const [mounted, setMounted] = useState(false);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
-  const lastFocusedElementRef = useRef<HTMLElement | null>(null);
-  const closeTimeoutRef = useRef<number | null>(null);
-  const deviceRequestIdRef = useRef(0);
-  const browseRequestIdRef = useRef(0);
 
-  // Focus the close button when a device opens, and restore focus to whatever
-  // triggered it once the modal is gone (keyboard users land back where they started).
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   useEffect(() => {
     if (selectedDevice) {
       closeButtonRef.current?.focus();
+    } else {
+      setModalSearch("");
     }
   }, [selectedDevice]);
 
-  useEffect(() => {
-    return () => {
-      if (closeTimeoutRef.current !== null) {
-        window.clearTimeout(closeTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  async function openDevice(device: Device, triggerElement?: HTMLElement | null) {
-    clearPendingClose();
-    lastFocusedElementRef.current = triggerElement ?? null;
-
-    const deviceKey = String(device.id ?? device.name);
-    const requestId = ++deviceRequestIdRef.current;
-
-    setSelectedDevice(device);
-    setLiveStatus(null);
-    setRemoteFiles([]);
-    setBackupResult(null);
-    setBrowserPath("");
-    setSelectedPaths([]);
-    setCustomPathLabel("");
-    setCustomPath("");
-    setBackupName("");
-    setIsBackupNamePromptOpen(false);
-    setError("");
-    setOpeningDeviceId(deviceKey);
-
-    setLoading("status");
-    try {
-      const [status, targets] = await Promise.all([
-        checkDeviceStatus(device.id),
-        getBackupTargets(),
-      ]);
-      if (deviceRequestIdRef.current !== requestId) return;
-      setLiveStatus(status);
-      setBackupTargets(targets);
-      setSelectedPaths([]);
-      setCustomPathLabel("");
-    } catch (errorResponse) {
-      if (deviceRequestIdRef.current !== requestId) return;
-      showToast({
-        tone: "error",
-        title: "ไม่สามารถโหลดสถานะอุปกรณ์ได้",
-        message: getErrorMessage(errorResponse, "ไม่สามารถตรวจสอบการเชื่อมต่อกับอุปกรณ์ได้"),
-      });
-    } finally {
-      if (deviceRequestIdRef.current === requestId) {
-        setLoading("");
-      }
-      setOpeningDeviceId((current) => (current === deviceKey ? null : current));
-    }
-  }
-
-  function clearPendingClose() {
-    if (closeTimeoutRef.current !== null) {
-      window.clearTimeout(closeTimeoutRef.current);
-      closeTimeoutRef.current = null;
-    }
-    setIsClosing(false);
-  }
-
-  function closeModal() {
-    setIsClosing(true);
-    const prefersReducedMotion =
-      typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    closeTimeoutRef.current = window.setTimeout(() => {
-      setIsClosing(false);
-      setSelectedDevice(null);
-      setLiveStatus(null);
-      setRemoteFiles([]);
-      setBackupResult(null);
-      setBrowserPath("");
-      setSelectedPaths([]);
-      setCustomPathLabel("");
-      setCustomPath("");
-      setBackupName("");
-      setIsBackupNamePromptOpen(false);
-      setError("");
-      setOpeningPath(null);
-      closeTimeoutRef.current = null;
-      lastFocusedElementRef.current?.focus();
-    }, prefersReducedMotion ? 0 : CLOSE_ANIMATION_MS);
-  }
-
-  // Escape closes the modal; Tab is trapped inside it while it's open.
+  // Handle escape key to close modal
   useEffect(() => {
     if (!selectedDevice) return;
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        if (isBackupNamePromptOpen) {
-          setIsBackupNamePromptOpen(false);
-          return;
-        }
-        closeModal();
-        return;
-      }
-
-      if (event.key === "Tab" && modalRef.current) {
-        const focusable = getFocusableElements(modalRef.current);
-        if (!focusable.length) return;
-        const first = focusable[0];
-        const last = focusable[focusable.length - 1];
-
-        if (event.shiftKey && document.activeElement === first) {
-          event.preventDefault();
-          last.focus();
-        } else if (!event.shiftKey && document.activeElement === last) {
-          event.preventDefault();
-          first.focus();
-        }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        setSelectedDevice(null);
       }
     }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedDevice]);
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isBackupNamePromptOpen, selectedDevice]);
-
-  async function openRemotePath(path: string) {
-    if (!selectedDevice?.id) return;
-    const requestId = ++browseRequestIdRef.current;
-
-    setOpeningPath(path);
-    setLoading("files");
-    setError("");
-    try {
-      const files = await listDeviceFiles(selectedDevice.id, path);
-      if (browseRequestIdRef.current !== requestId) return; // a newer folder was opened meanwhile
-      setRemoteFiles(files);
-      setBrowserPath(path);
-    } catch (errorResponse) {
-      if (browseRequestIdRef.current !== requestId) return;
-      showToast({
-        tone: "error",
-        title: "ไม่สามารถเปิดดูไฟล์ได้",
-        message: getErrorMessage(errorResponse, "ไม่สามารถดึงรายการไฟล์จากอุปกรณ์ได้"),
+  const getDeviceBackups = (device: Device): Backup[] => {
+    return backups
+      .filter(
+        (b) =>
+          b.deviceId != null
+            ? b.deviceId === device.id
+            : Boolean(b.device && device.name && b.device.trim().toLowerCase() === device.name.trim().toLowerCase())
+      )
+      .sort((a, b) => {
+        const timeA = new Date(a.createdAtRaw || a.createdAt).getTime();
+        const timeB = new Date(b.createdAtRaw || b.createdAt).getTime();
+        return (Number.isNaN(timeB) ? 0 : timeB) - (Number.isNaN(timeA) ? 0 : timeA);
       });
-    } finally {
-      if (browseRequestIdRef.current === requestId) {
-        setLoading("");
-        setOpeningPath(null);
-      }
-    }
-  }
+  };
 
-  function requestBackupName() {
-    if (!selectedPaths.length || loading === "backup") return;
-    setBackupName(defaultBackupName(selectedDevice));
-    setIsBackupNamePromptOpen(true);
-  }
+  const selectedDeviceBackups = selectedDevice ? getDeviceBackups(selectedDevice) : [];
+  const filteredModalBackups = selectedDeviceBackups.filter(
+    (b) =>
+      b.name.toLowerCase().includes(modalSearch.toLowerCase()) ||
+      b.type.toLowerCase().includes(modalSearch.toLowerCase()) ||
+      b.createdAt.toLowerCase().includes(modalSearch.toLowerCase())
+  );
 
-  function handleCloseBackupProgress() {
-    setBackupProgress((current) => ({ ...current, isOpen: false }));
-  }
-
-  async function backupNow() {
-    if (!selectedDevice?.id) return;
-    const remotePaths = selectedPaths.filter((path) => path.startsWith("/"));
-    const includeDatabase = backupTargets.some((target) => (
-      target.backup_api === "robot_db" && selectedPaths.includes(target.path)
-    ));
-
-    if (!remotePaths.length && !includeDatabase) {
-      setError("กรุณาเลือกไฟล์หรือโฟลเดอร์ที่ต้องการสำรองข้อมูลอย่างน้อย 1 รายการ");
-      return;
-    }
-
-    const resolvedBackupName = backupName.trim() || undefined;
-    const targetCount = remotePaths.length + (includeDatabase ? 1 : 0);
-
-    setLoading("backup");
-    setError("");
-    setBackupResult(null);
-    setIsBackupNamePromptOpen(false);
-    setBackupProgress({
-      isOpen: true,
-      status: "loading",
-      deviceName: selectedDevice.name,
-      backupName: resolvedBackupName,
-      targetCount,
-    });
-
-    try {
-      const result = await runCombinedBackup({
-        device_id: selectedDevice.id,
-        remote_paths: remotePaths,
-        include_database: includeDatabase,
-        backup_name: resolvedBackupName,
-      });
-      setBackupResult(result);
-      setBackupProgress({
-        isOpen: true,
-        status: "success",
-        deviceName: result.device_name || selectedDevice.name,
-        backupName: result.backup_name,
-        result,
-      });
-      showToast({
-        tone: "success",
-        title: "Backup completed",
-        message: `${result.backup_name} saved for ${result.device_name}`,
-      });
-      router.refresh();
-    } catch (errorResponse) {
-      const errorMsg = getErrorMessage(errorResponse, "เกิดข้อผิดพลาดในการสำรองข้อมูล");
-      setBackupProgress({
-        isOpen: true,
-        status: "error",
-        deviceName: selectedDevice.name,
-        errorMessage: errorMsg,
-      });
-      showToast({ tone: "error", title: "การสำรองข้อมูลไม่สำเร็จ", message: errorMsg });
-    } finally {
-      setLoading("");
-    }
-  }
-
-  const shownStatus = liveStatus ? (liveStatus.online ? "online" : "offline") : selectedDevice?.status;
-  const shownLastSeen = liveStatus?.last_seen_at ? formatTime(liveStatus.last_seen_at) : selectedDevice?.lastSeen;
+  const selectedDeviceStorage = selectedDeviceBackups.reduce(
+    (sum, b) => sum + parseSizeToBytes(b.size),
+    0
+  );
+  const selectedDeviceSuccessCount = selectedDeviceBackups.filter((b) => b.status === "success").length;
+  const selectedDeviceFailedCount = selectedDeviceBackups.filter((b) => b.status === "failed").length;
 
   return (
     <>
       <div className={styles.grid}>
-        {devices.length ? devices.map((device, index) => {
-          const deviceKey = String(device.id || device.ip || device.code || `${device.name}-${index}`);
-          const isOpening = openingDeviceId === deviceKey;
-          return (
-            <button
-              className={`${styles.card} ${styles[robotGroupTone(device.group)]}`}
-              key={deviceKey}
-              onClick={(event) => void openDevice(device, event.currentTarget)}
-              disabled={isOpening}
-              aria-busy={isOpening}
-              type="button"
-            >
-              <div className={styles.header}>
-                <RobotGroupBadge group={device.group} variant="avatar" />
-                <div>
-                  <strong>{device.name}</strong>
-                  <span>{device.ip}</span>
+        {devices.length > 0 ? (
+          devices.map((device, index) => {
+            const deviceKey = String(device.id || device.ip || device.code || `${device.name}-${index}`);
+            const devBackups = getDeviceBackups(device);
+            const devStorageBytes = devBackups.reduce(
+              (sum, b) => sum + parseSizeToBytes(b.size),
+              0
+            );
+
+            return (
+              <button
+                type="button"
+                className={`${styles.card} ${styles[robotGroupTone(device.group)]}`}
+                key={deviceKey}
+                onClick={() => setSelectedDevice(device)}
+                title={`คลิกเพื่อดูรายการชุดสำรองข้อมูลของ ${device.name}`}
+              >
+                <div className={styles.cardHeader}>
+                  <div className={styles.deviceIdentity}>
+                    <RobotGroupBadge group={device.group} variant="avatar" />
+                    <div className={styles.deviceInfo}>
+                      <strong className={styles.deviceName}>{device.name}</strong>
+                      <span className={styles.deviceIp}>{device.ip}</span>
+                    </div>
+                  </div>
+                  {device.status === "online" ? (
+                    <span className={styles.onlineBadge}>
+                      <span className={styles.pulseDot} />
+                      ออนไลน์
+                    </span>
+                  ) : (
+                    <span className={styles.offlineBadge}>
+                      ออฟไลน์
+                    </span>
+                  )}
                 </div>
-              </div>
-              <div className={styles.footer}>
-                <span className={styles.onlinePill}>
-                  <i aria-hidden="true" />
-                  online
-                </span>
-                <span className={styles.timePill}>
-                  <ClockIcon />
-                  {device.lastSeen}
-                </span>
-              </div>
-              {isOpening ? (
-                <div className={styles.cardBusy} aria-hidden="true">
-                  <span className={styles.spinner} />
+
+                <div className={styles.backupTextRow}>
+                  {devBackups.length > 0 ? (
+                    <span className={styles.backupText}>
+                      <strong>มี {devBackups.length} ชุดสำรอง</strong>
+                      <span className={styles.backupSizeText}> · {formatBytes(devStorageBytes)}</span>
+                    </span>
+                  ) : (
+                    <span className={styles.noBackupText}>ยังไม่มีชุดสำรอง</span>
+                  )}
                 </div>
-              ) : null}
-            </button>
-          );
-        }) : (
+
+                <div className={styles.cardFooter}>
+                  <span className={styles.lastSeenLabel}>
+                    เชื่อมต่อล่าสุด: <strong>{device.lastSeen || "-"}</strong>
+                  </span>
+                  <span className={styles.deviceGroupTag}>
+                    {device.group}
+                  </span>
+                </div>
+              </button>
+            );
+          })
+        ) : (
           <div className={styles.emptyState}>
-            <strong>No online devices</strong>
-            <span>Online robots will appear here when they are available.</span>
+            <strong>ไม่พบอุปกรณ์ที่ออนไลน์</strong>
+            <span>อุปกรณ์ที่เปิดใช้งานและเชื่อมต่อในเครือข่ายจะปรากฏขึ้นที่นี่โดยอัตโนมัติ</span>
           </div>
         )}
       </div>
 
-      {selectedDevice && typeof document !== "undefined" ? createPortal((
-        <div
-          className={`${styles.overlay} ${isClosing ? styles.closing : ""}`}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="device-status-modal-title"
-        >
-          <button className={styles.backdrop} onClick={closeModal} aria-label="Close device detail" type="button" />
-          <section className={styles.modal} ref={modalRef}>
-            <div className={styles.modalHeader}>
-              <div className={styles.modalTitle}>
-                <RobotGroupBadge group={selectedDevice.group} variant="avatar" />
-                <div>
-                  <p>{selectedDevice.group} device</p>
-                  <h2 id="device-status-modal-title">{selectedDevice.name}</h2>
-                </div>
-              </div>
-              <button className={styles.close} onClick={closeModal} aria-label="Close" ref={closeButtonRef} type="button">
-                ×
-              </button>
-            </div>
-
-            <div className={styles.modalBody}>
-              <div className={styles.detailGrid}>
-                <article>
-                  <span>Status</span>
-                  <strong>{shownStatus ?? selectedDevice.status}</strong>
-                </article>
-                <article>
-                  <span>IP Address</span>
-                  <strong>{liveStatus?.ip_address ?? selectedDevice.ip}</strong>
-                </article>
-                <article>
-                  <span>Last seen</span>
-                  <strong>{shownLastSeen}</strong>
-                </article>
-                <article>
-                  <span>Live check</span>
-                  <strong>
-                    {loading === "status" ? (
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                        <span className={styles.spinner} aria-hidden="true" />
-                        Checking...
+      {/* Modal: แสดงรายการชุดสำรองข้อมูลของเครื่องที่เลือก */}
+      {selectedDevice && mounted
+        ? createPortal(
+            <div
+              className={styles.modalOverlay}
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="device-backup-modal-title"
+            >
+              <div
+                className={styles.modalBackdrop}
+                onClick={() => setSelectedDevice(null)}
+                aria-hidden="true"
+              />
+              <section className={styles.modalContent}>
+                {/* Modal Header */}
+                <div className={styles.modalHeader}>
+                  <div className={styles.modalTitleBlock}>
+                    <div className={styles.modalTitleTop}>
+                      <h2 id="device-backup-modal-title">{selectedDevice.name}</h2>
+                      <RobotGroupBadge group={selectedDevice.group} variant="badge" />
+                      <span className={styles.onlinePill}>
+                        <i aria-hidden="true" />
+                        ออนไลน์
                       </span>
-                    ) : (
-                      liveStatus?.message ?? "Loaded from list"
-                    )}
-                  </strong>
-                </article>
-              </div>
-
-              <div className={styles.paths}>
-                <div className={styles.pathHeader}>
-                  <h3>Backup targets</h3>
-                  <span>{selectedPaths.length} selected</span>
-                </div>
-                <div className={styles.targetList}>
-                  {backupTargets.length ? backupTargets.map((target) => (
-                    target.backup_api === "file" ? (
-                      <label className={styles.targetRow} key={`${target.backup_api}:${target.path}:${target.key}`}>
-                        <input
-                          checked={selectedPaths.includes(target.path)}
-                          onChange={() => togglePath(target.path)}
-                          type="checkbox"
-                        />
-                        <span>{target.label}: {target.path}</span>
-                        {target.browsable ? (
-                          <button
-                            onClick={(event) => {
-                              event.preventDefault();
-                              void openRemotePath(target.path);
-                            }}
-                            type="button"
-                            disabled={openingPath === target.path}
-                          >
-                            {openingPath === target.path ? (
-                              <>
-                                <span className={styles.spinner} aria-hidden="true" />
-                                Opening
-                              </>
-                            ) : (
-                              "Open"
-                            )}
-                          </button>
-                        ) : (
-                          <b>{target.target_type}</b>
-                        )}
-                      </label>
-                    ) : (
-                      <label className={styles.targetRow} key={`${target.backup_api}:${target.path}:${target.key}`}>
-                        <input
-                          checked={selectedPaths.includes(target.path)}
-                          onChange={() => togglePath(target.path)}
-                          type="checkbox"
-                        />
-                        <span>{target.label}</span>
-                        <b>DB</b>
-                      </label>
-                    )
-                  )) : <p>No backup targets loaded</p>}
-                </div>
-                <div className={styles.customPathRow}>
-                  <label>
-                    Path name
-                    <input
-                      value={customPathLabel}
-                      onChange={(event) => setCustomPathLabel(event.target.value)}
-                      placeholder="เช่น Robot rules"
-                    />
-                  </label>
-                  <label>
-                    Remote path
-                    <input
-                      value={customPath}
-                      onChange={(event) => setCustomPath(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          void addCustomPath();
-                        }
-                      }}
-                      placeholder="/home/matrix/path/to/file-or-folder"
-                    />
-                  </label>
-                  <button onClick={() => void addCustomPath()} type="button" disabled={loading === "addPath"}>
-                    {loading === "addPath" ? (
-                      <>
-                        <span className={styles.spinner} aria-hidden="true" />
-                        Adding
-                      </>
-                    ) : (
-                      "Add path"
-                    )}
+                    </div>
+                    <p className={styles.modalSubtitle}>
+                      IP: {selectedDevice.ip} · เชื่อมต่อล่าสุด: {selectedDevice.lastSeen || "-"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className={styles.modalCloseBtn}
+                    onClick={() => setSelectedDevice(null)}
+                    ref={closeButtonRef}
+                    aria-label="ปิดหน้าต่าง"
+                  >
+                    ×
                   </button>
                 </div>
-                {browserPath ? (
-                  <div className={styles.browser}>
-                    <div className={styles.browserHeader}>
-                      <strong>{browserPath}</strong>
-                      <button onClick={() => setBrowserPath("")} type="button">Close</button>
-                    </div>
-                    {remoteFiles.length ? (
-                      remoteFiles.map((file) => (
-                        <label className={styles.fileRow} key={file.path}>
-                          <input
-                            checked={selectedPaths.includes(file.path)}
-                            onChange={() => togglePath(file.path)}
-                            type="checkbox"
-                          />
-                          <span>{file.name}</span>
-                          {file.file_type === "directory" ? (
-                            <button
-                              onClick={(event) => {
-                                event.preventDefault();
-                                void openRemotePath(file.path);
-                              }}
-                              type="button"
-                              disabled={openingPath === file.path}
-                            >
-                              {openingPath === file.path ? (
-                                <>
-                                  <span className={styles.spinner} aria-hidden="true" />
-                                  Opening
-                                </>
-                              ) : (
-                                "Open"
-                              )}
-                            </button>
-                          ) : (
-                            <b>{formatBytes(file.size_bytes)}</b>
-                          )}
-                        </label>
-                      ))
-                    ) : (
-                      <p className={styles.emptyFiles}>{loading === "files" ? "Loading files..." : "No files found"}</p>
-                    )}
-                  </div>
-                ) : null}
-              </div>
 
-              {backupResult ? (
-                <div className={styles.result} role="status" aria-live="polite">
-                  <strong>{backupResult.message}</strong>
-                  <span>{backupResult.local_path}</span>
+                {/* Modal Summary Bar */}
+                <div className={styles.modalStatsBar}>
+                  <div className={styles.modalStatItem}>
+                    <span>ชุดสำรองทั้งหมด</span>
+                    <strong className={styles.statHighlight}>
+                      มี {selectedDeviceBackups.length} ชุดสำรอง
+                    </strong>
+                  </div>
+                  <div className={styles.modalStatItem}>
+                    <span>ขนาดรวม</span>
+                    <strong>{formatBytes(selectedDeviceStorage)}</strong>
+                  </div>
+                  <div className={styles.modalStatItem}>
+                    <span>สำเร็จ</span>
+                    <strong className={styles.statSuccessText}>
+                      {selectedDeviceSuccessCount} ชุด
+                    </strong>
+                  </div>
+                  <div className={styles.modalStatItem}>
+                    <span>ล้มเหลว</span>
+                    <strong className={styles.statFailedText}>
+                      {selectedDeviceFailedCount} ชุด
+                    </strong>
+                  </div>
                 </div>
-              ) : null}
-              {error ? (
-                <p className={styles.error} role="alert">
-                  {error}
-                </p>
-              ) : null}
-            </div>
 
-            <div className={styles.actions}>
-              <button onClick={requestBackupName} disabled={loading === "backup" || !selectedPaths.length} type="button">
-                {loading === "backup" ? (
-                  <>
-                    <span className={styles.spinner} aria-hidden="true" />
-                    Backing up...
-                  </>
-                ) : selectedPaths.length ? (
-                  `Backup now (${selectedPaths.length})`
-                ) : (
-                  "Select targets first"
-                )}
-              </button>
-              <button onClick={() => selectedDevice.id && router.push(`/restore?device_id=${selectedDevice.id}`)} type="button">Restore</button>
-            </div>
-
-            {isBackupNamePromptOpen ? (
-              <div className={styles.namePrompt} role="dialog" aria-modal="true" aria-labelledby="dashboard-backup-name-title">
-                <button
-                  className={styles.namePromptBackdrop}
-                  onClick={() => loading !== "backup" && setIsBackupNamePromptOpen(false)}
-                  aria-label="Cancel backup name"
-                  type="button"
-                />
-                <section className={styles.namePromptDialog}>
-                  <div className={styles.namePromptHeader}>
-                    <p>Backup name</p>
-                    <h3 id="dashboard-backup-name-title">ตั้งชื่อ backup ก่อนเริ่ม</h3>
-                    <span>{selectedPaths.length} target(s) selected for {selectedDevice.name}</span>
-                  </div>
-                  <label className={styles.namePromptField}>
-                    Backup name
-                    <input
-                      autoFocus
-                      value={backupName}
-                      onChange={(event) => setBackupName(event.target.value)}
-                      onKeyDown={(event) => {
-                        if (event.key === "Enter") {
-                          event.preventDefault();
-                          void backupNow();
-                        }
-                      }}
-                      placeholder={defaultBackupName(selectedDevice)}
-                    />
-                  </label>
-                  <div className={styles.namePromptActions}>
-                    <button onClick={() => setIsBackupNamePromptOpen(false)} disabled={loading === "backup"} type="button">
-                      Cancel
+                {/* Search Bar */}
+                <div className={styles.modalToolbar}>
+                  <input
+                    type="text"
+                    className={styles.modalSearchInput}
+                    placeholder="ค้นหาชื่อชุดสำรอง, ประเภท, หรือวันที่..."
+                    value={modalSearch}
+                    onChange={(e) => setModalSearch(e.target.value)}
+                  />
+                  {modalSearch ? (
+                    <button
+                      type="button"
+                      className={styles.clearSearchBtn}
+                      onClick={() => setModalSearch("")}
+                    >
+                      ล้างคำค้น
                     </button>
-                    <button onClick={() => void backupNow()} disabled={loading === "backup"} type="button">
-                      {loading === "backup" ? (
-                        <>
-                          <span className={styles.spinner} aria-hidden="true" />
-                          Backing up...
-                        </>
-                      ) : (
-                        "Start backup"
-                      )}
-                    </button>
-                  </div>
-                </section>
-              </div>
-            ) : null}
-          </section>
-        </div>
-      ), document.body) : null}
+                  ) : null}
+                </div>
 
-      <BackupProgressModal {...backupProgress} onClose={handleCloseBackupProgress} />
+                {/* List / Table of Backup Sets */}
+                <div className={styles.modalTableWrapper}>
+                  {filteredModalBackups.length > 0 ? (
+                    <table className={styles.backupTable}>
+                      <thead>
+                        <tr>
+                          <th>ชุดที่</th>
+                          <th>ชื่อชุดสำรอง</th>
+                          <th>ประเภท</th>
+                          <th>จำนวนไฟล์</th>
+                          <th>ขนาด</th>
+                          <th>วันที่และเวลา</th>
+                          <th>สถานะ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredModalBackups.map((b, idx) => (
+                          <tr key={b.id || idx}>
+                            <td className={styles.colIndex}>#{idx + 1}</td>
+                            <td className={styles.colName}>
+                              <strong>{b.name}</strong>
+                            </td>
+                            <td>{b.type || "Full"}</td>
+                            <td>{b.files} ไฟล์</td>
+                            <td>{b.size}</td>
+                            <td className={styles.colDate}>{b.createdAt}</td>
+                            <td>
+                              <span
+                                className={
+                                  b.status === "success"
+                                    ? styles.badgeSuccess
+                                    : b.status === "failed"
+                                    ? styles.badgeFailed
+                                    : styles.badgePending
+                                }
+                              >
+                                {b.status === "success"
+                                  ? "สำเร็จ"
+                                  : b.status === "failed"
+                                  ? "ล้มเหลว"
+                                  : b.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <div className={styles.modalEmptyState}>
+                      <p>
+                        {modalSearch
+                          ? `ไม่พบชุดสำรองที่ตรงกับคำค้น "${modalSearch}"`
+                          : "อุปกรณ์นี้ยังไม่มีชุดสำรองข้อมูลในระบบ"}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Modal Footer */}
+                <div className={styles.modalFooter}>
+                  <Link
+                    href={`/backups?q=${encodeURIComponent(selectedDevice.name)}`}
+                    className={styles.allBackupsLink}
+                  >
+                    ดูในหน้ารายการสำรองข้อมูลทั้งหมด
+                  </Link>
+                  <button
+                    type="button"
+                    className={styles.modalCancelBtn}
+                    onClick={() => setSelectedDevice(null)}
+                  >
+                    ปิด
+                  </button>
+                </div>
+              </section>
+            </div>,
+            document.body
+          )
+        : null}
     </>
   );
-
-  function togglePath(path: string) {
-    setSelectedPaths((current) => {
-      if (current.includes(path)) {
-        return current.filter((item) => item !== path);
-      }
-
-      const parentFolder = findSelectedParentFolder(path, current, backupTargets) ?? findOpenedParentFolder(path, browserPath);
-      const withoutParentFolder = parentFolder
-        ? current.filter((item) => item !== parentFolder)
-        : current;
-      const next = [...withoutParentFolder, path];
-      const openedParentFolder = findOpenedParentFolder(path, browserPath);
-
-      if (!openedParentFolder || !remoteFiles.length) {
-        return uniquePaths(next);
-      }
-
-      const visiblePaths = remoteFiles.map((file) => file.path);
-      const allVisiblePathsSelected = visiblePaths.every((visiblePath) => next.includes(visiblePath));
-
-      if (!allVisiblePathsSelected) {
-        return uniquePaths(next);
-      }
-
-      return uniquePaths([
-        ...next.filter((item) => !visiblePaths.includes(item)),
-        openedParentFolder,
-      ]);
-    });
-  }
-
-  async function addCustomPath() {
-    if (loading === "addPath") return;
-    const path = customPath.trim();
-    if (!path) return;
-    if (!path.startsWith("/")) {
-      setError("Path สำหรับสำรองข้อมูลต้องขึ้นต้นด้วยเครื่องหมาย / เสมอ");
-      return;
-    }
-    setLoading("addPath");
-    try {
-      const savedPath = await saveCustomBackupPath(path, customPathLabel);
-      setSelectedPaths((current) => uniquePaths([...current, savedPath.path]));
-      setBackupTargets((current) => {
-        if (current.some((target) => target.path === savedPath.path)) return current;
-        const targetType = backupTargetTypeFromPath(savedPath.path);
-        return [
-          ...current,
-          {
-            key: `custom_${Date.now()}`,
-            label: savedPath.label,
-            path: savedPath.path,
-            target_type: targetType,
-            browsable: targetType === "directory",
-            backup_api: "file",
-            removable: true,
-          },
-        ];
-      });
-      setCustomPathLabel("");
-      setCustomPath("");
-      setError("");
-      showToast({
-        tone: "success",
-        title: "เพิ่ม Path สำรองข้อมูลสำเร็จ",
-        message: savedPath.path,
-      });
-    } catch (errorResponse) {
-      showToast({
-        tone: "error",
-        title: "บันทึก Path สำรองข้อมูลไม่สำเร็จ",
-        message: getErrorMessage(errorResponse, "ไม่สามารถบันทึก Path สำหรับสำรองข้อมูลได้"),
-      });
-    } finally {
-      setLoading((current) => (current === "addPath" ? "" : current));
-    }
-  }
-}
-
-function getFocusableElements(container: HTMLElement): HTMLElement[] {
-  const selector = 'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])';
-  return Array.from(container.querySelectorAll<HTMLElement>(selector)).filter(
-    (element) => element.offsetParent !== null,
-  );
-}
-
-function formatTime(value?: string | null): string {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleTimeString("th-TH", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
-
-function findSelectedParentFolder(path: string, selectedPaths: string[], targets: BackupTarget[]): string | null {
-  return targets
-    .filter((target) => target.backup_api === "file" && target.target_type === "directory")
-    .map((target) => target.path)
-    .filter((targetPath) => selectedPaths.includes(targetPath))
-    .find((targetPath) => path !== targetPath && path.startsWith(`${targetPath.replace(/\/$/, "")}/`)) ?? null;
-}
-
-function findOpenedParentFolder(path: string, browserPath: string): string | null {
-  const normalizedBrowserPath = browserPath.replace(/\/$/, "");
-  if (!normalizedBrowserPath) return null;
-  return path !== normalizedBrowserPath && path.startsWith(`${normalizedBrowserPath}/`) ? normalizedBrowserPath : null;
-}
-
-function uniquePaths(paths: string[]): string[] {
-  return Array.from(new Set(paths));
-}
-
-function formatBytes(value?: number | null): string {
-  if (!value) return "-";
-  if (value < 1024) return `${value} B`;
-  if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
-  return `${(value / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function defaultBackupName(device: Device | null): string {
-  if (!device) return "";
-  const now = new Date();
-  const date = now.toISOString().slice(0, 10).replace(/-/g, "");
-  const time = now.toTimeString().slice(0, 5).replace(":", "");
-  return `manual_${device.name}_${date}_${time}`;
 }

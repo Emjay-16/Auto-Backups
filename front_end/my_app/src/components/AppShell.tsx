@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { fetchApi, getNotificationsForUi, type NotificationItem } from "@/lib/api";
 import styles from "@/styles/components/AppShell.module.css";
-import { BackupIcon, DashboardIcon, DeviceIcon, JobIcon, RestoreIcon } from "./ActionIcons";
+import { BackupIcon, DashboardIcon, DeviceIcon, JobIcon, LogsIcon, RestoreIcon } from "./ActionIcons";
 
 type NavItem = {
   href: string;
@@ -33,7 +33,7 @@ const navSections: { title: string; items: NavItem[] }[] = [
   },
   {
     title: "System",
-    items: [{ href: "/logs", icon: "≡", label: "Activity Logs" }],
+    items: [{ href: "/logs", icon: <LogsIcon />, label: "Activity Logs" }],
   },
 ];
 
@@ -101,7 +101,31 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [clearedNotificationIds, setClearedNotificationIds] = useState<string[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const notificationWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("auto_backup_sidebar_collapsed");
+      if (saved !== null) {
+        setIsCollapsed(saved === "true");
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  function toggleSidebar() {
+    setIsCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem("auto_backup_sidebar_collapsed", String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (isLoginPage || sessionStatus !== "authenticated") return;
@@ -126,17 +150,22 @@ export function AppShell({ children }: { children: ReactNode }) {
         .finally(() => window.clearTimeout(timeoutId));
     }
 
+    let isMounted = true;
     function loadDeviceCount(path: string, timeoutMs: number) {
       return fetchDevices(path, timeoutMs)
         .catch(() => fetchDevices("/devices/", TIMING.deviceFetchTimeoutMs))
         .then((devices) => {
+          if (!isMounted) return;
           setDeviceCount({
             online: devices.filter((device) => device.device_status === 1).length,
             total: devices.length,
           });
           setDevicesUnavailable(false);
         })
-        .catch(() => setDevicesUnavailable(true));
+        .catch(() => {
+          if (!isMounted) return;
+          setDevicesUnavailable(true);
+        });
     }
 
     void loadDeviceCount("/devices/", TIMING.deviceFetchTimeoutMs);
@@ -145,6 +174,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     }, TIMING.deviceRefreshDelayMs);
 
     return () => {
+      isMounted = false;
       window.clearTimeout(startId);
     };
   }, [isLoginPage, sessionStatus]);
@@ -251,10 +281,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       if (event.key === "Escape") setShowNotifications(false);
     }
 
-    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("pointerdown", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [showNotifications]);
@@ -281,11 +311,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   function openNotifications() {
-    setShowNotifications((current) => {
-      const next = !current;
-      if (next) markVisibleNotificationsAsRead();
-      return next;
-    });
+    setShowNotifications((current) => !current);
+    markVisibleNotificationsAsRead();
   }
 
   function markVisibleNotificationsAsRead() {
@@ -300,9 +327,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   async function logout() {
-    await signOut({ redirect: false });
-    router.replace("/login");
-    router.refresh();
+    try {
+      await signOut({ redirect: false });
+    } finally {
+      router.replace("/login");
+      router.refresh();
+    }
   }
 
   const dateText = now
@@ -313,7 +343,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     : "--";
   const visibleNotifications = notifications.filter((item) => !clearedNotificationIds.includes(item.id));
   const unreadCount = visibleNotifications.filter((item) => !readNotificationIds.includes(item.id)).length;
-  const userName = session?.user?.name || "User";
+  const userName = session?.user?.name?.trim() || "User";
 
   if (isLoginPage) {
     return <>{children}</>;
@@ -324,14 +354,33 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <main className={styles.shell}>
-      <aside className={styles.sidebar}>
+    <main className={`${styles.shell} ${isCollapsed ? styles.shellCollapsed : ""}`}>
+      <aside className={`${styles.sidebar} ${isCollapsed ? styles.sidebarCollapsed : ""}`}>
         <div className={styles.brand}>
-          <div className={styles.brandMark}>AB</div>
-          <div>
-            <strong>Auto Backup</strong>
-            <span>Robot Data Migration</span>
-          </div>
+          <div className={styles.brandMark} title="Auto Backup">AB</div>
+          {!isCollapsed ? (
+            <div className={styles.brandInfo}>
+              <strong>Auto Backup</strong>
+              <span>Robot Data Migration</span>
+            </div>
+          ) : null}
+          <button
+            type="button"
+            className={styles.sidebarCollapseBtn}
+            onClick={toggleSidebar}
+            title={isCollapsed ? "ขยายแถบเมนู (Expand)" : "ย่อแถบเมนู (Collapse)"}
+            aria-label={isCollapsed ? "ขยายแถบเมนู" : "ย่อแถบเมนู"}
+          >
+            {isCollapsed ? (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            ) : (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            )}
+          </button>
         </div>
 
         <nav className={styles.nav}>
@@ -339,12 +388,19 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className={styles.navGroup} key={section.title}>
               <p>{section.title}</p>
               {section.items.map((item) => {
-                const active = pathname === item.href;
+                const active = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href + "/"));
                 return (
-                  <Link className={`${styles.navItem} ${active ? styles.active : ""}`} href={item.href} key={item.href}>
-                    <span>{item.icon}</span>
-                    {item.label}
-                    {item.href === "/jobs" && activeJobCount > 0 ? <b>{activeJobCount}</b> : null}
+                  <Link
+                    className={`${styles.navItem} ${active ? styles.active : ""}`}
+                    href={item.href}
+                    key={item.href}
+                    title={isCollapsed ? item.label : undefined}
+                  >
+                    <span className={styles.navIcon}>{item.icon}</span>
+                    <span className={styles.navLabel}>{item.label}</span>
+                    {item.href === "/jobs" && activeJobCount > 0 ? (
+                      <b className={styles.navBadge}>{activeJobCount}</b>
+                    ) : null}
                   </Link>
                 );
               })}
@@ -353,12 +409,25 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className={styles.operator}>
-          <div className={styles.avatar}>{userName.slice(0, 1).toUpperCase()}</div>
-          <div>
-            <strong>{userName}</strong>
-          </div>
-          <button onClick={() => void logout()} type="button">
-            Logout
+          <div className={styles.avatar} title={userName}>{userName.slice(0, 1).toUpperCase()}</div>
+          {!isCollapsed ? (
+            <div>
+              <strong>{userName}</strong>
+            </div>
+          ) : null}
+          <button
+            onClick={() => void logout()}
+            type="button"
+            className={styles.logoutBtn}
+            title="ออกจากระบบ (Logout)"
+            aria-label="Logout"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            <span className={styles.logoutText}>Logout</span>
           </button>
         </div>
       </aside>

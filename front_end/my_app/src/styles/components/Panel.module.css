@@ -9,7 +9,7 @@
 
 .panel:hover {
   border-color: var(--line-strong);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
 }
 
 .header {
@@ -27,7 +27,7 @@
   margin: 0;
   color: var(--foreground);
   font-size: 16px;
-  font-weight: 820;
+  font-weight: 700;
   letter-spacing: 0;
 }
 
@@ -42,7 +42,7 @@
   background: #eef4ff;
   color: var(--primary);
   font-size: 13px;
-  font-weight: 760;
+  font-weight: 600;
 }
 
 .header a:hover,

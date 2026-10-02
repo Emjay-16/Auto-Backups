@@ -11,6 +11,7 @@ type MetricCardProps = {
 };
 
 export function MetricCard({ icon, label, value, detail, progress, tone = "default" }: MetricCardProps) {
+  const clampedProgress = Math.min(100, Math.max(0, progress ?? 0));
   return (
     <article className={styles.card}>
       <span className={styles.icon}>{icon}</span>
@@ -18,7 +19,7 @@ export function MetricCard({ icon, label, value, detail, progress, tone = "defau
       <strong>{value}</strong>
       <small>{detail}</small>
       <div className={tone === "warning" ? styles.barWarning : styles.bar}>
-        <span style={{ width: `${progress}%` }} />
+        <span style={{ width: `${clampedProgress}%` }} />
       </div>
     </article>
   );

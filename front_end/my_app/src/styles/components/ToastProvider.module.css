@@ -73,7 +73,7 @@
   overflow: hidden;
   color: #162235;
   font-size: 13px;
-  font-weight: 760;
+  font-weight: 600;
   line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -85,9 +85,8 @@
   margin: 5px 0 0;
   color: #5c6d84;
   font-size: 12px;
-  font-weight: 720;
+  font-weight: 500;
   line-height: 1.45;
-  line-clamp: 3;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 3;
 }

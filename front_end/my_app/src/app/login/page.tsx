@@ -20,6 +20,16 @@ export default function LoginPage() {
     }
   }, [router, status]);
 
+  if (status === "loading") {
+    return (
+      <div className={styles.page}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%" }}>
+          <span style={{ color: "var(--muted)" }}>กำลังตรวจสอบ...</span>
+        </div>
+      </div>
+    );
+  }
+
   async function submitLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canSubmit) {
@@ -56,7 +66,6 @@ export default function LoginPage() {
     }
 
     router.replace(getSafeCallbackUrl());
-    router.refresh();
   }
 
   return (
@@ -74,6 +83,7 @@ export default function LoginPage() {
           <label>
             Username
             <input
+              type="text"
               autoComplete="username"
               autoFocus
               onChange={(event) => setUserName(event.target.value)}
@@ -105,7 +115,15 @@ export default function LoginPage() {
 
 function getSafeCallbackUrl(): string {
   if (typeof window === "undefined") return "/";
-  const callbackUrl = new URLSearchParams(window.location.search).get("callbackUrl");
-  if (!callbackUrl || !callbackUrl.startsWith("/") || callbackUrl.startsWith("//")) return "/";
-  return callbackUrl;
+  try {
+    const raw = new URLSearchParams(window.location.search).get("callbackUrl") ?? "/";
+    const decoded = decodeURIComponent(raw);
+    const url = new URL(decoded, window.location.origin);
+    if (url.origin === window.location.origin) {
+      return url.pathname + url.search + url.hash;
+    }
+  } catch {
+    // ignore
+  }
+  return "/";
 }

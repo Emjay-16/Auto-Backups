@@ -307,7 +307,7 @@ type ApiErrorResponse = {
   path?: string;
 };
 
-async function getJson<T>(path: string, timeoutMs = 1500): Promise<T> {
+async function getJson<T>(path: string, timeoutMs = 8000): Promise<T> {
   const response = await fetchApi(path, {
     cache: "no-store",
     signal: AbortSignal.timeout(timeoutMs),
@@ -323,7 +323,12 @@ async function getJson<T>(path: string, timeoutMs = 1500): Promise<T> {
 export async function getDevicesForUi(): Promise<Device[]> {
   const [apiDevices, pendingJobs] = await Promise.all([
     getJson<ApiDevice[]>("/devices/", 5000),
-    getJson<ApiJob[]>("/jobs/?job_status=4").catch(() => []),
+    getJson<ApiJob[]>("/jobs/?job_status=4", 5000).catch((e) => {
+      if (process.env.NODE_ENV !== "production") {
+        console.warn("[auto_backup] pending jobs fetch failed", e);
+      }
+      return [] as ApiJob[];
+    }),
   ]);
   const pendingDeviceIds = new Set(
     pendingJobs
@@ -335,7 +340,7 @@ export async function getDevicesForUi(): Promise<Device[]> {
 }
 
 export async function getDeviceGroupsForUi(): Promise<DeviceGroupOption[]> {
-  return getJson<DeviceGroupOption[]>("/device-groups/");
+  return getJson<DeviceGroupOption[]>("/device-groups/", 5000);
 }
 
 export async function getBackupsForUi(): Promise<Backup[]> {
@@ -549,6 +554,10 @@ async function sendJson<T = void>(path: string, method: "POST" | "PUT", payload:
 
   if (!response.ok) {
     throw new Error(await readApiError(response, `API ${path} failed: ${response.status}`));
+  }
+
+  if (response.status === 204 || response.headers.get("content-length") === "0") {
+    return undefined as T;
   }
 
   return response.json() as Promise<T>;

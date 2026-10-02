@@ -7,10 +7,15 @@ type RobotGroupBadgeProps = {
 
 export function RobotGroupBadge({ group, variant = "badge" }: RobotGroupBadgeProps) {
   const tone = robotGroupTone(group);
+  const displayLabel =
+    variant === "avatar" && group.trim().toUpperCase() === "COMPUTER"
+      ? "SRV"
+      : group;
+
   return (
     <span className={`${styles[variant]} ${styles[tone]}`}>
       <i aria-hidden="true" />
-      <b>{group}</b>
+      <b>{displayLabel}</b>
     </span>
   );
 }

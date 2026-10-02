@@ -13,9 +13,15 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
   const params = await searchParams;
   const query = params?.q ?? "";
   const selectedDate = params?.date || todayDateInputValue();
-  const jobs = await getJobsForUi(selectedDate);
+  const jobs = await getJobsForUi(selectedDate).catch(() => []);
   const filteredJobs = jobs.filter((job) =>
-    matchesQuery(query, [job.device, job.type, job.target, job.status, job.time, job.progress]),
+    matchesQuery(query, [
+      job.device ?? "",
+      job.type ?? "",
+      job.target ?? "",
+      job.status ?? "",
+      job.time ?? "",
+    ]),
   );
 
   return (

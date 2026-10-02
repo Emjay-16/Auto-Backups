@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Activity } from "@/lib/types";
 import styles from "@/styles/pages/logs/logs.module.css";
 import { PaginationControls } from "./PaginationControls";
@@ -9,6 +9,11 @@ const PAGE_SIZE = 10;
 
 export function PaginatedLogsList({ activities }: { activities: Activity[] }) {
   const [page, setPage] = useState(0);
+
+  useEffect(() => {
+    setPage(0);
+  }, [activities]);
+
   const pageCount = Math.max(1, Math.ceil(activities.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);
   const visibleActivities = activities.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
@@ -23,8 +28,8 @@ export function PaginatedLogsList({ activities }: { activities: Activity[] }) {
             </span>
             <div className={styles.logMain}>
               <div>
-                <strong>{item.text.replaceAll("_", " ")}</strong>
-                <p>{item.meta}</p>
+                <strong>{(item.text ?? "").replaceAll("_", " ")}</strong>
+                {item.meta ? <p>{item.meta}</p> : null}
               </div>
               <span className={`${styles.statusPill} ${styles[item.kind]}`}>{item.status}</span>
             </div>
@@ -42,7 +47,7 @@ export function PaginatedLogsList({ activities }: { activities: Activity[] }) {
         page={safePage}
         pageSize={PAGE_SIZE}
         total={activities.length}
-        onPrevious={() => setPage((current) => Math.max(0, Math.min(current, pageCount - 1) - 1))}
+        onPrevious={() => setPage((current) => Math.max(0, current - 1))}
         onNext={() => setPage((current) => Math.min(pageCount - 1, current + 1))}
       />
     </>

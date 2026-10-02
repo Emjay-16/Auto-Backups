@@ -11,6 +11,7 @@ type PaginationControlsProps = {
 };
 
 export function PaginationControls({ page, pageSize, total, onPrevious, onNext }: PaginationControlsProps) {
+  if (!pageSize || pageSize < 1) return null;
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const start = total === 0 ? 0 : page * pageSize + 1;
   const end = Math.min(total, (page + 1) * pageSize);

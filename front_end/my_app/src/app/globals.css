@@ -1,3 +1,47 @@
+/* ─── Local Fonts (offline-safe) ─────────────────────────────────────── */
+@font-face {
+  font-family: "Prompt";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/Prompt-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Prompt";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/Prompt-Medium.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Prompt";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/Prompt-SemiBold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Prompt";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/Prompt-Bold.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Noto Sans Thai";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/NotoSansThai-Regular.ttf") format("truetype");
+}
+@font-face {
+  font-family: "Noto Sans Thai";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/NotoSansThai-Bold.ttf") format("truetype");
+}
+
 :root {
   --background: #d8e6ef;
   --foreground: #132029;
@@ -25,8 +69,8 @@
   --control-border: rgba(158, 199, 223, 0.96);
   --control-bg: #fbfdff;
   --control-focus: 0 0 0 3px rgba(50, 130, 184, 0.16);
-  --font-display: "Inter", Arial, Helvetica, sans-serif;
-  --font-body: "Inter", Arial, Helvetica, sans-serif;
+  --font-display: "Prompt", "Noto Sans Thai", system-ui, sans-serif;
+  --font-body: "Prompt", "Noto Sans Thai", system-ui, sans-serif;
   --scrollbar-thumb: rgba(15, 76, 117, 0.32);
   --scrollbar-thumb-hover: rgba(15, 76, 117, 0.48);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -97,11 +141,6 @@ body {
 a {
   color: inherit;
   text-decoration: none;
-}
-
-button,
-input {
-  font: inherit;
 }
 
 button {
@@ -201,9 +240,8 @@ textarea:focus-visible {
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
+    animation: none !important;
+    transition: none !important;
     scroll-behavior: auto !important;
-    transition-duration: 0.01ms !important;
   }
 }

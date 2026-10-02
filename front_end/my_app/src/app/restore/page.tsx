@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import { Panel } from "@/components/Panel";
 import { PaginationControls } from "@/components/PaginationControls";
 import { useToast } from "@/components/ToastProvider";
@@ -20,18 +21,20 @@ import type { Backup, Device } from "@/lib/types";
 import styles from "@/styles/pages/restore/restore.module.css";
 
 interface FileGroup {
-  groupKey: string;       // folder path ที่ใช้จัดกลุ่ม (parent directory)
-  groupLabel: string;     // แสดงผลใน UI
+  groupKey: string;
+  groupLabel: string;
   groupType: "database" | "zip" | "file";
   files: BackupFileDetail[];
-  sharedTargetPath: string; // target path เริ่มต้นของกลุ่ม
+  sharedTargetPath: string;
 }
 
 const BACKUP_PAGE_SIZE = 6;
 
 export default function RestorePage() {
+  const { data: session } = useSession();
   const { showToast } = useToast();
-  const [restoreMode, setRestoreMode] = useState("overwrite");
+  const [currentStep, setCurrentStep] = useState<number>(1);
+  const [restoreMode, setRestoreMode] = useState<string>("overwrite");
   const [backups, setBackups] = useState<Backup[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [selectedBackupId, setSelectedBackupId] = useState("");
@@ -39,26 +42,28 @@ export default function RestorePage() {
   const [backupDetail, setBackupDetail] = useState<BackupDetail | null>(null);
   const [selectedFileIds, setSelectedFileIds] = useState<number[]>([]);
   const [targetPaths, setTargetPaths] = useState<Record<number, string>>({});
-  const [groupPaths, setGroupPaths] = useState<Record<string, string>>({}); // target path ต่อ group key
+  const [groupPaths, setGroupPaths] = useState<Record<string, string>>({});
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [fallbackTargetPath, setFallbackTargetPath] = useState("");
   const [uploadFiles, setUploadFiles] = useState<File[]>([]);
   const [result, setResult] = useState<RestoreRunResult | UploadRunResult | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [isLoadingList, setIsLoadingList] = useState(false);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [backupPage, setBackupPage] = useState(0);
-  const [filesDialogOpen, setFilesDialogOpen] = useState(false);
   const [restoreSearchQuery, setRestoreSearchQuery] = useState("");
 
   useEffect(() => {
     let mounted = true;
     const loadingId = window.setTimeout(() => {
-      if (mounted) setSaving(true);
+      if (mounted) setIsLoadingList(true);
     }, 0);
     Promise.all([getBackupsForUi(), getDevicesForUi()])
       .then(([backupItems, deviceItems]) => {
         if (!mounted) return;
         setBackups(backupItems.filter((backup) => backup.id));
+        setBackupPage(0);
         setDevices(deviceItems);
 
         const params = new URLSearchParams(window.location.search);
@@ -75,7 +80,7 @@ export default function RestorePage() {
         showToast({ tone: "error", title: "โหลดข้อมูลการกู้คืนไม่สำเร็จ", message });
       })
       .finally(() => {
-        if (mounted) setSaving(false);
+        if (mounted) setIsLoadingList(false);
       });
 
     return () => {
@@ -97,7 +102,7 @@ export default function RestorePage() {
     let mounted = true;
     const loadingId = window.setTimeout(() => {
       if (!mounted) return;
-      setSaving(true);
+      setIsLoadingDetail(true);
       setError("");
     }, 0);
     getBackupDetail(backupId)
@@ -110,7 +115,6 @@ export default function RestorePage() {
           detail.files.map((file) => [file.backup_file_id, inferRestoreTarget(file)]),
         );
         setTargetPaths(perFilePaths);
-        // กำหนด groupPaths เริ่มต้น: ใช้ parent directory ของ target path เป็น key
         const initGroupPaths: Record<string, string> = {};
         for (const file of detail.files) {
           const gKey = getGroupKey(file);
@@ -131,112 +135,125 @@ export default function RestorePage() {
         }
       })
       .finally(() => {
-        if (mounted) setSaving(false);
+        if (mounted) setIsLoadingDetail(false);
       });
 
     return () => {
       mounted = false;
       window.clearTimeout(loadingId);
     };
-  }, [selectedBackupId, restoreMode, showToast]);
+  }, [restoreMode, selectedBackupId, showToast]);
 
   const selectedBackup = useMemo(
     () => backups.find((backup) => String(backup.id) === selectedBackupId),
     [backups, selectedBackupId],
   );
-  const visibleBackups = useMemo(
-    () => {
-      const pageCount = Math.max(1, Math.ceil(backups.length / BACKUP_PAGE_SIZE));
-      const safePage = Math.min(backupPage, pageCount - 1);
-      return backups.slice(safePage * BACKUP_PAGE_SIZE, safePage * BACKUP_PAGE_SIZE + BACKUP_PAGE_SIZE);
-    },
-    [backups, backupPage],
+
+  const selectedDevice = useMemo(
+    () => devices.find((device) => String(device.id) === selectedDeviceId) ?? null,
+    [devices, selectedDeviceId],
   );
+
   const backupPageCount = Math.max(1, Math.ceil(backups.length / BACKUP_PAGE_SIZE));
   const safeBackupPage = Math.min(backupPage, backupPageCount - 1);
-  const selectedFileCount = selectedFileIds.length;
-  const totalBackupFiles = backupDetail?.files.length ?? 0;
-  const allFilesSelected = totalBackupFiles > 0 && selectedFileCount === totalBackupFiles;
-  const sourceReady = restoreMode === "upload" ? uploadFiles.length > 0 : Boolean(selectedBackup);
-  const filesReady = restoreMode === "upload" ? uploadFiles.length > 0 : selectedFileCount > 0;
-  const targetReady = restoreMode === "upload" ? Boolean(selectedDeviceId && fallbackTargetPath.trim()) : Boolean(selectedBackup && selectedDeviceId);
+  const visibleBackups = useMemo(() => {
+    const start = safeBackupPage * BACKUP_PAGE_SIZE;
+    return backups.slice(start, start + BACKUP_PAGE_SIZE);
+  }, [backups, safeBackupPage]);
 
-  // จัดกลุ่มไฟล์ตาม folder
+  const sourceReady = restoreMode === "upload" ? uploadFiles.length > 0 : Boolean(selectedBackup);
+  const targetReady = Boolean(selectedDeviceId);
+  const filesReady = restoreMode === "upload" ? Boolean(fallbackTargetPath.trim()) : selectedFileIds.length > 0;
+  const totalBackupFiles = backupDetail?.files.length ?? selectedBackup?.files ?? 0;
+  const selectedFileCount = selectedFileIds.length;
+  const allFilesSelected = totalBackupFiles > 0 && selectedFileCount === totalBackupFiles;
+
   const fileGroups = useMemo<FileGroup[]>(() => {
     if (!backupDetail) return [];
-    const groupMap = new Map<string, FileGroup>();
+    const map = new Map<string, BackupFileDetail[]>();
     for (const file of backupDetail.files) {
       const key = getGroupKey(file);
-      if (!groupMap.has(key)) {
-        groupMap.set(key, {
-          groupKey: key,
-          groupLabel: getGroupLabel(file),
-          groupType: isLikelyDatabaseBackupFile(file) ? "database" : isZipBackupFile(file) ? "zip" : "file",
-          files: [],
-          sharedTargetPath: getGroupDefaultPath(file),
-        });
-      }
-      groupMap.get(key)!.files.push(file);
+      const list = map.get(key) ?? [];
+      list.push(file);
+      map.set(key, list);
     }
-    return Array.from(groupMap.values());
+    return Array.from(map.entries()).map(([groupKey, files]) => {
+      const rep = files[0];
+      return {
+        groupKey,
+        groupLabel: getGroupLabel(rep),
+        groupType: restoreFileKindLabel(rep) as FileGroup["groupType"],
+        files,
+        sharedTargetPath: getGroupDefaultPath(rep),
+      };
+    });
   }, [backupDetail]);
 
   const filteredFileGroups = useMemo(() => {
-    const query = restoreSearchQuery.trim().toLowerCase();
-    if (!query) return fileGroups;
+    if (!restoreSearchQuery.trim()) return fileGroups;
+    const q = restoreSearchQuery.toLowerCase();
     return fileGroups
-      .map((group) => ({
-        ...group,
-        files: group.files.filter(
-          (file) =>
-            file.file_name.toLowerCase().includes(query) ||
-            (file.remote_path && file.remote_path.toLowerCase().includes(query)) ||
-            (file.file_path && file.file_path.toLowerCase().includes(query)),
+      .map((g) => ({
+        ...g,
+        files: g.files.filter(
+          (f) =>
+            f.file_name.toLowerCase().includes(q) ||
+            (f.file_path ?? "").toLowerCase().includes(q) ||
+            g.groupLabel.toLowerCase().includes(q),
         ),
       }))
-      .filter((group) => group.files.length > 0);
+      .filter((g) => g.files.length > 0);
   }, [fileGroups, restoreSearchQuery]);
 
   async function submitRestore() {
     const backupId = Number(selectedBackupId);
-    if (!backupId || !backupDetail) {
-      setError("กรุณาเลือกไฟล์สำรองข้อมูลที่ต้องการกู้คืน");
+    const deviceId = Number(selectedDeviceId);
+    if (!backupId || !deviceId) {
+      setError("กรุณาเลือกไฟล์สำรองและอุปกรณ์ปลายทาง");
       return;
     }
     if (!selectedFileIds.length) {
       setError("กรุณาเลือกไฟล์ที่ต้องการกู้คืนอย่างน้อย 1 ไฟล์");
       return;
     }
-    const selectedFiles = backupDetail.files.filter((file) => selectedFileIds.includes(file.backup_file_id));
-    const missingPhysicalFile = selectedFiles.find((file) => file.file_exists === false);
-    if (missingPhysicalFile) {
-      setError(`ไฟล์ "${missingPhysicalFile.file_name}" ไม่มีอยู่จริงบนเซิร์ฟเวอร์ (โฟลเดอร์ storage/backups) หากคุณย้ายเครื่องหรือยังไม่ได้ก๊อปปี้ไฟล์มา โปรดคัดลอกไฟล์มาใส่ หรือใช้แท็บ Upload ด้านบนแทน`);
-      return;
-    }
-    // สร้าง items โดย resolve target path จาก groupPaths → fallbackTargetPath
-    const items = selectedFiles.map((file) => {
-      const gKey = getGroupKey(file);
-      const groupPath = groupPaths[gKey] ?? "";
-      const resolvedPath = (groupPath || fallbackTargetPath).trim();
-      // ถ้าเป็น database ไม่ต้องใส่ target path
-      const targetPath = isLikelyDatabaseBackupFile(file) ? "" : resolvedPath;
-      return { backup_file_id: file.backup_file_id, target_path: targetPath };
-    });
-    const missingTargetFile = selectedFiles.find(
-      (file) => !isLikelyDatabaseBackupFile(file) && !items.find((item) => item.backup_file_id === file.backup_file_id)?.target_path,
-    );
-    if (missingTargetFile) {
-      setError(`กรุณาระบุ Target path สำหรับกลุ่ม "${getGroupLabel(missingTargetFile)}"`);
-      return;
-    }
 
     setSaving(true);
     setError("");
     setResult(null);
+
+    const items = (backupDetail?.files ?? [])
+      .filter((file) => selectedFileIds.includes(file.backup_file_id))
+      .map((file) => {
+        const isDb = isLikelyDatabaseBackupFile(file);
+        let finalTarget: string;
+        if (isDb) {
+          finalTarget = "";
+        } else {
+          const gKey = getGroupKey(file);
+          const customGroup = groupPaths[gKey]?.trim();
+          if (customGroup) {
+            const relUnderCategory =
+              (gKey === MAPS_ROOT || gKey === SOUNDS_ROOT) && file.file_path
+                ? file.file_path.replace(/\\/g, "/").replace(new RegExp(`^.*?/(maps|sounds)/`), "")
+                : file.file_name;
+            finalTarget = isZipBackupFile(file)
+              ? customGroup
+              : `${customGroup.replace(/\/$/, "")}/${relUnderCategory}`;
+          } else {
+            const specificPath = targetPaths[file.backup_file_id]?.trim();
+            finalTarget = specificPath || fallbackTargetPath.trim();
+          }
+        }
+        return {
+          backup_file_id: file.backup_file_id,
+          target_path: finalTarget,
+        };
+      });
+
     try {
       const response = await restoreBackup(backupId, {
-        restored_by: 1,
-        device_id: Number(selectedDeviceId),
+        restored_by: Number((session?.user as { id?: string | number })?.id ?? 1),
+        device_id: deviceId,
         restore_type: 1,
         items,
       });
@@ -299,11 +316,9 @@ export default function RestorePage() {
   }
 
   function toggleFile(fileId: number) {
-    setSelectedFileIds((current) => (
-      current.includes(fileId)
-        ? current.filter((item) => item !== fileId)
-        : [...current, fileId]
-    ));
+    setSelectedFileIds((current) =>
+      current.includes(fileId) ? current.filter((item) => item !== fileId) : [...current, fileId],
+    );
   }
 
   function selectAllFiles() {
@@ -315,77 +330,159 @@ export default function RestorePage() {
     setSelectedFileIds([]);
   }
 
+  const steps =
+    restoreMode === "upload"
+      ? [
+          { step: 1, title: "1. เลือกไฟล์", desc: "ไฟล์จากเครื่องนี้" },
+          { step: 2, title: "2. เครื่องเป้าหมาย", desc: "เลือกอุปกรณ์และ Path" },
+          { step: 3, title: "3. ยืนยันการอัปโหลด", desc: "ตรวจสอบและเริ่มส่งไฟล์" },
+        ]
+      : [
+          { step: 1, title: "1. เลือกไฟล์สำรอง", desc: "เลือกจากประวัติ Backup" },
+          { step: 2, title: "2. เครื่องเป้าหมาย", desc: "เลือกอุปกรณ์ปลายทาง" },
+          { step: 3, title: "3. จัดการไฟล์และ Path", desc: "เลือกโฟลเดอร์ที่จะกู้คืน" },
+          { step: 4, title: "4. ยืนยันการกู้คืน", desc: "ตรวจสอบความปลอดภัย" },
+        ];
+
   return (
     <div className={styles.page}>
       <div className={styles.restoreBoard}>
         <main className={styles.restoreWorkspace}>
+          {/* Header */}
           <section className={styles.restoreHeader}>
             <div>
-              <p>Restore Operation</p>
-              <h2>{restoreMode === "upload" ? "Upload files to a robot" : "Restore files from backup history"}</h2>
+              <p>ระบบกู้คืนข้อมูล</p>
+              <h2>{restoreMode === "upload" ? "อัปโหลดไฟล์ไปยังอุปกรณ์" : "กู้คืนข้อมูลจากไฟล์สำรอง"}</h2>
             </div>
-            <div className={styles.modeSwitch} aria-label="Restore mode">
-              <button className={restoreMode !== "upload" ? styles.activeMode : ""} onClick={() => setRestoreMode("overwrite")} type="button">
-                From backup
+            <div className={styles.modeSwitch} aria-label="โหมดการกู้คืน">
+              <button
+                className={restoreMode !== "upload" ? styles.activeMode : ""}
+                onClick={() => {
+                  setRestoreMode("overwrite");
+                  setCurrentStep(1);
+                  setResult(null);
+                  setError("");
+                }}
+                type="button"
+              >
+                จากไฟล์สำรอง
               </button>
-              <button className={restoreMode === "upload" ? styles.activeMode : ""} onClick={() => setRestoreMode("upload")} type="button">
-                Upload
+              <button
+                className={restoreMode === "upload" ? styles.activeMode : ""}
+                onClick={() => {
+                  setRestoreMode("upload");
+                  setCurrentStep(1);
+                  setResult(null);
+                  setError("");
+                }}
+                type="button"
+              >
+                อัปโหลดไฟล์
               </button>
             </div>
           </section>
 
-          <section className={styles.restoreGrid}>
-            <Panel title={restoreMode === "upload" ? "Upload Source" : "Backup Library"}>
+          {/* Stepper Progress Bar */}
+          <nav className={styles.wizardStepper} aria-label="ขั้นตอนการกู้คืน">
+            {steps.map((st, idx) => (
+              <div key={st.step} style={{ display: "contents" }}>
+                <button
+                  type="button"
+                  className={`${styles.stepItem} ${
+                    currentStep === st.step ? styles.stepActive : currentStep > st.step ? styles.stepDone : ""
+                  }`}
+                  onClick={() => {
+                    if (st.step < currentStep) {
+                      setCurrentStep(st.step);
+                    } else if (st.step === 2 && sourceReady) {
+                      setCurrentStep(2);
+                    } else if (st.step === 3 && sourceReady && targetReady) {
+                      setCurrentStep(3);
+                    } else if (st.step === 4 && sourceReady && targetReady && filesReady) {
+                      setCurrentStep(4);
+                    }
+                  }}
+                >
+                  <span className={styles.stepNumber}>{currentStep > st.step ? "✓" : st.step}</span>
+                  <div className={styles.stepTitle}>
+                    <strong>{st.title}</strong>
+                    <small>{st.desc}</small>
+                  </div>
+                </button>
+                {idx < steps.length - 1 ? (
+                  <div className={`${styles.stepLine} ${currentStep > st.step ? styles.stepLineActive : ""}`} />
+                ) : null}
+              </div>
+            ))}
+          </nav>
+
+          {/* Step 1: Select Source / Backup */}
+          {currentStep === 1 ? (
+            <Panel title={restoreMode === "upload" ? "ขั้นตอนที่ 1: เลือกไฟล์จากคอมพิวเตอร์" : "ขั้นตอนที่ 1: เลือกไฟล์สำรองจากระบบ"}>
               {restoreMode === "upload" ? (
                 <div className={styles.uploadSource}>
                   <label className={styles.uploadDropzone}>
-                    <strong>Choose local files</strong>
-                    <span>{uploadFiles.length ? `${uploadFiles.length} file(s) ready` : "Select files from this computer"}</span>
+                    <strong>เลือกไฟล์จากเครื่อง</strong>
+                    <span>{uploadFiles.length ? `${uploadFiles.length} ไฟล์พร้อมอัปโหลด` : "คลิกเพื่อเลือกไฟล์จากคอมพิวเตอร์"}</span>
                     <input multiple type="file" onChange={(event) => setUploadFiles(Array.from(event.target.files ?? []))} />
                   </label>
                   {uploadFiles.length ? (
                     <div className={styles.uploadList}>
                       {uploadFiles.map((file) => (
-                        <span key={`${file.name}-${file.size}-${file.lastModified}`}>{file.name}</span>
+                        <span key={`${file.name}-${file.size}-${file.lastModified}`}>{file.name} ({Number(file.size / (1024 * 1024)).toFixed(2)} MB)</span>
                       ))}
                     </div>
                   ) : null}
+                  <div className={styles.wizardNav}>
+                    <span />
+                    <button
+                      type="button"
+                      className={styles.navNextBtn}
+                      disabled={!uploadFiles.length}
+                      onClick={() => setCurrentStep(2)}
+                    >
+                      เลือกเครื่องเป้าหมาย
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <>
                   <div className={styles.libraryHeader}>
                     <div>
                       <strong>{backups.length}</strong>
-                      <span>available restore point(s)</span>
+                      <span>ชุดข้อมูลสำรองที่พร้อมใช้งาน</span>
                     </div>
-                    <b>{selectedBackup ? selectedBackup.device : "Select one"}</b>
+                    <b>{selectedBackup ? `เลือกอยู่: ${selectedBackup.name}` : "กรุณาคลิกเลือกไฟล์สำรองด้านล่าง"}</b>
                   </div>
+
                   <div className={styles.snapshots}>
-                    {visibleBackups.length ? visibleBackups.map((backup, index) => (
-                      <button
-                        className={`${styles.snapshot} ${String(backup.id) === selectedBackupId ? styles.selected : ""}`}
-                        key={backup.id ?? `${backup.device}-${backup.name}-${backup.createdAtRaw ?? backup.createdAt}-${index}`}
-                        onClick={() => {
-                          setSelectedBackupId(String(backup.id ?? ""));
-                          setSelectedDeviceId(backup.deviceId ? String(backup.deviceId) : "");
-                          setFilesDialogOpen(false);
-                        }}
-                        type="button"
-                      >
-                        <span
-                          aria-hidden="true"
-                          className={`${styles.selectionCheck} ${String(backup.id) === selectedBackupId ? styles.checked : ""}`}
-                        />
-                        <div>
-                          <strong>{backup.name}</strong>
-                          <p>{backup.device} · {backup.files} file(s) · {backup.size}</p>
-                        </div>
-                        <b>{backup.type}</b>
-                      </button>
-                    )) : (
+                    {visibleBackups.length ? (
+                      visibleBackups.map((backup, index) => (
+                        <button
+                          className={`${styles.snapshot} ${String(backup.id) === selectedBackupId ? styles.selected : ""}`}
+                          key={backup.id ?? `${backup.device}-${backup.name}-${backup.createdAtRaw ?? backup.createdAt}-${index}`}
+                          onClick={() => {
+                            setSelectedBackupId(String(backup.id ?? ""));
+                            setSelectedDeviceId(backup.deviceId ? String(backup.deviceId) : "");
+                          }}
+                          type="button"
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={`${styles.selectionCheck} ${String(backup.id) === selectedBackupId ? styles.checked : ""}`}
+                          />
+                          <div>
+                            <strong>{backup.name}</strong>
+                            <p>{backup.device} · {backup.files} file(s) · {backup.size} · {backup.createdAt}</p>
+                          </div>
+                          <b>{backup.type}</b>
+                        </button>
+                      ))
+                    ) : (
                       <p className={styles.empty}>No backups available.</p>
                     )}
                   </div>
+
                   <PaginationControls
                     page={safeBackupPage}
                     pageSize={BACKUP_PAGE_SIZE}
@@ -393,133 +490,178 @@ export default function RestorePage() {
                     onPrevious={() => setBackupPage((current) => Math.max(0, Math.min(current, backupPageCount - 1) - 1))}
                     onNext={() => setBackupPage((current) => Math.min(backupPageCount - 1, current + 1))}
                   />
+
+                  <div className={styles.wizardNav}>
+                    <span />
+                    <button
+                      type="button"
+                      className={styles.navNextBtn}
+                      disabled={!selectedBackup}
+                      onClick={() => setCurrentStep(2)}
+                    >
+                      เลือกอุปกรณ์ปลายทาง
+                    </button>
+                  </div>
                 </>
               )}
             </Panel>
+          ) : null}
 
-            <Panel title="Restore Setup">
+          {/* Step 2: Target Device */}
+          {currentStep === 2 ? (
+            <Panel title="ขั้นตอนที่ 2: เลือกอุปกรณ์เป้าหมาย (Destination Device)">
               <div className={styles.target}>
-                {restoreMode === "upload" ? (
-                  <>
-                    <label>
-                      Device
-                      <select value={selectedDeviceId} onChange={(event) => setSelectedDeviceId(event.target.value)}>
-                        <option value="">Select a device</option>
-                        {devices.filter((device) => device.id).map((device) => (
-                          <option key={`${device.id}-${device.name}`} value={device.id}>
-                            {device.name} · {device.ip}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      Target path
-                      <input value={fallbackTargetPath} onChange={(event) => setFallbackTargetPath(event.target.value)} placeholder="/remote/path/on/robot" />
-                    </label>
-                  </>
-                ) : (
-                  <>
-                    <div className={styles.selectedBackupCard}>
-                      <span>Selected backup</span>
-                      <strong>{selectedBackup?.name ?? "Choose a backup"}</strong>
-                      <small>{selectedBackup ? `${selectedBackup.device} · ${selectedBackup.files} file(s) · ${selectedBackup.size}` : "Select from Backup Library"}</small>
-                    </div>
-                    <label className={styles.destinationDeviceField}>
-                      Destination device
-                      <select value={selectedDeviceId} onChange={(event) => setSelectedDeviceId(event.target.value)}>
-                        <option value="">Select a device</option>
-                        {devices.filter((device) => device.id).map((device) => (
-                          <option key={`${device.id}-${device.name}`} value={device.id}>
-                            {device.name} · {device.ip}{device.name === selectedBackup?.device ? " · source" : ""}
-                          </option>
-                        ))}
-                      </select>
-                      <span className={styles.hint}>เลือกเครื่องปลายทางได้ แม้ไม่ใช่เครื่องที่สร้าง Backup นี้</span>
-                    </label>
-                    <label>
-                      Default target path (optional)
-                      <input value={fallbackTargetPath} onChange={(event) => setFallbackTargetPath(event.target.value)} placeholder="ใช้เมื่อไฟล์ใน popup ไม่ได้กำหนด Restore to" />
-                      <span className={styles.hint}>ถ้าต้องการส่งไฟล์ไป path อื่น ให้แก้ช่อง Restore to ใน popup ของไฟล์นั้น ช่องนี้ใช้เฉพาะไฟล์ที่ไม่มี path แยกเท่านั้น</span>
-                    </label>
-                    <div className={styles.filePickerSummary}>
-                      <div>
-                        <strong>{selectedFileCount} / {totalBackupFiles}</strong>
-                        <span>files selected</span>
-                      </div>
-                      <button type="button" disabled={!backupDetail || saving} onClick={() => setFilesDialogOpen(true)}>
-                        Manage files
-                      </button>
-                    </div>
-                    {backupDetail && backupDetail.files.some((f) => f.file_exists === false) ? (
-                      <div className={styles.missingWarningCompact}>
-                        <span>[!]</span>
-                        <span>ไม่พบไฟล์จริงบางรายการบนดิสก์ (<button type="button" onClick={() => setRestoreMode("upload")}>ใช้โหมด Upload</button>)</span>
-                      </div>
-                    ) : null}
-                  </>
-                )}
-
-                {error ? <p className={styles.error}>{error}</p> : null}
-                {result ? (
-                  <p className={styles.success}>
-                    {result.message} · {"total_file" in result ? result.total_file : 0} file(s)
-                  </p>
+                {selectedBackup ? (
+                  <div className={styles.selectedBackupCard}>
+                    <span>ไฟล์สำรองที่เลือก</span>
+                    <strong>{selectedBackup.name}</strong>
+                    <small>สร้างจากเครื่อง: {selectedBackup.device} · {selectedBackup.files} file(s) · {selectedBackup.size}</small>
+                  </div>
                 ) : null}
-                <button className={styles.primaryAction} onClick={restoreMode === "upload" ? submitUpload : submitRestore} disabled={saving || !sourceReady || !targetReady || !filesReady} type="button">
-                  {restoreMode === "upload" ? (saving ? "Uploading..." : "Upload to robot") : (saving ? "Restoring..." : "Restore selected")}
+
+                <div className={styles.deviceSelectorGrid}>
+                  {devices.map((device) => {
+                    const isSelected = String(device.id) === selectedDeviceId;
+                    const isSource = selectedBackup?.deviceId != null
+                      ? device.id === selectedBackup.deviceId
+                      : device.name === selectedBackup?.device;
+                    const isOnline = device.status === "online";
+
+                    return (
+                      <button
+                        key={`${device.id}-${device.name}`}
+                        type="button"
+                        className={`${styles.deviceSelectCard} ${isSelected ? styles.deviceSelectCardSelected : ""}`}
+                        onClick={() => setSelectedDeviceId(String(device.id))}
+                      >
+                        <div className={styles.deviceCardTop}>
+                          <strong>{device.name}</strong>
+                          <span className={`${styles.deviceStatusBadge} ${isOnline ? styles.statusOnline : styles.statusOffline}`}>
+                            {isOnline ? "Online" : "Offline"}
+                          </span>
+                        </div>
+                        <div className={styles.deviceCardDetail}>
+                          <span>IP: {device.ip}</span>
+                          {isSource ? <span className={styles.sourceBadge}>Source</span> : <span>{device.group}</span>}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {selectedDevice && selectedDevice.status === "offline" ? (
+                  <div className={styles.offlineAlert}>
+                    คำเตือน: เครื่อง <strong>{selectedDevice.name}</strong> กำลัง Offline อยู่ กรุณาตรวจสอบการเชื่อมต่อก่อนเริ่มกู้คืนข้อมูล
+                  </div>
+                ) : null}
+
+                <label className={styles.fallbackPathLabel}>
+                  Default target path (กำหนดเองหากต้องการ)
+                  <input
+                    value={fallbackTargetPath}
+                    onChange={(event) => setFallbackTargetPath(event.target.value)}
+                    placeholder="/remote/path/on/robot (เว้นว่างไว้เพื่อใช้ path เริ่มต้นของระบบ)"
+                  />
+                  <span className={styles.hint}>หากระบุ โฟลเดอร์ที่ไม่ได้กำหนด path แยกจะใช้ path นี้เป็นปลายทาง</span>
+                </label>
+
+                <div className={styles.wizardNav}>
+                  <button type="button" className={styles.navPrevBtn} onClick={() => setCurrentStep(1)}>
+                    ย้อนกลับ
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.navNextBtn}
+                    disabled={!selectedDeviceId || (restoreMode === "upload" && !fallbackTargetPath.trim())}
+                    onClick={() => setCurrentStep(3)}
+                  >
+                    {restoreMode === "upload" ? "ตรวจสอบและยืนยัน" : "จัดการไฟล์และ Path"}
+                  </button>
+                </div>
+              </div>
+            </Panel>
+          ) : null}
+
+          {/* Step 3: Files & Path Mapping (in Backup Mode) OR Review in Upload Mode */}
+          {currentStep === 3 && restoreMode === "upload" ? (
+            <Panel title="ขั้นตอนที่ 3: ตรวจสอบและเริ่มอัปโหลดไฟล์">
+              <div className={styles.reviewGrid}>
+                <div className={styles.reviewBox}>
+                  <span>ไฟล์ที่จะอัปโหลด</span>
+                  <strong>{uploadFiles.length} file(s)</strong>
+                  <small>เลือกจากคอมพิวเตอร์</small>
+                </div>
+                <div className={styles.reviewBox}>
+                  <span>อุปกรณ์เป้าหมาย</span>
+                  <strong>{selectedDevice?.name ?? "ไม่ได้เลือก"}</strong>
+                  <small>IP: {selectedDevice?.ip ?? "-"} · Status: {selectedDevice?.status ?? "-"}</small>
+                </div>
+                <div className={styles.reviewBox}>
+                  <span>โฟลเดอร์ปลายทาง</span>
+                  <strong>{fallbackTargetPath}</strong>
+                  <small>บนเครื่องปลายทาง</small>
+                </div>
+              </div>
+
+
+              {error ? (
+                <div className={`${styles.resultCard} ${styles.resultCardError}`}>
+                  <span className={styles.resultCardTitle}>เกิดข้อผิดพลาด</span>
+                  <span className={styles.resultCardDetail}>{error}</span>
+                </div>
+              ) : null}
+              {result ? (
+                <div className={`${styles.resultCard} ${styles.resultCardSuccess}`}>
+                  <span className={styles.resultCardTitle}>อัปโหลดสำเร็จ</span>
+                  <span className={styles.resultCardDetail}>{result.message} · {"total_file" in result ? result.total_file : 0} ไฟล์</span>
+                </div>
+              ) : null}
+
+              <div className={styles.wizardNav}>
+                <button type="button" className={styles.navPrevBtn} onClick={() => setCurrentStep(2)}>
+                  ย้อนกลับ
+                </button>
+                <button
+                  type="button"
+                  className={styles.navNextBtn}
+                  disabled={saving || !uploadFiles.length || !selectedDeviceId || !fallbackTargetPath.trim() || selectedDevice?.status === "offline"}
+                  onClick={submitUpload}
+                >
+                  {saving
+                    ? "กำลังอัปโหลด..."
+                    : selectedDevice?.status === "offline"
+                    ? "ไม่สามารถอัปโหลดได้ (อุปกรณ์ออฟไลน์)"
+                    : "เริ่มอัปโหลดไฟล์ไปยังหุ่นยนต์"}
                 </button>
               </div>
             </Panel>
-          </section>
+          ) : null}
 
-        </main>
-      </div>
-
-      {filesDialogOpen && restoreMode !== "upload" ? (
-        <div className={styles.dialogBackdrop} role="presentation" onMouseDown={() => setFilesDialogOpen(false)}>
-          <section className={styles.dialog} role="dialog" aria-modal="true" aria-labelledby="restore-files-title" onMouseDown={(event) => event.stopPropagation()}>
-            <header className={styles.dialogHeader}>
-              <div>
-                <h2 id="restore-files-title">Choose restore files</h2>
-                <p>{selectedBackup?.name ?? "Selected backup"} · {selectedFileCount} / {totalBackupFiles} selected</p>
-              </div>
-              <button type="button" onClick={() => setFilesDialogOpen(false)} aria-label="Close">×</button>
-            </header>
-
-            <div className={styles.dialogActions}>
-              <div>
-                <button type="button" onClick={selectAllFiles} disabled={!backupDetail || allFilesSelected}>
-                  Select all
-                </button>
-                <button type="button" onClick={clearFileSelection} disabled={!selectedFileCount}>
-                  Clear
-                </button>
-              </div>
-              <div className={styles.dialogSearch}>
-                <input
-                  type="text"
-                  placeholder="ค้นหาไฟล์..."
-                  value={restoreSearchQuery}
-                  onChange={(e) => setRestoreSearchQuery(e.target.value)}
-                />
-              </div>
-              <span>{selectedFileCount} selected · {filteredFileGroups.length} group(s)</span>
-            </div>
-
-            {backupDetail && backupDetail.files.some((f) => f.file_exists === false) ? (
-              <div className={styles.missingWarning}>
-                <span>[!]</span>
+          {currentStep === 3 && restoreMode !== "upload" ? (
+            <Panel title="ขั้นตอนที่ 3: จัดการไฟล์และโฟลเดอร์ที่จะกู้คืน">
+              <div className={styles.fileToolbar}>
                 <div>
-                  <strong>มีไฟล์ backup บางรายการไม่พบบนดิสก์เซิร์ฟเวอร์ (storage/backups)</strong>
-                  <p>หากย้ายระบบมาเครื่องใหม่โดยไม่ได้ก๊อปปี้ไฟล์ backup มาด้วย จะไม่สามารถกู้คืนไฟล์ที่มีป้ายเตือนสีแดงได้ คุณสามารถใช้โหมด Upload ด้านบนเพื่ออัปโหลดไฟล์จากเครื่องนี้แทนได้</p>
+                  <button type="button" onClick={selectAllFiles} disabled={!backupDetail || allFilesSelected}>
+                    เลือกทั้งหมด
+                  </button>
+                  <button type="button" onClick={clearFileSelection} disabled={!selectedFileCount}>
+                    ยกเลิก
+                  </button>
                 </div>
+                <div className={styles.fileToolbarSearch}>
+                  <input
+                    type="text"
+                    placeholder="ค้นหาไฟล์..."
+                    value={restoreSearchQuery}
+                    onChange={(e) => setRestoreSearchQuery(e.target.value)}
+                  />
+                </div>
+                <span className={styles.fileToolbarCount}>{selectedFileCount} ไฟล์ · {filteredFileGroups.length} กลุ่ม</span>
               </div>
-            ) : null}
 
-            <div className={styles.files}>
-              {backupDetail ? (
-                <>
-                  {filteredFileGroups.map((group) => {
+              <div className={styles.files}>
+                {backupDetail ? (
+                  filteredFileGroups.map((group) => {
                     const groupFileIds = group.files.map((f) => f.backup_file_id);
                     const selectedInGroup = groupFileIds.filter((id) => selectedFileIds.includes(id));
                     const allGroupSelected = selectedInGroup.length === groupFileIds.length;
@@ -530,13 +672,14 @@ export default function RestorePage() {
 
                     return (
                       <article className={`${styles.groupRow} ${selectedInGroup.length > 0 ? styles.selectedFile : ""}`} key={group.groupKey}>
-                        {/* Group header */}
                         <div className={styles.groupHeader}>
                           <label className={styles.groupCheckLabel}>
                             <input
                               type="checkbox"
                               checked={allGroupSelected}
-                              ref={(el) => { if (el) el.indeterminate = someGroupSelected; }}
+                              ref={(el) => {
+                                if (el) el.indeterminate = someGroupSelected;
+                              }}
                               onChange={() => {
                                 if (allGroupSelected) {
                                   setSelectedFileIds((cur) => cur.filter((id) => !groupFileIds.includes(id)));
@@ -561,18 +704,19 @@ export default function RestorePage() {
                           <button
                             className={styles.expandBtn}
                             type="button"
-                            onClick={() => setExpandedGroups((cur) => {
-                              const next = new Set(cur);
-                              next.has(group.groupKey) ? next.delete(group.groupKey) : next.add(group.groupKey);
-                              return next;
-                            })}
+                            onClick={() =>
+                              setExpandedGroups((cur) => {
+                                const next = new Set(cur);
+                                next.has(group.groupKey) ? next.delete(group.groupKey) : next.add(group.groupKey);
+                                return next;
+                              })
+                            }
                             aria-expanded={isExpanded}
                           >
-                            {isExpanded ? "ซ่อน" : "ดูไฟล์"}
+                            {isExpanded ? "ซ่อนรายละเอียด" : "ดูรายชื่อไฟล์"}
                           </button>
                         </div>
 
-                        {/* Group target path input (ไม่แสดงสำหรับ database) */}
                         {group.groupType !== "database" ? (
                           <div className={styles.groupPathRow}>
                             <span>TARGET FOLDER</span>
@@ -590,7 +734,6 @@ export default function RestorePage() {
                                 ใช้ path เดิม
                               </button>
                             ) : null}
-                            {group.groupType === "zip" ? <p className={styles.hint}>ถ้า zip มีหลายไฟล์ ต้องใส่ path เป็นโฟลเดอร์ปลายทาง</p> : null}
                           </div>
                         ) : (
                           <div className={`${styles.groupPathRow} ${styles.databaseTarget}`}>
@@ -599,7 +742,6 @@ export default function RestorePage() {
                           </div>
                         )}
 
-                        {/* Expanded file list */}
                         {isExpanded ? (
                           <ul className={styles.groupFileList}>
                             {group.files.map((file) => {
@@ -614,7 +756,7 @@ export default function RestorePage() {
                                     />
                                     <span>{file.file_name}</span>
                                   </label>
-                                  <small>{Number(file.file_size_mb).toFixed(2)} MB</small>
+                                  <small>{file.file_size_mb != null ? `${Number(file.file_size_mb).toFixed(2)} MB` : "—"}</small>
                                   {isMissing ? (
                                     <b className={`${styles.fileTypeBadge} ${styles.missingBadge}`}>ไม่พบไฟล์</b>
                                   ) : null}
@@ -625,24 +767,93 @@ export default function RestorePage() {
                         ) : null}
                       </article>
                     );
-                  })}
-                </>
-              ) : (
-                <p className={styles.empty}>{saving ? "Loading backup files..." : "Select a backup to restore."}</p>
-              )}
-            </div>
+                  })
+                ) : (
+                  <p className={styles.empty}>{isLoadingDetail ? "กำลังโหลดรายการไฟล์..." : "กรุณาเลือกชุดสำรองข้อมูล"}</p>
+                )}
+              </div>
 
-            <footer className={styles.dialogFooter}>
-              <button type="button" onClick={() => setFilesDialogOpen(false)}>
-                Done
-              </button>
-              <button type="button" onClick={submitRestore} disabled={saving || !selectedFileCount}>
-                {saving ? "Restoring..." : "Restore selected"}
-              </button>
-            </footer>
-          </section>
-        </div>
-      ) : null}
+              <div className={styles.wizardNav}>
+                <button type="button" className={styles.navPrevBtn} onClick={() => setCurrentStep(2)}>
+                  ย้อนกลับ
+                </button>
+                <button
+                  type="button"
+                  className={styles.navNextBtn}
+                  disabled={!selectedFileCount}
+                  onClick={() => setCurrentStep(4)}
+                >
+                  ตรวจสอบและยืนยัน ({selectedFileCount} ไฟล์)
+                </button>
+              </div>
+            </Panel>
+          ) : null}
+
+          {/* Step 4: Review & Execute (Backup Mode) */}
+          {currentStep === 4 && restoreMode !== "upload" ? (
+            <Panel title="ขั้นตอนที่ 4: ตรวจสอบความถูกต้องและเริ่มการกู้คืน">
+              <div className={styles.reviewGrid}>
+                <div className={styles.reviewBox}>
+                  <span>ไฟล์สำรองต้นฉบับ</span>
+                  <strong>{selectedBackup?.name}</strong>
+                  <small>สร้างเมื่อ: {selectedBackup?.createdAt} · ขนาด: {selectedBackup?.size}</small>
+                </div>
+                <div className={styles.reviewBox}>
+                  <span>อุปกรณ์เป้าหมาย (Destination)</span>
+                  <strong>{selectedDevice?.name}</strong>
+                  <small>IP: {selectedDevice?.ip} · Status: {selectedDevice?.status}</small>
+                </div>
+                <div className={styles.reviewBox}>
+                  <span>จำนวนไฟล์ที่เลือก</span>
+                  <strong>{selectedFileCount} / {totalBackupFiles} ไฟล์</strong>
+                  <small>{fileGroups.length} กลุ่มโฟลเดอร์</small>
+                </div>
+                <div className={styles.reviewBox}>
+                  <span>กลยุทธ์การกู้คืน (Strategy)</span>
+                  <strong>{restoreMode === "overwrite" ? "เขียนทับไฟล์เดิม (Overwrite)" : "สร้างไฟล์ใหม่/เปลี่ยนชื่อ (Rename)"}</strong>
+                  <small>กู้คืนไปยังโฟลเดอร์ที่กำหนดในขั้นตอนที่ 3</small>
+                </div>
+              </div>
+
+              <div className={styles.safetyNotice}>
+                <strong>ข้อควรระวังเพื่อความปลอดภัย</strong>
+                <p>ระบบจะส่งไฟล์และนำข้อมูลกลับเข้าไปยังเครื่อง <strong>{selectedDevice?.name}</strong> ทันที กรุณาตรวจสอบให้แน่ใจว่าอุปกรณ์พร้อมทำงาน</p>
+              </div>
+
+              {error ? (
+                <div className={`${styles.resultCard} ${styles.resultCardError}`}>
+                  <span className={styles.resultCardTitle}>เกิดข้อผิดพลาด</span>
+                  <span className={styles.resultCardDetail}>{error}</span>
+                </div>
+              ) : null}
+              {result ? (
+                <div className={`${styles.resultCard} ${styles.resultCardSuccess}`}>
+                  <span className={styles.resultCardTitle}>กู้คืนข้อมูลสำเร็จ</span>
+                  <span className={styles.resultCardDetail}>{result.message} · {"total_file" in result ? result.total_file : 0} ไฟล์</span>
+                </div>
+              ) : null}
+
+              <div className={styles.wizardNav}>
+                <button type="button" className={styles.navPrevBtn} onClick={() => setCurrentStep(3)}>
+                  ย้อนกลับ
+                </button>
+                <button
+                  type="button"
+                  className={styles.navNextBtn}
+                  disabled={saving || !sourceReady || !targetReady || !filesReady || selectedDevice?.status === "offline"}
+                  onClick={submitRestore}
+                >
+                  {saving
+                    ? "กำลังกู้คืนข้อมูล..."
+                    : selectedDevice?.status === "offline"
+                    ? "ไม่สามารถกู้คืนได้ (อุปกรณ์ออฟไลน์)"
+                    : "เริ่มการกู้คืนข้อมูล (Start Restore)"}
+                </button>
+              </div>
+            </Panel>
+          ) : null}
+        </main>
+      </div>
     </div>
   );
 }
@@ -668,14 +879,12 @@ function inferRestoreTarget(file: BackupFileDetail): string {
   const mapsRoot = "/home/matrix/public_web/ist_web_release/writable/uploads/maps";
   const soundsRoot = "/home/matrix/public_web/ist_web_release/writable/uploads/sounds";
 
-  // Check if file is part of maps directory
   if (lowerPath.includes("/maps/")) {
     const mapsIndex = lowerPath.lastIndexOf("/maps/");
     const rel = filePath.slice(mapsIndex + "/maps/".length);
     return `${mapsRoot}/${rel}`;
   }
 
-  // Check if file is part of sounds directory
   if (lowerPath.includes("/sounds/")) {
     const soundsIndex = lowerPath.lastIndexOf("/sounds/");
     const rel = filePath.slice(soundsIndex + "/sounds/".length);
@@ -727,27 +936,22 @@ function restoreFileKindLabel(file: BackupFileDetail): string {
 const MAPS_ROOT = "/home/matrix/public_web/ist_web_release/writable/uploads/maps";
 const SOUNDS_ROOT = "/home/matrix/public_web/ist_web_release/writable/uploads/sounds";
 
-/** Key สำหรับจัดกลุ่มไฟล์ตาม category (maps / sounds / database / etc.) */
 function getGroupKey(file: BackupFileDetail): string {
   if (isLikelyDatabaseBackupFile(file)) return "__database__";
 
   const target = inferRestoreTarget(file);
   if (!target) return "__other__";
 
-  // จัดกลุ่มทุกไฟล์ที่ target อยู่ใต้ maps root เข้ากลุ่มเดียวกัน
   if (target === MAPS_ROOT || target.startsWith(MAPS_ROOT + "/")) return MAPS_ROOT;
   if (target === SOUNDS_ROOT || target.startsWith(SOUNDS_ROOT + "/")) return SOUNDS_ROOT;
 
-  // ไฟล์เดี่ยวที่รู้จัก
   if (target === "/home/matrix/node-red-dev/node-red-user/flows.json") return "__nodered__";
   if (target === "/etc/udev/rules.d/matrix_robot.rules") return "__udev__";
 
-  // fallback: group by parent directory
   const slashIdx = target.lastIndexOf("/");
   return slashIdx > 0 ? target.slice(0, slashIdx) : target;
 }
 
-/** Label ที่แสดงใน group header */
 function getGroupLabel(file: BackupFileDetail): string {
   const key = getGroupKey(file);
   if (key === "__database__") return "Database";
@@ -761,12 +965,10 @@ function getGroupLabel(file: BackupFileDetail): string {
   return lastTwo;
 }
 
-/** Target path เริ่มต้นสำหรับ group (ใช้ category root) */
 function getGroupDefaultPath(file: BackupFileDetail): string {
   const key = getGroupKey(file);
   if (key === "__database__" || key === "__other__") return "";
   if (key === "__nodered__") return "/home/matrix/node-red-dev/node-red-user/flows.json";
   if (key === "__udev__") return "/etc/udev/rules.d/matrix_robot.rules";
-  return key; // maps root, sounds root, or parent directory
+  return key;
 }
-

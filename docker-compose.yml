@@ -58,6 +58,7 @@ services:
       NEXTAUTH_SECRET: ${AUTH_SECRET:?Set AUTH_SECRET in .env}
       NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
       INTERNAL_API_URL: ${INTERNAL_API_URL:-http://api:8000}
+      HOSTNAME: "0.0.0.0"
     depends_on:
       api:
         condition: service_started

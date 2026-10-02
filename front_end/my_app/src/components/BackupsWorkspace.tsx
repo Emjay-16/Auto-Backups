@@ -7,6 +7,7 @@ import {
   backupTargetTypeFromPath,
   addDeviceBackupPath,
   cleanupBackups,
+  deleteBackup,
   deleteCustomBackupPath,
   getAutoBackupSettings,
   getAutoCleanupSettings,
@@ -30,11 +31,24 @@ import {
 } from "@/lib/api";
 import type { Backup, Device } from "@/lib/types";
 import styles from "@/styles/pages/backups/backups.module.css";
-import { BackupIcon, CleanupIcon, FolderIcon } from "./ActionIcons";
+import {
+  ArrowUpIcon,
+  BackupIcon,
+  CheckIcon,
+  CleanupIcon,
+  ClockIcon,
+  CopyIcon,
+  DatabaseIcon,
+  DeviceIcon,
+  FileTextIcon,
+  FolderIcon,
+  SettingsIcon,
+} from "./ActionIcons";
 import { AppModal } from "./AppModal";
 import { BackupProgressModal, type BackupProgressStatus } from "./BackupProgressModal";
 import { PaginatedBackupsTable } from "./PaginatedBackupsTable";
 import { Panel } from "./Panel";
+import { RobotGroupBadge } from "./RobotGroupBadge";
 import { StatusBadge } from "./StatusBadge";
 import { useToast } from "./ToastProvider";
 
@@ -105,18 +119,36 @@ export function BackupsWorkspace({
   const [editingPathTarget, setEditingPathTarget] = useState<BackupTarget | null>(null);
   const [pathScope, setPathScope] = useState<"fleet" | "computer">("fleet");
   const [selectedDeviceBackups, setSelectedDeviceBackups] = useState("");
+  const [copiedTargetKey, setCopiedTargetKey] = useState<string | null>(null);
   const backupTargets = useMemo(
     () => mergeBackupTargets(liveTargets, addedBackupTargets),
     [liveTargets, addedBackupTargets],
   );
 
+  function copyTargetPath(path: string, key: string) {
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      navigator.clipboard.writeText(path).then(() => {
+        setCopiedTargetKey(key);
+        setTimeout(() => setCopiedTargetKey(null), 1800);
+      }).catch(() => {
+        showToast({
+          tone: "error",
+          title: "คัดลอกไม่สำเร็จ",
+          message: "เบราว์เซอร์ไม่อนุญาตให้เข้าถึงคลิปบอร์ด",
+        });
+      });
+    }
+  }
+
   useEffect(() => {
     const numericDeviceId = Number(deviceId);
 
     if (!numericDeviceId) {
+      setTargetsLoading(false);
       return;
     }
 
+    setTargetsLoading(true);
     let cancelled = false;
     getBackupTargets(numericDeviceId, backupCategory)
       .then((fetched) => {
@@ -184,9 +216,14 @@ export function BackupsWorkspace({
 
   function openModal(nextMode: ModalMode) {
     if (nextMode === "browse") {
-      setBrowsePath(defaultBrowsePath);
+      setBackupCategory("robot");
+      const targetPath = defaultBrowsePath || "/home/matrix";
+      setBrowsePath(targetPath);
       setRemoteFiles([]);
       setOpenedPath("");
+      if (Number(deviceId)) {
+        void browseFilesForDevice(Number(deviceId), targetPath);
+      }
     }
     setMode(nextMode);
     setResult(null);
@@ -226,7 +263,7 @@ export function BackupsWorkspace({
     setIncludeDatabase(false);
     setAddedBackupTargets([]);
     setLiveTargets(nextCategory === "robot" ? targets : []);
-    setTargetsLoading(Boolean(Number(deviceId)));
+    setTargetsLoading(false);
   }
 
   function openPathModal(target: BackupTarget | null = null) {
@@ -342,17 +379,19 @@ export function BackupsWorkspace({
     }
   }
 
-  async function browseFiles() {
-    const numericDeviceId = Number(deviceId);
-    if (!numericDeviceId) {
-      setError("กรุณาเลือกอุปกรณ์ที่ต้องการเปิดดูไฟล์");
-      return;
-    }
+  function getParentPath(pathStr: string): string {
+    const trimmed = pathStr.replace(/\/+$/, "");
+    const lastSlash = trimmed.lastIndexOf("/");
+    if (lastSlash <= 0) return "/";
+    return trimmed.substring(0, lastSlash);
+  }
 
+  async function browseFilesForDevice(devId: number, path: string) {
+    if (!devId) return;
     setSaving(true);
     setError("");
     try {
-      const files = await listDeviceFiles(numericDeviceId, browsePath);
+      const files = await listDeviceFiles(devId, path);
       setRemoteFiles(files);
     } catch (errorResponse) {
       showToast({
@@ -363,6 +402,15 @@ export function BackupsWorkspace({
     } finally {
       setSaving(false);
     }
+  }
+
+  async function browseFiles() {
+    const numericDeviceId = Number(deviceId);
+    if (!numericDeviceId) {
+      setError("กรุณาเลือกอุปกรณ์ที่ต้องการเปิดดูไฟล์");
+      return;
+    }
+    await browseFilesForDevice(numericDeviceId, browsePath);
   }
 
   async function openTargetPath(path: string) {
@@ -527,7 +575,6 @@ export function BackupsWorkspace({
     setSaving(true);
     setError("");
     try {
-      const { deleteBackup } = await import("@/lib/api");
       await deleteBackup(backup.id);
       setPendingDeleteBackup(null);
       showToast({ tone: "success", title: "ลบไฟล์สำรองข้อมูลสำเร็จ", message: backup.name });
@@ -809,22 +856,42 @@ export function BackupsWorkspace({
           </div>
           <div className={styles.summaryGrid} aria-label="Backup summary">
             <div className={`${styles.summaryCard} ${styles.summaryTotal}`}>
-              <span>Total backups</span>
+              <div className={styles.summaryCardTop}>
+                <span>Total backups</span>
+                <div className={styles.summaryCardIcon}>
+                  <BackupIcon />
+                </div>
+              </div>
               <strong>{backups.length}</strong>
               <p>{backupStats.successCount} success · {backupStats.failedCount} failed</p>
             </div>
             <div className={`${styles.summaryCard} ${styles.summaryDevices}`}>
-              <span>Devices covered</span>
+              <div className={styles.summaryCardTop}>
+                <span>Devices covered</span>
+                <div className={styles.summaryCardIcon}>
+                  <DeviceIcon />
+                </div>
+              </div>
               <strong>{backupStats.coveredDevices} / {usableDevices.length}</strong>
               <p>{backupStats.missingDevices} device(s) without backup</p>
             </div>
             <div className={`${styles.summaryCard} ${styles.summaryStorage}`}>
-              <span>Total storage</span>
+              <div className={styles.summaryCardTop}>
+                <span>Total storage</span>
+                <div className={styles.summaryCardIcon}>
+                  <DatabaseIcon />
+                </div>
+              </div>
               <strong>{formatSizeMb(backupStats.totalSizeMb)}</strong>
               <p>Across {backupStats.totalFiles} file(s)</p>
             </div>
             <div className={`${styles.summaryCard} ${styles.summaryLatest}`}>
-              <span>Latest backup</span>
+              <div className={styles.summaryCardTop}>
+                <span>Latest backup</span>
+                <div className={styles.summaryCardIcon}>
+                  <ClockIcon />
+                </div>
+              </div>
               <strong>{backupStats.latestBackup?.device ?? "-"}</strong>
               <p>{backupStats.latestBackup?.createdAt ?? "No backup yet"}</p>
             </div>
@@ -839,11 +906,11 @@ export function BackupsWorkspace({
               {backupStats.deviceSummaries.length ? backupStats.deviceSummaries.map((summary) => (
                 <article className={`${styles.deviceBackupCard} ${summary.total ? styles.hasBackup : styles.noBackup}`} key={summary.device.id ?? summary.device.ip ?? summary.device.name}>
                   <div className={styles.deviceBackupHeader}>
-                    <span className={styles.groupPill}>{summary.device.group}</span>
                     <div>
                       <strong>{summary.device.name}</strong>
                       <p>{summary.device.ip}</p>
                     </div>
+                    <RobotGroupBadge group={summary.device.group} />
                   </div>
                   <div className={styles.deviceBackupMetrics}>
                     <span>
@@ -861,6 +928,7 @@ export function BackupsWorkspace({
                   </div>
                   <div className={styles.deviceBackupFooter}>
                     <span className={summary.total ? styles.covered : styles.missing}>
+                      <span className={summary.total ? styles.statusDotGreen : styles.statusDotGray} />
                       {summary.total ? `${summary.success} success · ${summary.failed} failed` : "No backup yet"}
                     </span>
                     <button
@@ -1006,25 +1074,40 @@ export function BackupsWorkspace({
                 aria-label="Manage backup paths"
                 className={styles.panelGearButton}
                 onClick={() => openPathModal()}
-                title="Manage backup paths"
+                title="จัดการ Backup Paths (Manage backup paths)"
                 type="button"
               >
-                ⚙
+                <SettingsIcon className={styles.gearIcon} />
               </button>
             )}
           >
-            <div className={styles.pathList}>
-              {targets.length ? (
-                targets.map((target) => (
-                  <div className={styles.pathItem} key={`${target.backup_api}:${target.path}:${target.key}`}>
-                    <p>
-                      <strong>{target.label}</strong>
-                      <span>{target.path}</span>
-                    </p>
-                  </div>
-                ))
+            <div className={styles.pathList} role="list" aria-label="Backup paths">
+              {backupTargets.length ? (
+                backupTargets.map((target) => {
+                  const targetKey = `${target.backup_api}:${target.path}:${target.key}`;
+                  return (
+                    <div
+                      className={styles.pathItem}
+                      key={targetKey}
+                      onClick={() => openPathModal(target)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          openPathModal(target);
+                        }
+                      }}
+                      title={`คลิกเพื่อแก้ไข path: ${target.label} (${target.path})`}
+                    >
+                      <strong className={styles.pathLabel}>{target.label}</strong>
+                    </div>
+                  );
+                })
               ) : (
-                <p>No auto backup paths configured yet. Add a custom path from New backup.</p>
+                <p className={styles.emptyPathsNotice}>
+                  ยังไม่มีการตั้งค่า Backup Paths สามารถเพิ่ม custom path ได้จากปุ่ม New backup
+                </p>
               )}
             </div>
           </Panel>
@@ -1165,9 +1248,15 @@ export function BackupsWorkspace({
             </div>
           ) : mode === "autoBackup" ? (
             <div className={styles.formGrid}>
-              <label className={styles.checkRow}>
-                <input checked={autoBackupEnabled} onChange={(event) => setAutoBackupEnabled(event.target.checked)} type="checkbox" />
-                Enable auto backup
+              <label className={styles.switchContainer}>
+                <div className={styles.switchInfo}>
+                  <span className={styles.switchTitle}>Enable auto backup</span>
+                  <span className={styles.switchSubtitle}>เปิดการสำรองข้อมูลอัตโนมัติตามรอบเวลาที่กำหนด</span>
+                </div>
+                <span className={styles.toggleSwitch}>
+                  <input checked={autoBackupEnabled} onChange={(event) => setAutoBackupEnabled(event.target.checked)} type="checkbox" />
+                  <span className={styles.slider} />
+                </span>
               </label>
               <label>
                 Interval hours
@@ -1187,20 +1276,38 @@ export function BackupsWorkspace({
                   </span>
                 ) : null}
               </label>
-              <label className={styles.checkRow}>
-                <input checked={autoBackupZipOutput} onChange={(event) => setAutoBackupZipOutput(event.target.checked)} type="checkbox" />
-                Zip output
+              <label className={styles.switchContainer}>
+                <div className={styles.switchInfo}>
+                  <span className={styles.switchTitle}>Zip output</span>
+                  <span className={styles.switchSubtitle}>บีบอัดไฟล์สำรองข้อมูลเป็น .zip เพื่อประหยัดพื้นที่จัดเก็บ</span>
+                </div>
+                <span className={styles.toggleSwitch}>
+                  <input checked={autoBackupZipOutput} onChange={(event) => setAutoBackupZipOutput(event.target.checked)} type="checkbox" />
+                  <span className={styles.slider} />
+                </span>
               </label>
-              <label className={styles.checkRow}>
-                <input checked={autoBackupRunOnStartup} onChange={(event) => setAutoBackupRunOnStartup(event.target.checked)} type="checkbox" />
-                Run on startup
+              <label className={styles.switchContainer}>
+                <div className={styles.switchInfo}>
+                  <span className={styles.switchTitle}>Run on startup</span>
+                  <span className={styles.switchSubtitle}>เริ่มทำงานรอบแรกทันทีเมื่อเริ่มระบบ</span>
+                </div>
+                <span className={styles.toggleSwitch}>
+                  <input checked={autoBackupRunOnStartup} onChange={(event) => setAutoBackupRunOnStartup(event.target.checked)} type="checkbox" />
+                  <span className={styles.slider} />
+                </span>
               </label>
             </div>
           ) : mode === "cleanup" ? (
             <div className={styles.formGrid}>
-              <label className={styles.checkRow}>
-                <input checked={cleanupEnabled} onChange={(event) => setCleanupEnabled(event.target.checked)} type="checkbox" />
-                Enable auto cleanup
+              <label className={styles.switchContainer}>
+                <div className={styles.switchInfo}>
+                  <span className={styles.switchTitle}>Enable auto cleanup</span>
+                  <span className={styles.switchSubtitle}>เปิดระบบล้างไฟล์สำรองข้อมูลเก่าอัตโนมัติ</span>
+                </div>
+                <span className={styles.toggleSwitch}>
+                  <input checked={cleanupEnabled} onChange={(event) => setCleanupEnabled(event.target.checked)} type="checkbox" />
+                  <span className={styles.slider} />
+                </span>
               </label>
               <label>
                 Older than days
@@ -1215,9 +1322,15 @@ export function BackupsWorkspace({
                 Interval hours
                 <input value={cleanupIntervalHours} onChange={(event) => setCleanupIntervalHours(event.target.value)} />
               </label>
-              <label className={styles.checkRow}>
-                <input checked={cleanupKeepLatest} onChange={(event) => setCleanupKeepLatest(event.target.checked)} type="checkbox" />
-                Keep latest per device for age cleanup
+              <label className={styles.switchContainer}>
+                <div className={styles.switchInfo}>
+                  <span className={styles.switchTitle}>Keep latest backup</span>
+                  <span className={styles.switchSubtitle}>เก็บสำรองข้อมูลล่าสุดของแต่ละอุปกรณ์ไว้เสมอ แม้จะหมดอายุ</span>
+                </div>
+                <span className={styles.toggleSwitch}>
+                  <input checked={cleanupKeepLatest} onChange={(event) => setCleanupKeepLatest(event.target.checked)} type="checkbox" />
+                  <span className={styles.slider} />
+                </span>
               </label>
             </div>
           ) : mode === "path" ? (
@@ -1307,8 +1420,161 @@ export function BackupsWorkspace({
               </div>
             </div>
           ) : (
-            <div className={mode === "backup" ? `${styles.formGrid} ${styles.backupForm}` : styles.formGrid}>
-              {mode === "backup" ? (
+            mode === "browse" ? (
+              <div className={styles.browseContainer}>
+                <label>
+                  เลือกหุ่นยนต์
+                  <select
+                    value={deviceId}
+                    onChange={(event) => {
+                      const nextId = event.target.value;
+                      changeDevice(nextId);
+                      if (Number(nextId)) {
+                        void browseFilesForDevice(Number(nextId), browsePath || defaultBrowsePath || "/home/matrix");
+                      } else {
+                        setRemoteFiles([]);
+                      }
+                    }}
+                  >
+                    <option value="">-- เลือกหุ่นยนต์ที่ต้องการดูไฟล์ --</option>
+                    {usableDevices
+                      .filter((device) => !computerDeviceIds.includes(device.id))
+                      .map((device) => (
+                        <option key={device.id} value={device.id}>
+                          {device.name} · {device.ip}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+
+                <div className={styles.browsePathSection}>
+                  <label>
+                    โฟลเดอร์หรือไฟล์ที่ต้องการเปิด (Path)
+                    <div className={styles.browsePathBar}>
+                      <button
+                        type="button"
+                        className={styles.browseParentBtn}
+                        disabled={saving || browsePath === "/" || !browsePath}
+                        onClick={() => {
+                          const parent = getParentPath(browsePath);
+                          setBrowsePath(parent);
+                          if (Number(deviceId)) {
+                            void browseFilesForDevice(Number(deviceId), parent);
+                          }
+                        }}
+                        title="ขึ้นไปหนึ่งระดับ (Parent directory)"
+                      >
+                        <ArrowUpIcon className={styles.miniIcon} />
+                        โฟลเดอร์แม่
+                      </button>
+                      <input
+                        className={styles.browsePathInput}
+                        value={browsePath}
+                        onChange={(event) => setBrowsePath(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" && Number(deviceId)) {
+                            event.preventDefault();
+                            void browseFilesForDevice(Number(deviceId), browsePath);
+                          }
+                        }}
+                        placeholder="/home/matrix"
+                      />
+                      <button
+                        type="button"
+                        className={styles.browseGoBtn}
+                        disabled={saving || !Number(deviceId)}
+                        onClick={() => Number(deviceId) && browseFilesForDevice(Number(deviceId), browsePath)}
+                      >
+                        {saving ? "กำลังโหลด..." : "เปิดดู"}
+                      </button>
+                    </div>
+                  </label>
+
+                  {backupTargets.some((t) => t.path.startsWith("/")) ? (
+                    <div className={styles.presetChips}>
+                      <span className={styles.presetChipsLabel}>โฟลเดอร์หลัก:</span>
+                      {backupTargets
+                        .filter((t) => t.path.startsWith("/"))
+                        .map((t) => {
+                          const targetDir = t.target_type === "directory" ? t.path : getParentPath(t.path);
+                          return (
+                            <button
+                              key={t.key}
+                              type="button"
+                              className={`${styles.presetChip} ${browsePath === t.path || browsePath === targetDir ? styles.presetChipActive : ""}`}
+                              onClick={() => {
+                                const dest = t.target_type === "directory" ? t.path : targetDir;
+                                setBrowsePath(dest);
+                                if (Number(deviceId)) {
+                                  void browseFilesForDevice(Number(deviceId), dest);
+                                }
+                              }}
+                              title={t.path}
+                            >
+                              <FolderIcon className={styles.miniIcon} />
+                              {t.label}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className={styles.browseFileListContainer}>
+                  {remoteFiles.length ? (
+                    remoteFiles.map((file) => (
+                      <div
+                        className={`${styles.browseFileItem} ${file.file_type === "directory" ? styles.browseFolderItem : styles.browseRegularFileItem}`}
+                        key={file.path}
+                        onClick={() => {
+                          if (file.file_type === "directory") {
+                            setBrowsePath(file.path);
+                            if (Number(deviceId)) {
+                              void browseFilesForDevice(Number(deviceId), file.path);
+                            }
+                          }
+                        }}
+                        role={file.file_type === "directory" ? "button" : undefined}
+                        tabIndex={file.file_type === "directory" ? 0 : undefined}
+                        onKeyDown={(e) => {
+                          if (file.file_type === "directory" && (e.key === "Enter" || e.key === " ")) {
+                            e.preventDefault();
+                            setBrowsePath(file.path);
+                            if (Number(deviceId)) {
+                              void browseFilesForDevice(Number(deviceId), file.path);
+                            }
+                          }
+                        }}
+                      >
+                        <div className={styles.fileLeading}>
+                          {file.file_type === "directory" ? (
+                            <FolderIcon className={styles.browseFolderIcon} />
+                          ) : (
+                            <FileTextIcon className={styles.browseDocIcon} />
+                          )}
+                          <div className={styles.browseMeta}>
+                            <strong>{file.name}</strong>
+                            <small>{file.path}</small>
+                          </div>
+                        </div>
+                        <div className={styles.fileTrailing}>
+                          {file.file_type === "directory" ? (
+                            <span className={styles.dirBadge}>เปิดโฟลเดอร์</span>
+                          ) : (
+                            <span className={styles.sizeBadge}>{formatBytes(file.size_bytes)}</span>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className={styles.emptyBrowseState}>
+                      <p>{!Number(deviceId) ? "กรุณาเลือกหุ่นยนต์เพื่อดูรายการไฟล์" : saving ? "กำลังโหลดรายการไฟล์..." : "ไม่พบไฟล์หรือโฟลเดอร์นี้ว่างเปล่า"}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className={`${styles.formGrid} ${styles.backupForm}`}>
                 <div className={styles.backupCategoryField}>
                   <span className={styles.fieldLabel}>Backup source</span>
                   <span className={styles.segmentedControl} role="group" aria-label="Backup category">
@@ -1316,80 +1582,66 @@ export function BackupsWorkspace({
                     <button className={backupCategory === "computer" ? styles.segmentActive : ""} onClick={() => changeBackupCategory("computer")} type="button">Computer</button>
                   </span>
                 </div>
-              ) : null}
-              <label>
-                {mode === "backup" && backupCategory === "computer" ? "Computer" : mode === "backup" ? "Robot" : "Device"}
-                <select value={deviceId} onChange={(event) => changeDevice(event.target.value)}>
-                  <option value="">Select a {mode === "backup" && backupCategory === "computer" ? "computer" : "robot"}</option>
-                  {usableDevices.filter((device) => backupCategory === "robot" || computerDeviceIds.includes(device.id)).map((device) => (
-                    <option key={device.id} value={device.id}>{device.name} · {device.ip}</option>
-                  ))}
-                </select>
-              </label>
+                <label>
+                  {backupCategory === "computer" ? "Computer" : "Robot"}
+                  <select value={deviceId} onChange={(event) => changeDevice(event.target.value)}>
+                    <option value="">Select a {backupCategory === "computer" ? "computer" : "robot"}</option>
+                    {usableDevices
+                      .filter((device) => backupCategory === "computer" ? computerDeviceIds.includes(device.id) : !computerDeviceIds.includes(device.id))
+                      .map((device) => (
+                        <option key={device.id} value={device.id}>{device.name} · {device.ip}</option>
+                      ))}
+                  </select>
+                </label>
 
-              {mode === "browse" ? (
-                <>
-                  <label>
-                    Path
-                    <input value={browsePath} onChange={(event) => setBrowsePath(event.target.value)} />
-                  </label>
-                  <div className={styles.fileList}>
-                    {remoteFiles.map((file) => (
-                      <button
-                        key={file.path}
-                        onClick={() => {
-                          if (file.file_type === "directory") setBrowsePath(file.path);
-                          else setSelectedPaths((current) => current.includes(file.path) ? current : [...current, file.path]);
-                        }}
-                        type="button"
-                      >
-                        <span>{file.name}</span>
-                        <b>{file.file_type}</b>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <label>
-                    Backup name
-                    <input
-                      value={backupName}
-                      onChange={(event) => setBackupName(event.target.value)}
-                      placeholder="เช่น ก่อนแก้ flows หรือ Daily maps backup"
-                    />
-                  </label>
-                  <div className={styles.selectionPanel}>
-                    <div className={styles.selectionHeader}>
-                      <div>
-                        <strong>Backup targets</strong>
-                        <span>
-                          {backupSelectionCount} selected
+                <label>
+                  Backup name
+                  <input
+                    value={backupName}
+                    onChange={(event) => setBackupName(event.target.value)}
+                    placeholder="เช่น ก่อนแก้ flows หรือ Daily maps backup"
+                  />
+                </label>
+                <div className={styles.selectionPanel}>
+                  <div className={styles.selectionHeader}>
+                    <div>
+                      <strong>เป้าหมายที่ต้องการสำรอง (Backup targets)</strong>
+                      <div className={styles.selectionSubInfo}>
+                        <span className={`${styles.selectionCountBadge} ${backupSelectionCount > 0 ? styles.hasSelection : ""}`}>
+                          {backupSelectionCount} รายการที่เลือก
+                        </span>
+                        <span className={styles.selectionScopeText}>
                           {backupCategory === "computer"
-                            ? " · computer paths เฉพาะเครื่องนี้"
+                            ? "· computer paths เฉพาะเครื่องนี้"
                             : liveTargets.some((target) => target.key.startsWith("device_"))
-                              ? " · path เฉพาะเครื่องนี้"
+                              ? "· path เฉพาะเครื่องนี้"
                             : deviceId
-                              ? " · path กลางของฟลีต"
+                              ? "· path กลางของฟลีต"
                               : ""}
                         </span>
                       </div>
-                      <div className={styles.selectionActions}>
-                        <button onClick={selectAllBackupTargets} type="button">Select all</button>
-                        <button disabled={!backupSelectionCount} onClick={clearBackupTargets} type="button">Clear</button>
-                        {backupCategory === "computer" && deviceId ? (
-                          <button onClick={() => openComputerPathModal()} type="button">Manage paths</button>
-                        ) : null}
-                      </div>
                     </div>
-                    <div className={styles.targetList}>
-                      {targetsLoading ? (
-                        <p className={styles.emptyText}>กำลังโหลด path ของเครื่องนี้...</p>
-                      ) : backupTargets.length ? backupTargets.map((target) => (
-                        <div className={styles.targetRow} key={`${target.backup_api}:${target.path}:${target.key}`}>
+                    <div className={styles.selectionActions}>
+                      <button onClick={selectAllBackupTargets} type="button">เลือกทั้งหมด</button>
+                      <button disabled={!backupSelectionCount} onClick={clearBackupTargets} type="button">ล้างการเลือก</button>
+                      {backupCategory === "computer" && deviceId ? (
+                        <button onClick={() => openComputerPathModal()} type="button">จัดการ paths</button>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className={styles.targetList}>
+                    {targetsLoading ? (
+                      <p className={styles.emptyText}>กำลังโหลด path ของเครื่องนี้...</p>
+                    ) : backupTargets.length ? backupTargets.map((target) => {
+                      const isSelected = target.backup_api === "robot_db" ? includeDatabase : selectedPaths.includes(target.path);
+                      return (
+                        <div
+                          className={`${styles.targetRow} ${isSelected ? styles.targetRowSelected : ""}`}
+                          key={`${target.backup_api}:${target.path}:${target.key}`}
+                        >
                           <label className={styles.targetChoice}>
                             <input
-                              checked={target.backup_api === "robot_db" ? includeDatabase : selectedPaths.includes(target.path)}
+                              checked={isSelected}
                               onChange={() => {
                                 if (target.backup_api === "robot_db") setIncludeDatabase((current) => !current);
                                 else togglePath(target.path);
@@ -1397,7 +1649,12 @@ export function BackupsWorkspace({
                               type="checkbox"
                             />
                             <span className={styles.targetText}>
-                              <strong>{target.label}</strong>
+                              <strong className={isSelected ? styles.targetLabelSelected : ""}>
+                                {target.label}
+                                {isSelected ? (
+                                  <span className={styles.selectedPill}>✓ เลือกแล้ว</span>
+                                ) : null}
+                              </strong>
                               <small>{target.path}</small>
                             </span>
                             <b className={`${styles.targetMeta} ${targetToneClass(target)}`}>
@@ -1406,86 +1663,103 @@ export function BackupsWorkspace({
                           </label>
                           {target.browsable ? (
                             <button
+                              className={styles.targetOpenBtn}
                               onClick={(event) => {
                                 event.preventDefault();
                                 openTargetPath(target.path);
                               }}
                               type="button"
+                              title={`เปิดดูและเลือกไฟล์ใน ${target.label}`}
                             >
-                              Open
+                              <FolderIcon className={styles.targetOpenIcon} />
+                              เปิดดูไฟล์
                             </button>
                           ) : null}
                         </div>
-                      )) : deviceId ? (
-                        <p className={styles.emptyText}>
-                          {backupCategory === "computer"
-                            ? "Computer นี้ยังไม่มี path — ไปเพิ่มที่หน้า Devices → แก้ไขเครื่องนี้ → \"Backup path เฉพาะเครื่องนี้\""
-                            : "เครื่องนี้ยังไม่มี path ให้เลือก backup — ไปเพิ่ม path ได้ที่หน้า Devices → แก้ไขเครื่องนี้ → \"Backup path เฉพาะเครื่องนี้\""}
-                        </p>
-                      ) : (
-                        <p className={styles.emptyText}>เลือกเครื่องก่อน เพื่อดู path ที่ backup ได้</p>
-                      )}
-                    </div>
+                      );
+                    }) : deviceId ? (
+                      <p className={styles.emptyText}>
+                        {backupCategory === "computer"
+                          ? "Computer นี้ยังไม่มี path — ไปเพิ่มที่หน้า Devices → แก้ไขเครื่องนี้ → \"Backup path เฉพาะเครื่องนี้\""
+                          : "เครื่องนี้ยังไม่มี path ให้เลือก backup — ไปเพิ่ม path ได้ที่หน้า Devices → แก้ไขเครื่องนี้ → \"Backup path เฉพาะเครื่องนี้\""}
+                      </p>
+                    ) : (
+                      <p className={styles.emptyText}>เลือกเครื่องก่อน เพื่อดู path ที่ backup ได้</p>
+                    )}
                   </div>
-                  {backupSelectionCount ? (
-                    <div className={styles.selectedPathList} aria-label="Selected backup targets">
-                      {includeDatabase ? (
-                        <button onClick={() => setIncludeDatabase(false)} type="button">
-                          <span>Robot database JSON</span>
-                          <b>×</b>
-                        </button>
-                      ) : null}
-                      {selectedPaths.map((path) => (
-                        <button key={path} onClick={() => togglePath(path)} type="button">
-                          <span>{path}</span>
-                          <b>×</b>
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
-                  {openedPath ? (
-                    <div className={styles.browser}>
-                      <div className={styles.browserHeader}>
+                </div>
+
+                {openedPath ? (
+                  <div className={styles.browser}>
+                    <div className={styles.browserHeader}>
+                      <div className={styles.browserHeaderTitle}>
+                        <FolderIcon className={styles.browserHeaderIcon} />
                         <strong>{openedPath}</strong>
-                        <button onClick={resetBrowseState} type="button">Close</button>
                       </div>
-                      {remoteFiles.length ? (
-                        remoteFiles.map((file) => (
-                          <label className={styles.fileRow} key={file.path}>
-                            <input
-                              checked={selectedPaths.includes(file.path)}
-                              onChange={() => togglePath(file.path)}
-                              type="checkbox"
-                            />
-                            <span>{file.name}</span>
-                            {file.file_type === "directory" ? (
-                              <button
-                                onClick={(event) => {
-                                  event.preventDefault();
-                                  openTargetPath(file.path);
-                                }}
-                                type="button"
-                              >
-                                Open
-                              </button>
-                            ) : (
-                              <b>{formatBytes(file.size_bytes)}</b>
-                            )}
-                          </label>
-                        ))
-                      ) : (
-                        <p className={styles.emptyText}>{saving ? "Loading files..." : "No files found"}</p>
-                      )}
+                      <button className={styles.browserCloseBtn} onClick={resetBrowseState} type="button">
+                        ปิด
+                      </button>
                     </div>
-                  ) : null}
-                  <label className={styles.checkRow}>
-                    <input checked={zipOutput} onChange={(event) => setZipOutput(event.target.checked)} type="checkbox" />
-                    Zip output
+                    {remoteFiles.length ? (
+                      <div className={styles.browserFileList}>
+                        {remoteFiles.map((file) => {
+                          const isFileSelected = selectedPaths.includes(file.path);
+                          return (
+                            <label
+                              className={`${styles.browserFileRow} ${isFileSelected ? styles.browserFileRowSelected : ""}`}
+                              key={file.path}
+                            >
+                              <input
+                                checked={isFileSelected}
+                                onChange={() => togglePath(file.path)}
+                                type="checkbox"
+                              />
+                              <div className={styles.browserFileInfo}>
+                                {file.file_type === "directory" ? (
+                                  <FolderIcon className={styles.browserRowFolderIcon} />
+                                ) : (
+                                  <FileTextIcon className={styles.browserRowFileIcon} />
+                                )}
+                                <span className={isFileSelected ? styles.browserFileNameSelected : styles.browserFileName}>
+                                  {file.name}
+                                </span>
+                              </div>
+                              {file.file_type === "directory" ? (
+                                <button
+                                  className={styles.browserSubdirBtn}
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    openTargetPath(file.path);
+                                  }}
+                                  type="button"
+                                >
+                                  เปิดโฟลเดอร์
+                                </button>
+                              ) : (
+                                <b className={styles.browserFileSize}>{formatBytes(file.size_bytes)}</b>
+                              )}
+                            </label>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className={styles.emptyText}>{saving ? "กำลังโหลดรายการไฟล์..." : "ไม่พบไฟล์ในโฟลเดอร์นี้"}</p>
+                    )}
+                  </div>
+                ) : null}
+                  <label className={styles.switchContainer}>
+                    <div className={styles.switchInfo}>
+                      <span className={styles.switchTitle}>Zip output</span>
+                      <span className={styles.switchSubtitle}>บีบอัดไฟล์สำรองข้อมูลเป็น .zip เพื่อประหยัดพื้นที่จัดเก็บ</span>
+                    </div>
+                    <span className={styles.toggleSwitch}>
+                      <input checked={zipOutput} onChange={(event) => setZipOutput(event.target.checked)} type="checkbox" />
+                      <span className={styles.slider} />
+                    </span>
                   </label>
-                </>
-              )}
-            </div>
-          )}
+                </div>
+              )
+            )}
 
           {result ? <ResultBox result={result} /> : null}
           {error ? <p className={styles.formError}>{error}</p> : null}
@@ -1824,4 +2098,60 @@ function findOpenedParentFolder(path: string, openedPath: string): string | null
 
 function uniquePaths(paths: string[]): string[] {
   return Array.from(new Set(paths));
+}
+
+function getTargetIconBox(target: BackupTarget) {
+  const isDb =
+    target.backup_api === "robot_db" ||
+    target.target_type === "database" ||
+    target.path.includes("database") ||
+    target.path.includes("db") ||
+    target.label.toLowerCase().includes("json");
+  const isFile =
+    target.target_type === "file" ||
+    target.path.endsWith(".sh") ||
+    target.path.endsWith(".rules") ||
+    target.path.endsWith(".py") ||
+    target.path.endsWith(".json");
+  if (isDb) {
+    return (
+      <span className={`${styles.pathIconBox} ${styles.pathIconBoxDb}`} aria-hidden="true">
+        <DatabaseIcon />
+      </span>
+    );
+  }
+  if (isFile) {
+    return (
+      <span className={`${styles.pathIconBox} ${styles.pathIconBoxFile}`} aria-hidden="true">
+        <FileTextIcon />
+      </span>
+    );
+  }
+  return (
+    <span className={`${styles.pathIconBox} ${styles.pathIconBoxFolder}`} aria-hidden="true">
+      <FolderIcon />
+    </span>
+  );
+}
+
+function getTargetTypeBadge(target: BackupTarget) {
+  const isDb =
+    target.backup_api === "robot_db" ||
+    target.target_type === "database" ||
+    target.path.includes("database") ||
+    target.path.includes("db") ||
+    target.label.toLowerCase().includes("json");
+  const isFile =
+    target.target_type === "file" ||
+    target.path.endsWith(".sh") ||
+    target.path.endsWith(".rules") ||
+    target.path.endsWith(".py") ||
+    target.path.endsWith(".json");
+  if (isDb) {
+    return <span className={`${styles.pathTypeBadge} ${styles.pathTypeBadgeDb}`}>DB</span>;
+  }
+  if (isFile) {
+    return <span className={`${styles.pathTypeBadge} ${styles.pathTypeBadgeFile}`}>FILE</span>;
+  }
+  return <span className={`${styles.pathTypeBadge} ${styles.pathTypeBadgeFolder}`}>DIR</span>;
 }
