@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+from api.services.backup_progress import BackupCancelledException
 from api.utils.time import now_local
 
 
@@ -78,6 +79,59 @@ def list_remote_path(
         ssh.close()
 
 
+@dataclass
+class TransferPlanItem:
+    remote_path: str
+    local_path: Path
+    file_size: int
+    file_name: str
+
+
+def _scan_transfer_plan(
+    sftp,
+    remote_paths: List[str],
+    local_root: Path,
+    cancel_event=None,
+) -> List[TransferPlanItem]:
+    plan: List[TransferPlanItem] = []
+    for remote_path in remote_paths:
+        if cancel_event and cancel_event.is_set():
+            raise BackupCancelledException("การสำรองข้อมูลถูกยกเลิกโดยผู้ใช้")
+        try:
+            remote_stat = _stat_remote_path(sftp, remote_path)
+        except RemotePathNotFound:
+            continue
+
+        remote_name = posixpath.basename(remote_path.rstrip("/\\")) or "root"
+        target_local_root = local_root / remote_name
+
+        if stat.S_ISDIR(remote_stat.st_mode):
+            target_local_root.mkdir(parents=True, exist_ok=True)
+            for relative_path, child_remote_path, item_stat in _walk_remote_files(sftp, remote_path):
+                if cancel_event and cancel_event.is_set():
+                    raise BackupCancelledException("การสำรองข้อมูลถูกยกเลิกโดยผู้ใช้")
+                child_local_path = target_local_root / relative_path
+                plan.append(
+                    TransferPlanItem(
+                        remote_path=child_remote_path,
+                        local_path=child_local_path,
+                        file_size=item_stat.st_size,
+                        file_name=posixpath.basename(child_remote_path),
+                    )
+                )
+        else:
+            target_local_root.parent.mkdir(parents=True, exist_ok=True)
+            plan.append(
+                TransferPlanItem(
+                    remote_path=remote_path,
+                    local_path=target_local_root,
+                    file_size=remote_stat.st_size,
+                    file_name=remote_name,
+                )
+            )
+    return plan
+
+
 def download_paths(
     host: str,
     username: str,
@@ -85,6 +139,8 @@ def download_paths(
     remote_paths: List[str],
     local_root: Path,
     port: int = 22,
+    progress_callback = None,
+    cancel_event = None,
 ) -> List[DownloadedFile]:
     try:
         import paramiko
@@ -108,9 +164,62 @@ def download_paths(
 
         with ssh.open_sftp() as sftp:
             _configure_sftp_timeout(sftp)
-            for remote_path in remote_paths:
-                remote_name = posixpath.basename(remote_path.rstrip("/\\")) or "root"
-                _download_path(sftp, remote_path, local_root / remote_name, downloaded_files)
+
+            if cancel_event and cancel_event.is_set():
+                raise BackupCancelledException("การสำรองข้อมูลถูกยกเลิกโดยผู้ใช้")
+
+            if progress_callback and hasattr(progress_callback, "on_stage"):
+                progress_callback.on_stage("discovering", "กำลังสำรวจโครงสร้างและขนาดไฟล์ทั้งหมด...", 5.0)
+
+            plan = _scan_transfer_plan(sftp, remote_paths, local_root, cancel_event=cancel_event)
+
+            total_files = len(plan)
+            total_bytes = sum(item.file_size for item in plan)
+            cum_transferred = 0
+
+            for idx, item in enumerate(plan, start=1):
+                if cancel_event and cancel_event.is_set():
+                    raise BackupCancelledException("การสำรองข้อมูลถูกยกเลิกโดยผู้ใช้")
+
+                item.local_path.parent.mkdir(parents=True, exist_ok=True)
+
+                def _sftp_callback(transferred: int, total: int):
+                    if cancel_event and cancel_event.is_set():
+                        raise BackupCancelledException("การสำรองข้อมูลถูกยกเลิกโดยผู้ใช้")
+                    if progress_callback:
+                        if hasattr(progress_callback, "on_file_progress"):
+                            progress_callback.on_file_progress(
+                                file_name=item.file_name,
+                                file_index=idx,
+                                total_files=total_files,
+                                transferred=transferred,
+                                total=total or item.file_size,
+                                overall_transferred=cum_transferred + transferred,
+                                overall_total=total_bytes,
+                            )
+                        elif callable(progress_callback):
+                            progress_callback(item.file_name, transferred, total or item.file_size)
+
+                try:
+                    sftp.get(item.remote_path, str(item.local_path), callback=_sftp_callback)
+                except Exception:
+                    if item.local_path.exists():
+                        try:
+                            item.local_path.unlink()
+                        except OSError:
+                            pass
+                    raise
+
+                cum_transferred += item.file_size
+                downloaded_files.append(
+                    DownloadedFile(
+                        file_name=item.local_path.name,
+                        local_path=str(item.local_path),
+                        remote_path=item.remote_path,
+                        file_size_mb=item.file_size / (1024 * 1024),
+                        checksum=_sha256_file(item.local_path),
+                    )
+                )
     finally:
         ssh.close()
 
@@ -339,19 +448,53 @@ def create_zip_archive(source_path: Path, archive_name: str) -> DownloadedFile:
     )
 
 
-def _download_path(sftp, remote_path: str, local_path: Path, downloaded_files):
+def _download_path(
+    sftp,
+    remote_path: str,
+    local_path: Path,
+    downloaded_files: List[DownloadedFile],
+    progress_callback = None,
+    cancel_event = None,
+):
+    if cancel_event and cancel_event.is_set():
+        raise BackupCancelledException("การสำรองข้อมูลถูกยกเลิกโดยผู้ใช้")
+
     remote_stat = _stat_remote_path(sftp, remote_path)
 
     if stat.S_ISDIR(remote_stat.st_mode):
         local_path.mkdir(parents=True, exist_ok=True)
         for item in sftp.listdir_attr(remote_path):
+            if cancel_event and cancel_event.is_set():
+                raise BackupCancelledException("การสำรองข้อมูลถูกยกเลิกโดยผู้ใช้")
             child_remote_path = posixpath.join(remote_path, item.filename)
             child_local_path = local_path / item.filename
-            _download_path(sftp, child_remote_path, child_local_path, downloaded_files)
+            _download_path(
+                sftp=sftp,
+                remote_path=child_remote_path,
+                local_path=child_local_path,
+                downloaded_files=downloaded_files,
+                progress_callback=progress_callback,
+                cancel_event=cancel_event,
+            )
         return
 
     local_path.parent.mkdir(parents=True, exist_ok=True)
-    sftp.get(remote_path, str(local_path))
+
+    def _sftp_callback(transferred: int, total: int):
+        if cancel_event and cancel_event.is_set():
+            raise BackupCancelledException("การสำรองข้อมูลถูกยกเลิกโดยผู้ใช้")
+        if progress_callback:
+            progress_callback(local_path.name, transferred, total)
+
+    try:
+        sftp.get(remote_path, str(local_path), callback=_sftp_callback)
+    except Exception:
+        if local_path.exists():
+            try:
+                local_path.unlink()
+            except OSError:
+                pass
+        raise
 
     file_size_mb = os.path.getsize(local_path) / (1024 * 1024)
     downloaded_files.append(

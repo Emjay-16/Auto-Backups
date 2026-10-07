@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Backup } from "@/lib/types";
 import styles from "@/styles/pages/backups/backups.module.css";
-import { ClockIcon, DeleteIcon, DetailsIcon, FileTextIcon } from "./ActionIcons";
+import { ClockIcon, DeleteIcon, DetailsIcon, DownloadIcon, FileTextIcon } from "./ActionIcons";
 import { PaginationControls } from "./PaginationControls";
 import { StatusBadge } from "./StatusBadge";
 
@@ -20,10 +20,12 @@ export function PaginatedBackupsTable({
   backups,
   onDelete,
   onOpen,
+  onDownload,
 }: {
   backups: Backup[];
   onDelete?: (backup: Backup) => void;
   onOpen?: (backup: Backup) => void;
+  onDownload?: (backup: Backup) => void;
 }) {
   const [page, setPage] = useState(0);
 
@@ -93,10 +95,21 @@ export function PaginatedBackupsTable({
                   <td className={styles.actionsCell}>
                     <div className={styles.actions}>
                       <button
+                        className={styles.actionBtnDownload}
+                        disabled={!backup.id}
+                        onClick={() => onDownload?.(backup)}
+                        title="ดาวน์โหลดไฟล์ .zip"
+                        aria-label={`Download ${backup.name}`}
+                        type="button"
+                      >
+                        <DownloadIcon />
+                        <span>Download</span>
+                      </button>
+                      <button
                         className={styles.actionBtnDetails}
                         disabled={!backup.id}
                         onClick={() => onOpen?.(backup)}
-                        title="View details and download"
+                        title="ดูรายละเอียดไฟล์สำรอง"
                         aria-label={`Open ${backup.name}`}
                         type="button"
                       >

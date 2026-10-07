@@ -1,0 +1,315 @@
+.miniWidget {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  background: #ffffff;
+  border: 1px solid rgba(50, 130, 184, 0.28);
+  border-radius: 16px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.16), 0 4px 12px rgba(15, 23, 42, 0.08);
+  z-index: 2500;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+  animation: slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.miniWidget:hover {
+  box-shadow: 0 20px 48px rgba(15, 23, 42, 0.22), 0 6px 16px rgba(15, 23, 42, 0.1);
+  transform: translateY(-2px);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 10px;
+  background: #f8fbfe;
+  border-bottom: 1px solid rgba(191, 211, 223, 0.5);
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.statusDot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--primary);
+  animation: pulse 1.4s infinite ease-in-out;
+}
+
+.statusDotSuccess {
+  background: #0b7f74;
+  animation: none;
+}
+
+.statusDotError {
+  background: #ba4248;
+  animation: none;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.2); opacity: 1; }
+}
+
+.titleGroup {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.deviceName {
+  font-size: 13px;
+  font-weight: 750;
+  color: var(--foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.backupName {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(191, 211, 223, 0.7);
+  background: #ffffff;
+  color: #244153;
+  font-size: 11.5px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.actionBtn:hover {
+  background: #edf5fa;
+  border-color: var(--primary);
+  color: var(--primary-strong);
+}
+
+.closeBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.closeBtn:hover {
+  background: #f1f5f9;
+  color: var(--foreground);
+}
+
+/* Body */
+.body {
+  padding: 12px 14px 14px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Progress bar */
+.progressRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.progressLabel {
+  font-weight: 650;
+  color: var(--muted);
+}
+
+.progressPercent {
+  font-weight: 800;
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--primary-strong);
+}
+
+.progressBarTrack {
+  width: 100%;
+  height: 7px;
+  background: #e2edf5;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progressBarFill {
+  height: 100%;
+  background: linear-gradient(90deg, #3282b8 0%, #00a8cc 100%);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+/* Current file info */
+.fileRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #edf5fa;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  color: #244153;
+  overflow: hidden;
+}
+
+.fileIcon {
+  flex-shrink: 0;
+  color: var(--primary);
+}
+
+.fileName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+/* Meta stats */
+.statsRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--muted-soft);
+}
+
+/* Success Card Inside Mini Widget */
+.successBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.successHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #0b7f74;
+  font-weight: 750;
+  font-size: 13px;
+}
+
+.successMeta {
+  font-size: 12px;
+  color: var(--foreground);
+  background: #edf9f7;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(11, 127, 116, 0.2);
+}
+
+.successActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.viewSummaryBtn {
+  flex: 1;
+  padding: 7px 12px;
+  background: #0b7f74;
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  text-align: center;
+}
+
+.viewSummaryBtn:hover {
+  background: #086158;
+}
+
+.dismissBtn {
+  padding: 7px 12px;
+  background: #f1f5f9;
+  color: #334155;
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.dismissBtn:hover {
+  background: #e2e8f0;
+}
+
+/* Error Card */
+.errorBody {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.errorHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ba4248;
+  font-weight: 750;
+  font-size: 13px;
+}
+
+.errorMessage {
+  font-size: 11.5px;
+  color: #7f1d1d;
+  background: #fdf2f2;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(248, 180, 180, 0.8);
+  word-break: break-word;
+}
+

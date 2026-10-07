@@ -135,6 +135,27 @@ export type BackupRunResult = {
   message: string;
 };
 
+export type BackupProgressInfo = {
+  device_id: number;
+  device_name?: string;
+  status: "idle" | "running" | "completed" | "failed" | "cancelled";
+  stage?: string;
+  current_target?: string;
+  current_file?: string;
+  file_index?: number;
+  total_files_estimate?: number;
+  file_bytes_transferred?: number;
+  file_bytes_total?: number;
+  file_percent?: number;
+  overall_percent?: number;
+  speed_kb_sec?: number;
+  elapsed_seconds?: number;
+  message?: string;
+  is_cancelled?: boolean;
+  error_message?: string | null;
+  result?: BackupRunResult | null;
+};
+
 export type UploadRunResult = {
   device_id: number;
   ip_address: string;
@@ -472,6 +493,14 @@ export async function checkDeviceStatus(deviceId: number): Promise<DeviceStatusR
 
 export async function runCombinedBackup(payload: CombinedBackupPayload): Promise<BackupRunResult> {
   return sendJson<BackupRunResult>("/backups/combined", "POST", payload);
+}
+
+export async function getDeviceBackupProgress(deviceId: number): Promise<BackupProgressInfo> {
+  return getJson<BackupProgressInfo>(`/devices/${deviceId}/backup-progress`, 3000);
+}
+
+export async function cancelDeviceBackup(deviceId: number): Promise<{ device_id: number; cancelled: boolean; message: string }> {
+  return sendJson<{ device_id: number; cancelled: boolean; message: string }>(`/devices/${deviceId}/cancel-backup`, "POST", {});
 }
 
 export async function cleanupBackups(payload: BackupCleanupPayload): Promise<BackupCleanupResult> {

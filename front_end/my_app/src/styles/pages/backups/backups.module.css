@@ -494,6 +494,32 @@
   gap: 6px;
 }
 
+.actionBtnDownload {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border: 1px solid #bae6fd;
+  border-radius: 7px;
+  background: #f0f9ff;
+  color: #0284c7;
+  font-size: 12px;
+  font-weight: 680;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+
+.actionBtnDownload:hover {
+  border-color: #38bdf8;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.actionBtnDownload svg {
+  width: 14px;
+  height: 14px;
+}
+
 .actionBtnDetails {
   display: inline-flex;
   align-items: center;
@@ -899,7 +925,7 @@
   font-weight: 750;
 }
 
-.formGrid input,
+.formGrid input:not([type="checkbox"]):not([type="file"]),
 .formGrid select {
   width: 100%;
   height: 40px;
@@ -918,10 +944,10 @@
   cursor: pointer;
 }
 
-.formGrid input:focus,
+.formGrid input:not([type="checkbox"]):not([type="file"]):focus,
 .formGrid select:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  border-color: var(--primary);
+  box-shadow: var(--control-focus);
 }
 
 .fieldHint {
@@ -1088,18 +1114,21 @@
 }
 
 .targetRow:hover {
-  border-color: #cbd5e1;
+  background: #f8fafc;
+  border-color: var(--line-strong, #cbd5e1);
 }
 
-.targetRowSelected {
-  background: #eff6ff !important;
-  border-color: #3b82f6 !important;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.1);
+.targetRowSelected,
+.targetRow:has(input:checked) {
+  border-color: var(--primary) !important;
+  background: #f0f9ff !important;
+  box-shadow: 0 2px 8px rgba(50, 130, 184, 0.12);
 }
 
-.targetRowSelected:hover {
+.targetRowSelected:hover,
+.targetRow:has(input:checked):hover {
   background: #e0f2fe !important;
-  border-color: #2563eb !important;
+  border-color: var(--primary) !important;
 }
 
 .targetChoice {
@@ -1112,11 +1141,46 @@
 }
 
 .targetChoice input[type="checkbox"] {
-  width: 17px;
-  height: 17px;
-  margin: 0;
-  cursor: pointer;
-  accent-color: #2563eb;
+  appearance: none !important;
+  width: 17px !important;
+  min-width: 17px !important;
+  max-width: 17px !important;
+  height: 17px !important;
+  min-height: 17px !important;
+  max-height: 17px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  flex: 0 0 auto !important;
+  border: 1.5px solid #b7c8d2 !important;
+  border-radius: 999px !important;
+  background: var(--surface) !important;
+  box-shadow: none !important;
+  accent-color: var(--primary) !important;
+  cursor: pointer !important;
+  transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease !important;
+}
+
+.targetChoice input[type="checkbox"]::before {
+  content: "" !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 999px !important;
+  background: var(--primary) !important;
+  transform: scale(0) !important;
+  transform-origin: center !important;
+  transition: transform 0.14s ease !important;
+}
+
+.targetChoice input[type="checkbox"]:checked {
+  box-shadow: rgba(50, 130, 184, 0.13) 0px 0px 0px 3px !important;
+  border-color: var(--primary) !important;
+  background: var(--surface) !important;
+}
+
+.targetChoice input[type="checkbox"]:checked::before {
+  transform: scale(1) !important;
 }
 
 .targetText {
@@ -1280,27 +1344,64 @@
 
 .browserFileRow:hover {
   background: #f8fafc;
-  border-color: #cbd5e1;
+  border-color: var(--line-strong, #cbd5e1);
 }
 
-.browserFileRowSelected {
-  background: #eff6ff !important;
-  border-color: #3b82f6 !important;
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.08);
+.browserFileRowSelected,
+.browserFileRow:has(input:checked) {
+  border-color: var(--primary) !important;
+  background: #f0f9ff !important;
+  box-shadow: 0 2px 6px rgba(50, 130, 184, 0.1);
 }
 
-.browserFileRowSelected:hover {
+.browserFileRowSelected:hover,
+.browserFileRow:has(input:checked):hover {
   background: #e0f2fe !important;
-  border-color: #2563eb !important;
+  border-color: var(--primary) !important;
 }
 
 .browserFileRow input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  accent-color: #2563eb;
-  cursor: pointer;
-  flex-shrink: 0;
+  appearance: none !important;
+  width: 17px !important;
+  min-width: 17px !important;
+  max-width: 17px !important;
+  height: 17px !important;
+  min-height: 17px !important;
+  max-height: 17px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  flex: 0 0 auto !important;
+  border: 1.5px solid #b7c8d2 !important;
+  border-radius: 999px !important;
+  background: var(--surface) !important;
+  box-shadow: none !important;
+  accent-color: var(--primary) !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+  transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease !important;
+}
+
+.browserFileRow input[type="checkbox"]::before {
+  content: "" !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 999px !important;
+  background: var(--primary) !important;
+  transform: scale(0) !important;
+  transform-origin: center !important;
+  transition: transform 0.14s ease !important;
+}
+
+.browserFileRow input[type="checkbox"]:checked {
+  box-shadow: rgba(50, 130, 184, 0.13) 0px 0px 0px 3px !important;
+  border-color: var(--primary) !important;
+  background: var(--surface) !important;
+}
+
+.browserFileRow input[type="checkbox"]:checked::before {
+  transform: scale(1) !important;
 }
 
 .browserFileInfo {
@@ -1837,15 +1938,66 @@
   gap: 10px !important;
   padding: 8px 14px !important;
   background: #ffffff;
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 8px;
   cursor: pointer;
   margin: 0 !important;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+
+.fileSelectionRow:hover {
+  background: #f8fafc;
+  border-color: var(--line-strong, #cbd5e1);
+}
+
+.fileSelectionRow:has(input:checked),
+.selectedFile {
+  border-color: var(--primary) !important;
+  background: #f0f9ff !important;
 }
 
 .fileSelectionRow input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  margin: 0;
-  accent-color: #2563eb;
+  appearance: none !important;
+  width: 17px !important;
+  min-width: 17px !important;
+  max-width: 17px !important;
+  height: 17px !important;
+  min-height: 17px !important;
+  max-height: 17px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: inline-grid !important;
+  place-items: center !important;
+  flex: 0 0 auto !important;
+  border: 1.5px solid #b7c8d2 !important;
+  border-radius: 999px !important;
+  background: var(--surface) !important;
+  box-shadow: none !important;
+  accent-color: var(--primary) !important;
+  cursor: pointer !important;
+  flex-shrink: 0 !important;
+  transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease !important;
+}
+
+.fileSelectionRow input[type="checkbox"]::before {
+  content: "" !important;
+  width: 100% !important;
+  height: 100% !important;
+  border-radius: 999px !important;
+  background: var(--primary) !important;
+  transform: scale(0) !important;
+  transform-origin: center !important;
+  transition: transform 0.14s ease !important;
+}
+
+.fileSelectionRow input[type="checkbox"]:checked {
+  box-shadow: rgba(50, 130, 184, 0.13) 0px 0px 0px 3px !important;
+  border-color: var(--primary) !important;
+  background: var(--surface) !important;
+}
+
+.fileSelectionRow input[type="checkbox"]:checked::before {
+  transform: scale(1) !important;
 }
 
 .fileSelectionRow span {
@@ -1859,10 +2011,6 @@
   font-size: 11.5px;
   color: #64748b;
   font-weight: 600;
-}
-
-.selectedFile {
-  background: #eff6ff !important;
 }
 
 /* Device History Overlay Modal */

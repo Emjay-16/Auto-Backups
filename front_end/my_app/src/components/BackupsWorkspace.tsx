@@ -13,6 +13,8 @@ import {
   getAutoCleanupSettings,
   getBackupDetail,
   getBackupTargets,
+  getDeviceBackupProgress,
+  cancelDeviceBackup,
   deleteDeviceBackupPath,
   listDeviceFiles,
   runCombinedBackup,
@@ -25,6 +27,7 @@ import {
   type AutoCleanupSettings,
   type BackupDetail,
   type BackupCleanupResult,
+  type BackupProgressInfo,
   type BackupRunResult,
   type BackupTarget,
   type RemoteFile,
@@ -41,12 +44,13 @@ import {
   DatabaseIcon,
   DeleteIcon,
   DeviceIcon,
+  DownloadIcon,
   FileTextIcon,
   FolderIcon,
   SettingsIcon,
 } from "./ActionIcons";
 import { AppModal } from "./AppModal";
-import { BackupProgressModal, type BackupProgressStatus } from "./BackupProgressModal";
+import { useActiveBackup } from "./ActiveBackupProvider";
 import { PaginatedBackupsTable } from "./PaginatedBackupsTable";
 import { Panel } from "./Panel";
 import { RobotGroupBadge } from "./RobotGroupBadge";
@@ -103,18 +107,8 @@ export function BackupsWorkspace({
   const [result, setResult] = useState<BackupRunResult | BackupCleanupResult | null>(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [backupProgress, setBackupProgress] = useState<{
-    isOpen: boolean;
-    status: BackupProgressStatus;
-    deviceName?: string;
-    backupName?: string;
-    targetCount?: number;
-    result?: BackupRunResult | null;
-    errorMessage?: string;
-  }>({
-    isOpen: false,
-    status: "loading",
-  });
+  const { startBackup } = useActiveBackup();
+
   const [pendingDeleteBackup, setPendingDeleteBackup] = useState<Backup | null>(null);
   const [pendingDeletePath, setPendingDeletePath] = useState<string | null>(null);
   const [editingPathTarget, setEditingPathTarget] = useState<BackupTarget | null>(null);
@@ -307,14 +301,6 @@ export function BackupsWorkspace({
     setOpenedPath("");
   }
 
-  function handleCloseBackupProgress() {
-    const wasSuccess = backupProgress.status === "success";
-    setBackupProgress((current) => ({ ...current, isOpen: false }));
-    if (wasSuccess) {
-      closeModal();
-    }
-  }
-
   async function submitBackup(databaseOnly = false) {
     const numericDeviceId = Number(deviceId);
     const remotePaths = databaseOnly ? [] : selectedPaths.filter((path) => path.startsWith("/"));
@@ -333,50 +319,25 @@ export function BackupsWorkspace({
     const resolvedDeviceName = selectedDeviceObj?.name ?? `Device #${numericDeviceId}`;
     const resolvedBackupName = backupName.trim() || undefined;
 
-    setSaving(true);
-    setError("");
-    setResult(null);
-    setBackupProgress({
-      isOpen: true,
-      status: "loading",
-      deviceName: resolvedDeviceName,
-      backupName: resolvedBackupName,
-      targetCount: remotePaths.length + (databaseSelected ? 1 : 0),
-    });
+    closeModal();
 
     try {
-      const response = await runCombinedBackup({
-        device_id: numericDeviceId,
-        backup_name: resolvedBackupName,
-        remote_paths: remotePaths,
-        include_database: databaseSelected,
-        zip_output: zipOutput,
+      await startBackup({
+        payload: {
+          device_id: numericDeviceId,
+          backup_name: resolvedBackupName,
+          remote_paths: remotePaths,
+          include_database: databaseSelected,
+          zip_output: zipOutput,
+        },
+        meta: {
+          deviceName: resolvedDeviceName,
+          backupName: resolvedBackupName,
+          targetCount: remotePaths.length + (databaseSelected ? 1 : 0),
+        },
       });
-      setResult(response);
-      setBackupProgress({
-        isOpen: true,
-        status: "success",
-        deviceName: response.device_name || resolvedDeviceName,
-        backupName: response.backup_name,
-        result: response,
-      });
-      showToast({
-        tone: "success",
-        title: "Backup completed",
-        message: `${response.backup_name} saved for ${response.device_name}`,
-      });
-      router.refresh();
-    } catch (errorResponse) {
-      const errorMsg = getErrorMessage(errorResponse, "เกิดข้อผิดพลาดในการสำรองข้อมูล");
-      setBackupProgress({
-        isOpen: true,
-        status: "error",
-        deviceName: resolvedDeviceName,
-        errorMessage: errorMsg,
-      });
-      showToast({ tone: "error", title: "การสำรองข้อมูลไม่สำเร็จ", message: errorMsg });
-    } finally {
-      setSaving(false);
+    } catch {
+      // Handled in provider
     }
   }
 
@@ -748,75 +709,81 @@ export function BackupsWorkspace({
     ));
   }
 
+  function triggerBrowserDownload(url: string, filename: string) {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.style.display = "none";
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      try {
+        link.remove();
+      } catch {
+        // ignore
+      }
+    }, 1000);
+  }
+
+  function handleDirectDownload(backup: Backup) {
+    if (!backup.id) return;
+    const filename = `${backup.name}.zip`;
+    const url = backupDownloadUrl(backup.id, [], filename);
+    triggerBrowserDownload(url, filename);
+    showToast({
+      tone: "success",
+      title: "เริ่มดาวน์โหลดไฟล์แล้ว",
+      message: filename,
+    });
+  }
+
   function downloadSelectedFiles() {
     if (!backupDetail) return;
     if (!selectedDownloadFileIds.length) {
       setError("กรุณาเลือกไฟล์ที่ต้องการดาวน์โหลดอย่างน้อย 1 รายการ");
       return;
     }
-    setPendingDownloadConfirm(true);
-  }
-
-  async function confirmDownloadSelectedFiles() {
-    if (!backupDetail || !selectedDownloadFileIds.length) return;
-    setSaving(true);
-    setError("");
-    const selectedFileIds = backupDetail.files
-      .filter((file) => selectedDownloadFileIds.includes(file.backup_file_id))
-      .map((file) => file.backup_file_id);
+    const isAll = selectedDownloadFileIds.length === backupDetail.files.length;
+    const selectedFileIds = isAll
+      ? []
+      : backupDetail.files
+          .filter((file) => selectedDownloadFileIds.includes(file.backup_file_id))
+          .map((file) => file.backup_file_id);
     const filename = normalizeZipFilename(downloadFilename || backupDetail.backup_name);
     const url = backupDownloadUrl(
       backupDetail.backup_id,
       selectedFileIds,
       filename,
     );
+    triggerBrowserDownload(url, filename);
+    showToast({
+      tone: "success",
+      title: "เริ่มดาวน์โหลดไฟล์แล้ว",
+      message: filename,
+    });
+  }
 
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        let message = `ดาวน์โหลดไม่สำเร็จ (${response.status})`;
-        try {
-          const errorJson = await response.json();
-          message = errorJson.message || errorJson.error_code || message;
-        } catch {
-          // not json
-        }
-        const friendly = getErrorMessage(message, "ไม่สามารถดาวน์โหลดไฟล์ได้");
-        setError(friendly);
-        showToast({
-          tone: "error",
-          title: "ดาวน์โหลดไฟล์ไม่สำเร็จ",
-          message: friendly,
-        });
-        return;
-      }
-
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = blobUrl;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(blobUrl);
-      setPendingDownloadConfirm(false);
-      showToast({
-        tone: "success",
-        title: "ดาวน์โหลดไฟล์เรียบร้อยแล้ว",
-        message: filename,
-      });
-    } catch (err) {
-      const message = getErrorMessage(err, "ไม่สามารถดาวน์โหลดไฟล์ได้");
-      setError(message);
-      showToast({
-        tone: "error",
-        title: "ดาวน์โหลดไฟล์ไม่สำเร็จ",
-        message,
-      });
-    } finally {
-      setSaving(false);
-    }
+  async function confirmDownloadSelectedFiles() {
+    if (!backupDetail || !selectedDownloadFileIds.length) return;
+    const isAll = selectedDownloadFileIds.length === backupDetail.files.length;
+    const selectedFileIds = isAll
+      ? []
+      : backupDetail.files
+          .filter((file) => selectedDownloadFileIds.includes(file.backup_file_id))
+          .map((file) => file.backup_file_id);
+    const filename = normalizeZipFilename(downloadFilename || backupDetail.backup_name);
+    const url = backupDownloadUrl(
+      backupDetail.backup_id,
+      selectedFileIds,
+      filename,
+    );
+    triggerBrowserDownload(url, filename);
+    setPendingDownloadConfirm(false);
+    showToast({
+      tone: "success",
+      title: "เริ่มดาวน์โหลดไฟล์แล้ว",
+      message: filename,
+    });
   }
 
   async function confirmDeleteCustomPath() {
@@ -1020,6 +987,7 @@ export function BackupsWorkspace({
               backups={backups}
               onDelete={requestDeleteBackup}
               onOpen={openBackupDetail}
+              onDownload={handleDirectDownload}
             />
           </Panel>
 
@@ -1147,8 +1115,16 @@ export function BackupsWorkspace({
               ) : null}
               <button onClick={closeModal} type="button">Close</button>
               {mode === "detail" && backupDetail ? (
-                <button onClick={downloadSelectedFiles} disabled={saving || !selectedDownloadFileIds.length} type="button">
-                  Download selected zip
+                <button
+                  onClick={downloadSelectedFiles}
+                  disabled={saving || !selectedDownloadFileIds.length}
+                  type="button"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 650 }}
+                >
+                  <DownloadIcon style={{ width: 15, height: 15 }} />
+                  {selectedDownloadFileIds.length === backupDetail.files.length
+                    ? "ดาวน์โหลดทั้งหมด (.zip)"
+                    : `ดาวน์โหลดที่เลือก (${selectedDownloadFileIds.length} ไฟล์)`}
                 </button>
               ) : null}
               {mode === "backup" ? (
@@ -1848,8 +1824,6 @@ export function BackupsWorkspace({
           </section>
         </div>
       ) : null}
-
-      <BackupProgressModal {...backupProgress} onClose={handleCloseBackupProgress} />
     </div>
   );
 }

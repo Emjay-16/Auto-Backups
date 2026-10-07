@@ -186,8 +186,8 @@ textarea:focus {
 
 input[type="checkbox"] {
   appearance: none;
-  width: 20px;
-  height: 20px;
+  width: 17px;
+  height: 17px;
   display: inline-grid;
   place-items: center;
   border: 1.5px solid #b7c8d2;
@@ -195,6 +195,8 @@ input[type="checkbox"] {
   background: var(--surface);
   box-shadow: none;
   vertical-align: middle;
+  accent-color: var(--primary);
+  cursor: pointer;
   transition: border-color 0.14s ease, background 0.14s ease, box-shadow 0.14s ease, transform 0.14s ease;
 }
 
@@ -210,9 +212,9 @@ input[type="checkbox"]::before {
 }
 
 input[type="checkbox"]:checked {
+  box-shadow: rgba(50, 130, 184, 0.13) 0px 0px 0px 3px;
   border-color: var(--primary);
   background: var(--surface);
-  box-shadow: 0 0 0 3px rgba(50, 130, 184, 0.13);
 }
 
 input[type="checkbox"]:checked::before {

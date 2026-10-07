@@ -45,6 +45,11 @@ from api.services.sftp_backup import (
     download_paths,
     snapshot_remote_path,
 )
+from api.services.backup_progress import (
+    BackupCancelledException,
+    BackupProgressCallback,
+    progress_tracker,
+)
 from api.services.ssh_credentials import require_ssh_credentials
 from api.utils.time import now_local
 
@@ -307,6 +312,10 @@ def run_combined_backup(
 
     recover_stale_running_records(db)
 
+    # Initialize Real-time Progress Tracking
+    total_targets = len(remote_paths) + (1 if data.include_database else 0)
+    progress_tracker.start(device.device_id, device.device_name, total_targets=total_targets)
+
     job = create_job(
         db,
         job_type="combined_backup",
@@ -319,6 +328,12 @@ def run_combined_backup(
         database_dump = None
         with tempfile.TemporaryDirectory(prefix="robot-db-combined-") as temp_dir:
             if data.include_database:
+                progress_tracker.update_stage(
+                    device.device_id,
+                    stage="preparing",
+                    message="กำลังดึงข้อมูลฐานข้อมูล Robot...",
+                    overall_percent=5.0,
+                )
                 database_path = _configured_robot_database_path(Path(temp_dir))
                 if not database_path:
                     raise api_exception(
@@ -365,6 +380,10 @@ def run_combined_backup(
             message="Combined backup completed",
         )
     except HTTPException as exc:
+        is_cancel = exc.status_code == 400 and (
+            getattr(exc, "headers", {}).get("X-Error-Code") == "BACKUP_CANCELLED"
+            or "ยกเลิก" in str(exc.detail)
+        )
         update_job(
             db,
             job,
@@ -372,7 +391,7 @@ def run_combined_backup(
             total_devices=1,
             checked_devices=1,
             failed_devices=1,
-            message=str(exc.detail),
+            message="Combined backup cancelled by user" if is_cancel else str(exc.detail),
             finished=True,
         )
         raise
@@ -1185,9 +1204,22 @@ def _create_combined_auto_backup(
     local_path = build_backup_directory(backup_storage_path, device.device_name)
     backup = _create_backup_record(db, device, user, backup_name, backup_type)
 
+    cancel_event = progress_tracker.get_cancel_event(device.device_id)
+    progress_cb = BackupProgressCallback(progress_tracker, device.device_id)
+
+    zip_path = None
     try:
+        if cancel_event and cancel_event.is_set():
+            raise BackupCancelledException("การสำรองข้อมูลถูกยกเลิกโดยผู้ใช้")
+
         downloaded_files = []
         if remote_paths:
+            progress_tracker.update_stage(
+                device.device_id,
+                stage="downloading",
+                message=f"กำลังเชื่อมต่อและดาวน์โหลดไฟล์จาก {device.device_name}...",
+                overall_percent=5.0,
+            )
             downloaded_files = download_paths(
                 host=device.ip_address,
                 username=username,
@@ -1195,9 +1227,20 @@ def _create_combined_auto_backup(
                 port=port,
                 remote_paths=remote_paths,
                 local_root=local_path,
+                progress_callback=progress_cb,
+                cancel_event=cancel_event,
             )
 
+        if cancel_event and cancel_event.is_set():
+            raise BackupCancelledException("การสำรองข้อมูลถูกยกเลิกโดยผู้ใช้")
+
         if database_dump:
+            progress_tracker.update_stage(
+                device.device_id,
+                stage="saving",
+                message="กำลังบันทึกข้อมูลฐานข้อมูล Robot...",
+                overall_percent=85.0,
+            )
             for dump_file in database_dump:
                 database_local_path = local_path / dump_file.file_name
                 database_local_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1220,8 +1263,13 @@ def _create_combined_auto_backup(
                 _build_auto_backup_manifest([], database_dump, backup_mode="manual"),
             )
 
-        zip_path = None
         if zip_output:
+            progress_tracker.update_stage(
+                device.device_id,
+                stage="compressing",
+                message="กำลังบีบอัดไฟล์สำรองข้อมูล (.zip)...",
+                overall_percent=92.0,
+            )
             zip_file = create_zip_archive(local_path, backup_name)
             downloaded_files = [zip_file]
             zip_path = zip_file.local_path
@@ -1231,7 +1279,37 @@ def _create_combined_auto_backup(
         if zip_path:
             message = f"{message}: {zip_path}"
         _finish_backup_success(db, backup, downloaded_files, total_size_mb, message)
+
+        progress_tracker.complete(
+            device.device_id,
+            result={
+                "backup_id": backup.backup_id,
+                "backup_name": backup.backup_name,
+                "device_name": device.device_name,
+                "ip_address": device.ip_address,
+                "total_file": backup.total_file,
+                "total_size_mb": backup.total_size_mb,
+                "local_path": str(local_path),
+                "zip_path": zip_path,
+            },
+        )
+    except BackupCancelledException as exc:
+        shutil.rmtree(local_path, ignore_errors=True)
+        if zip_path and Path(zip_path).exists():
+            try:
+                Path(zip_path).unlink()
+            except OSError:
+                pass
+        progress_tracker.fail(device.device_id, str(exc))
+        _finish_backup_failed(db, backup, str(exc))
+        raise api_exception(
+            status.HTTP_400_BAD_REQUEST,
+            "BACKUP_CANCELLED",
+            "การสำรองข้อมูลถูกยกเลิกโดยผู้ใช้",
+        )
     except RuntimeError as exc:
+        shutil.rmtree(local_path, ignore_errors=True)
+        progress_tracker.fail(device.device_id, str(exc))
         _finish_backup_failed(db, backup, str(exc))
         raise api_exception(
             status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -1239,7 +1317,9 @@ def _create_combined_auto_backup(
             str(exc),
         )
     except Exception as exc:
+        shutil.rmtree(local_path, ignore_errors=True)
         message = f"Combined auto backup failed: {exc}"
+        progress_tracker.fail(device.device_id, message)
         _finish_backup_failed(db, backup, message)
         raise api_exception(
             status.HTTP_502_BAD_GATEWAY,

@@ -1,7 +1,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 120;
+  z-index: 2000;
   display: grid;
   place-items: center;
   padding: 24px;
@@ -44,8 +44,36 @@
   }
 }
 
+.modalTopBar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 14px 18px 0;
+  width: 100%;
+}
+
+.minimizeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #edf5fa;
+  border: 1px solid rgba(191, 211, 223, 0.7);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--primary-strong);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.minimizeBtn:hover {
+  background: #deeffa;
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
 .content {
-  padding: 32px 28px 24px;
+  padding: 24px 28px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -284,5 +312,163 @@
 .successBtn:hover {
   background: #086158;
   box-shadow: 0 14px 28px rgba(11, 127, 116, 0.32);
+}
+
+/* Real-Time Progress Section */
+.progressSection {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 20px;
+  text-align: left;
+}
+
+.progressBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.progressHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12.5px;
+}
+
+.progressLabel {
+  font-weight: 700;
+  color: var(--foreground);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.progressPercent {
+  font-weight: 800;
+  font-family: monospace;
+  font-size: 13px;
+  color: var(--primary-strong);
+}
+
+.progressBarTrack {
+  width: 100%;
+  height: 9px;
+  background: #e2edf5;
+  border-radius: 999px;
+  overflow: hidden;
+  position: relative;
+}
+
+.progressBarFill {
+  height: 100%;
+  background: linear-gradient(90deg, #3282b8 0%, #00a8cc 100%);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.fileProgressBarTrack {
+  width: 100%;
+  height: 6px;
+  background: #eef4f8;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.fileProgressBarFill {
+  height: 100%;
+  background: linear-gradient(90deg, #5b92e5 0%, #4facfe 100%);
+  border-radius: 999px;
+  transition: width 0.25s ease;
+}
+
+.currentFileTag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  background: #edf5fa;
+  border: 1px solid rgba(191, 211, 223, 0.6);
+  border-radius: 6px;
+  font-family: monospace;
+  font-size: 11.5px;
+  color: #1e3a5f;
+  word-break: break-all;
+}
+
+/* Live Stats Grid */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  width: 100%;
+  background: #f8fbfe;
+  border: 1px solid rgba(191, 211, 223, 0.65);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 11.5px;
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statLabel {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.statValue {
+  color: var(--foreground);
+  font-weight: 700;
+  font-family: monospace;
+}
+
+/* Cancel Button */
+.cancelBtn {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  border-radius: 12px;
+  background: #fff5f5;
+  color: #dc2626;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s var(--ease-out-expo);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.cancelBtn:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: #dc2626;
+  transform: translateY(-1px);
+}
+
+.cancelBtn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.cancelBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Cancelled State Icon */
+.cancelledIcon {
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  color: #b45309;
+  box-shadow: 0 8px 24px rgba(180, 83, 9, 0.2);
+  animation: popIn 0.3s var(--ease-out-expo) both;
+}
+
+.eyebrow.cancelled {
+  color: #b45309;
 }
 

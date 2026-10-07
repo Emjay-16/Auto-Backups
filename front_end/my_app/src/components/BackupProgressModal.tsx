@@ -2,10 +2,10 @@
 
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
-import type { BackupRunResult } from "@/lib/api";
+import type { BackupProgressInfo, BackupRunResult } from "@/lib/api";
 import styles from "@/styles/components/BackupProgressModal.module.css";
 
-export type BackupProgressStatus = "loading" | "success" | "error";
+export type BackupProgressStatus = "loading" | "success" | "error" | "cancelled";
 
 export type BackupProgressModalProps = {
   isOpen: boolean;
@@ -15,8 +15,19 @@ export type BackupProgressModalProps = {
   targetCount?: number;
   result?: BackupRunResult | null;
   errorMessage?: string;
+  progressInfo?: BackupProgressInfo | null;
+  isCancelling?: boolean;
+  onMinimize?: () => void;
+  onCancel?: () => void;
   onClose: () => void;
 };
+
+function formatElapsed(sec: number): string {
+  if (sec < 60) return `${sec} วินาที`;
+  const mins = Math.floor(sec / 60);
+  const remainingSec = sec % 60;
+  return `${mins} นาที ${remainingSec} วินาที`;
+}
 
 export function BackupProgressModal({
   isOpen,
@@ -26,6 +37,10 @@ export function BackupProgressModal({
   targetCount = 0,
   result,
   errorMessage,
+  progressInfo,
+  isCancelling = false,
+  onMinimize,
+  onCancel,
   onClose,
 }: BackupProgressModalProps) {
   useEffect(() => {
@@ -45,6 +60,12 @@ export function BackupProgressModal({
 
   const displayDevice = result?.device_name || deviceName || "Device";
   const displayBackupName = result?.backup_name || backupName || "-";
+
+  const overallPercent = progressInfo?.overall_percent ?? 0;
+  const filePercent = progressInfo?.file_percent ?? 0;
+  const currentFile = progressInfo?.current_file || "";
+  const speedKb = progressInfo?.speed_kb_sec ?? 0;
+  const elapsedSeconds = progressInfo?.elapsed_seconds ?? 0;
 
   return createPortal(
     <div
@@ -66,6 +87,36 @@ export function BackupProgressModal({
       />
 
       <section className={styles.modal}>
+        {onMinimize ? (
+          <div className={styles.modalTopBar}>
+            <button
+              type="button"
+              className={styles.minimizeBtn}
+              onClick={onMinimize}
+              title="ย่อหน้าต่าง (สามารถดูหน้าอื่นได้ระหว่างกำลังสำรองข้อมูล)"
+              aria-label="ย่อหน้าต่าง"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="4 14 10 14 10 20" />
+                <polyline points="20 10 14 10 14 4" />
+                <line x1="14" y1="10" x2="21" y2="3" />
+                <line x1="3" y1="21" x2="10" y2="14" />
+              </svg>
+              <span>ย่อหน้าต่าง (ดูหน้าอื่น)</span>
+            </button>
+          </div>
+        ) : null}
+
         <div className={styles.content}>
           {status === "loading" ? (
             <>
@@ -90,14 +141,78 @@ export function BackupProgressModal({
               </div>
 
               <p className={`${styles.eyebrow} ${styles.loading}`}>
-                กำลังดำเนินการ
+                กำลังดำเนินการ (เรียลไทม์)
               </p>
               <h3 id="backup-progress-title" className={styles.title}>
                 กำลังสำรองข้อมูล...
               </h3>
               <p className={styles.description}>
-                ระบบกำลังเชื่อมต่อและคัดลอกไฟล์จาก <strong>{displayDevice}</strong> กรุณารอสักครู่
+                {progressInfo?.message || (
+                  <>
+                    ระบบกำลังเชื่อมต่อและคัดลอกไฟล์จาก <strong>{displayDevice}</strong> กรุณารอสักครู่
+                  </>
+                )}
               </p>
+
+              {/* Real-time Progress Bar & Stats */}
+              <div className={styles.progressSection}>
+                <div className={styles.progressBlock}>
+                  <div className={styles.progressHeader}>
+                    <span className={styles.progressLabel}>
+                      ความคืบหน้ารวม
+                      {progressInfo?.total_files_estimate
+                        ? ` (${Math.min(progressInfo.file_index || 1, progressInfo.total_files_estimate)}/${progressInfo.total_files_estimate})`
+                        : ""}
+                    </span>
+                    <span className={styles.progressPercent}>
+                      {overallPercent.toFixed(0)}%
+                    </span>
+                  </div>
+                  <div className={styles.progressBarTrack}>
+                    <div
+                      className={styles.progressBarFill}
+                      style={{ width: `${Math.min(100, Math.max(0, overallPercent))}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className={styles.progressBlock}>
+                  <div className={styles.progressHeader}>
+                    <span className={styles.progressLabel}>
+                      <span>ไฟล์ปัจจุบัน:</span>
+                      <span className={styles.currentFileTag}>{currentFile || "กำลังเชื่อมต่อ SSH..."}</span>
+                    </span>
+                    <span className={styles.progressPercent}>
+                      {filePercent > 0 ? `${filePercent.toFixed(0)}%` : "0%"}
+                    </span>
+                  </div>
+                  <div className={styles.fileProgressBarTrack}>
+                    <div
+                      className={styles.fileProgressBarFill}
+                      style={{ width: `${Math.min(100, Math.max(0, filePercent))}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className={styles.statsGrid}>
+                  <div className={styles.statItem}>
+                    <span className={styles.statLabel}>ความเร็วการถ่ายโอน</span>
+                    <span className={styles.statValue}>
+                      {speedKb > 0
+                        ? speedKb >= 1024
+                          ? `${(speedKb / 1024).toFixed(1)} MB/s`
+                          : `${speedKb.toFixed(0)} KB/s`
+                        : "กำลังคำนวณ..."}
+                    </span>
+                  </div>
+                  <div className={styles.statItem}>
+                    <span className={styles.statLabel}>เวลาที่ใช้</span>
+                    <span className={styles.statValue}>
+                      {formatElapsed(elapsedSeconds)}
+                    </span>
+                  </div>
+                </div>
+              </div>
 
               <div className={styles.infoCard}>
                 <div className={styles.infoRow}>
@@ -120,7 +235,7 @@ export function BackupProgressModal({
 
               <div className={styles.loadingTip}>
                 <span className={styles.loadingDot} aria-hidden="true" />
-                <span>กำลังถ่ายโอนไฟล์ผ่าน SFTP / SSH ห้ามปิดหน้าต่างนี้</span>
+                <span>กำลังถ่ายโอนไฟล์ผ่าน SFTP / SSH สามารถกดยกเลิกได้ด้านล่าง</span>
               </div>
             </>
           ) : status === "success" ? (
@@ -193,6 +308,39 @@ export function BackupProgressModal({
                 ) : null}
               </div>
             </>
+          ) : status === "cancelled" ? (
+            <>
+              <div className={`${styles.iconWrapper} ${styles.cancelledIcon}`}>
+                <svg
+                  width="40"
+                  height="40"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="4.93" y1="4.93" x2="19.07" y2="19.07" />
+                </svg>
+              </div>
+
+              <p className={`${styles.eyebrow} ${styles.cancelled}`}>
+                ยกเลิกแล้ว
+              </p>
+              <h3 id="backup-progress-title" className={styles.title}>
+                ยกเลิกการสำรองข้อมูล
+              </h3>
+              <p className={styles.description}>
+                การสำรองข้อมูลสำหรับ <strong>{displayDevice}</strong> ถูกยกเลิกโดยผู้ใช้
+              </p>
+
+              <div className={styles.errorCard} style={{ background: "#fef8f0", borderColor: "rgba(245, 158, 11, 0.4)", color: "#b45309" }}>
+                ระบบได้หยุดการถ่ายโอนไฟล์และทำความสะอาดไฟล์ชั่วคราวเรียบร้อยแล้ว
+              </div>
+            </>
           ) : (
             <>
               <div className={`${styles.iconWrapper} ${styles.errorIcon}`}>
@@ -229,7 +377,18 @@ export function BackupProgressModal({
           )}
         </div>
 
-        {status !== "loading" ? (
+        {status === "loading" && onCancel ? (
+          <div className={styles.footer}>
+            <button
+              className={styles.cancelBtn}
+              onClick={onCancel}
+              disabled={isCancelling}
+              type="button"
+            >
+              {isCancelling ? "กำลังส่งคำขอยกเลิก..." : "✕ ยกเลิกการสำรองข้อมูล"}
+            </button>
+          </div>
+        ) : status !== "loading" ? (
           <div className={styles.footer}>
             <button
               className={`${styles.primaryBtn} ${status === "success" ? styles.successBtn : ""}`}
@@ -245,4 +404,3 @@ export function BackupProgressModal({
     document.body,
   );
 }
-

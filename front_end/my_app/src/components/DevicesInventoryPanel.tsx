@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Device } from "@/lib/types";
 import {
   createDevice,
@@ -9,6 +9,8 @@ import {
   getBackupTargets,
   listDeviceFiles,
   runCombinedBackup,
+  getDeviceBackupProgress,
+  cancelDeviceBackup,
   saveCustomBackupPath,
   updateDevice,
   getDeviceBackupPaths,
@@ -16,6 +18,7 @@ import {
   deleteDevice,
   deleteDeviceBackupPath,
   getErrorMessage,
+  type BackupProgressInfo,
   type BackupRunResult,
   type BackupTarget,
   type DeviceFormPayload,
@@ -38,7 +41,7 @@ import {
   PlusIcon,
   WifiIcon,
 } from "./ActionIcons";
-import { BackupProgressModal, type BackupProgressStatus } from "./BackupProgressModal";
+import { useActiveBackup } from "./ActiveBackupProvider";
 import { Panel } from "./Panel";
 import { PaginatedDevicesTable } from "./PaginatedDevicesTable";
 import { robotGroupTone } from "./RobotGroupBadge";
@@ -124,18 +127,7 @@ export function DevicesInventoryPanel({
   const [filesLoading, setFilesLoading] = useState(false);
   const [pendingDeleteDevice, setPendingDeleteDevice] = useState<Device | null>(null);
 
-  const [backupProgress, setBackupProgress] = useState<{
-    isOpen: boolean;
-    status: BackupProgressStatus;
-    deviceName?: string;
-    backupName?: string;
-    targetCount?: number;
-    result?: BackupRunResult | null;
-    errorMessage?: string;
-  }>({
-    isOpen: false,
-    status: "loading",
-  });
+  const { startBackup } = useActiveBackup();
 
   // Overview statistics
   const totalCount = devices.length;
@@ -295,8 +287,11 @@ export function DevicesInventoryPanel({
     setBackupResult(null);
     setError("");
     setActionMode("backup");
+    const isComputer = (device.group ?? "").trim().toLowerCase() === "computer";
     try {
-      setBackupTargets(await getBackupTargets());
+      const targets = await getBackupTargets(device.id, isComputer ? "computer" : "robot");
+      setBackupTargets(targets);
+      setSelectedPaths(targets.map((t) => t.path));
     } catch (errorResponse) {
       setBackupTargets([]);
       showToast({
@@ -340,14 +335,6 @@ export function DevicesInventoryPanel({
     void openBrowsePath(parent);
   }
 
-  function handleCloseBackupProgress() {
-    const wasSuccess = backupProgress.status === "success";
-    setBackupProgress((current) => ({ ...current, isOpen: false }));
-    if (wasSuccess) {
-      closeModal();
-    }
-  }
-
   async function submitBackup() {
     if (!selectedDevice?.id) {
       setError("Device ID missing. Please refresh the page.");
@@ -364,49 +351,25 @@ export function DevicesInventoryPanel({
     const resolvedBackupName = backupName.trim() || undefined;
     const targetCount = remotePaths.length + (includeDatabase ? 1 : 0);
 
-    setSaving(true);
-    setError("");
-    setBackupProgress({
-      isOpen: true,
-      status: "loading",
-      deviceName: selectedDevice.name,
-      backupName: resolvedBackupName,
-      targetCount,
-    });
+    closeModal();
 
     try {
-      const result = await runCombinedBackup({
-        device_id: selectedDevice.id,
-        remote_paths: remotePaths,
-        include_database: includeDatabase,
-        backup_name: resolvedBackupName,
-        zip_output: zipOutput,
+      await startBackup({
+        payload: {
+          device_id: selectedDevice.id,
+          remote_paths: remotePaths,
+          include_database: includeDatabase,
+          backup_name: resolvedBackupName,
+          zip_output: zipOutput,
+        },
+        meta: {
+          deviceName: selectedDevice.name,
+          backupName: resolvedBackupName,
+          targetCount,
+        },
       });
-      setBackupResult(result);
-      setBackupProgress({
-        isOpen: true,
-        status: "success",
-        deviceName: result.device_name || selectedDevice.name,
-        backupName: result.backup_name,
-        result,
-      });
-      showToast({
-        tone: "success",
-        title: "Backup completed",
-        message: `${result.backup_name} saved for ${result.device_name}`,
-      });
-      router.refresh();
-    } catch (errorResponse) {
-      const errorMsg = getErrorMessage(errorResponse, "Error occurred during backup execution");
-      setBackupProgress({
-        isOpen: true,
-        status: "error",
-        deviceName: selectedDevice.name,
-        errorMessage: errorMsg,
-      });
-      showToast({ tone: "error", title: "Backup failed", message: errorMsg });
-    } finally {
-      setSaving(false);
+    } catch {
+      // Handled in provider
     }
   }
 
@@ -469,32 +432,40 @@ export function DevicesInventoryPanel({
       setError("Backup remote path must start with '/'");
       return;
     }
+    const isComputer = (selectedDevice?.group ?? "").trim().toLowerCase() === "computer";
     try {
-      const savedPath = await saveCustomBackupPath(path, customBackupPathLabel.trim() || undefined);
-      setSelectedPaths((current) => uniquePaths([...current, savedPath.path]));
-      setBackupTargets((current) => {
-        if (current.some((target) => target.path === savedPath.path)) return current;
-        const targetType = backupTargetTypeFromPath(savedPath.path);
-        return [
-          ...current,
-          {
-            key: `custom_${Date.now()}`,
-            label: savedPath.label,
-            path: savedPath.path,
-            target_type: targetType,
-            browsable: targetType === "directory",
-            backup_api: "file",
-            removable: true,
-          },
-        ];
-      });
+      if (isComputer && selectedDevice?.id) {
+        const saved = await addDeviceBackupPath(selectedDevice.id, path, customBackupPathLabel.trim() || undefined);
+        const updatedTargets = await getBackupTargets(selectedDevice.id, "computer");
+        setBackupTargets(updatedTargets);
+        setSelectedPaths((current) => uniquePaths([...current, saved.path]));
+      } else {
+        const savedPath = await saveCustomBackupPath(path, customBackupPathLabel.trim() || undefined);
+        setSelectedPaths((current) => uniquePaths([...current, savedPath.path]));
+        setBackupTargets((current) => {
+          if (current.some((target) => target.path === savedPath.path)) return current;
+          const targetType = backupTargetTypeFromPath(savedPath.path);
+          return [
+            ...current,
+            {
+              key: `custom_${Date.now()}`,
+              label: savedPath.label,
+              path: savedPath.path,
+              target_type: targetType,
+              browsable: targetType === "directory",
+              backup_api: "file",
+              removable: true,
+            },
+          ];
+        });
+      }
       setCustomBackupPathLabel("");
       setCustomBackupPath("");
       setError("");
       showToast({
         tone: "success",
-        title: "Custom target added",
-        message: `${savedPath.label}: ${savedPath.path}`,
+        title: isComputer ? "เพิ่ม Target ของ Computer สำเร็จ" : "Custom target added",
+        message: path,
       });
     } catch (errorResponse) {
       showToast({
@@ -1109,13 +1080,21 @@ export function DevicesInventoryPanel({
                         </label>
                       ))
                     ) : (
-                      <p className={styles.emptyText}>No backup targets configured</p>
+                      <p className={styles.emptyText}>
+                        {(selectedDevice?.group ?? "").trim().toLowerCase() === "computer"
+                          ? "ยังไม่มี Path สำหรับคอมพิวเตอร์เครื่องนี้ (กรุณาเพิ่ม Path ที่ต้องการสำรองข้อมูลด้านล่าง)"
+                          : "No backup targets configured"}
+                      </p>
                     )}
                   </div>
                 </div>
 
                 <div className={styles.modalSection}>
-                  <h4 className={styles.sectionHeading}>เพิ่ม Path กำหนดเอง (Custom Target)</h4>
+                  <h4 className={styles.sectionHeading}>
+                    {(selectedDevice?.group ?? "").trim().toLowerCase() === "computer"
+                      ? "เพิ่ม Path ของคอมพิวเตอร์เครื่องนี้"
+                      : "เพิ่ม Path กำหนดเอง (Custom Target)"}
+                  </h4>
                   <div className={styles.addPathBox}>
                     <div className={styles.addPathFields}>
                       <label className={styles.pathField}>
@@ -1129,7 +1108,11 @@ export function DevicesInventoryPanel({
                               void addCustomBackupPath();
                             }
                           }}
-                          placeholder="เช่น /home/matrix/path/to/backup"
+                          placeholder={
+                            (selectedDevice?.group ?? "").trim().toLowerCase() === "computer"
+                              ? "เช่น /var/log/myapp หรือ /opt/data"
+                              : "เช่น /home/matrix/path/to/backup"
+                          }
                         />
                       </label>
                       <label className={styles.labelField}>
@@ -1273,8 +1256,6 @@ export function DevicesInventoryPanel({
           </section>
         </div>
       ) : null}
-
-      <BackupProgressModal {...backupProgress} onClose={handleCloseBackupProgress} />
     </>
   );
 }

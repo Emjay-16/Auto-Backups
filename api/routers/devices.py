@@ -24,6 +24,7 @@ from api.schemas import (
     RemotePathCheckResponse,
     RemoteFileResponse,
 )
+from api.services.backup_progress import progress_tracker
 from api.services.backup_targets import (
     get_backup_path_label,
     get_custom_auto_backup_targets,
@@ -96,8 +97,9 @@ def get_backup_targets(
     if device_id is not None:
         device_paths = get_device_backup_paths(db, device_id)
         device = db.query(Device).filter(Device.device_id == device_id).first()
-        if category == "computer":
-            if not device or not device.group or device.group.group_name.strip().lower() != "computer":
+        is_computer = bool(device and device.group and device.group.group_name.strip().lower() == "computer")
+        if category == "computer" or is_computer:
+            if not is_computer and category == "computer":
                 return []
             targets = []
             for index, target in enumerate(device_paths, start=1):
@@ -706,3 +708,43 @@ def _backup_target_type_from_path(path: str) -> str:
     if path.endswith("/"):
         return "directory"
     return "file" if os.path.splitext(os.path.basename(normalized_path))[1] else "directory"
+
+
+@router.get("/{device_id}/backup-progress")
+def get_device_backup_progress(
+    device_id: int,
+):
+    """เรียกดูสถานะและความคืบหน้า (Real-time Progress) ของการสำรองข้อมูล"""
+    data = progress_tracker.get(device_id)
+    if not data:
+        return {
+            "device_id": device_id,
+            "status": "idle",
+            "stage": "idle",
+            "current_target": "",
+            "current_file": "",
+            "file_index": 0,
+            "total_files_estimate": 1,
+            "file_bytes_transferred": 0,
+            "file_bytes_total": 0,
+            "file_percent": 0.0,
+            "overall_percent": 0.0,
+            "speed_kb_sec": 0.0,
+            "elapsed_seconds": 0,
+            "message": "ไม่มีงานสำรองข้อมูลที่กำลังทำงาน",
+            "is_cancelled": False,
+        }
+    return data
+
+
+@router.post("/{device_id}/cancel-backup")
+def cancel_device_backup(
+    device_id: int,
+):
+    """ยกเลิกการสำรองข้อมูลของอุปกรณ์ที่กำลังทำงานอยู่"""
+    cancelled = progress_tracker.cancel(device_id)
+    return {
+        "device_id": device_id,
+        "cancelled": cancelled,
+        "message": "ส่งคำขอยกเลิกการสำรองข้อมูลเรียบร้อยแล้ว" if cancelled else "ไม่พบงานสำรองข้อมูลที่กำลังทำงานอยู่",
+    }

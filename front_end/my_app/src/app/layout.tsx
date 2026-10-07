@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ActiveBackupProvider } from "@/components/ActiveBackupProvider";
 import { AppShell } from "@/components/AppShell";
 import { AuthSessionProvider } from "@/components/AuthSessionProvider";
 import { ToastProvider } from "@/components/ToastProvider";
@@ -19,7 +20,9 @@ export default async function RootLayout({
       <body>
         <AuthSessionProvider>
           <ToastProvider>
-            <AppShell>{children}</AppShell>
+            <ActiveBackupProvider>
+              <AppShell>{children}</AppShell>
+            </ActiveBackupProvider>
           </ToastProvider>
         </AuthSessionProvider>
       </body>
