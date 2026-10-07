@@ -6,7 +6,23 @@
 - `api`: FastAPI ที่ port `8000` และเก็บ backup/config ผ่าน `./storage`
 - `web`: Next.js production ที่ port `3000`
 
-## เตรียมเครื่อง
+## ทางเลือกรันไฟล์เดียวอัตโนมัติ (Fast Track)
+
+### 1. เครื่องใหม่ที่ยังไม่มี Docker
+ติดตั้ง Docker Engine + Docker Compose + ตั้งค่าสิทธิ์ และรันระบบให้อัตโนมัติ:
+```bash
+./setup.sh
+```
+
+### 2. เครื่องที่มี Docker แล้ว
+Build ทั้ง 2 ฝั่ง (Frontend + Backend) และรัน Container จบในคำสั่งเดียว:
+```bash
+./build.sh
+```
+
+---
+
+## ติดตั้งและเตรียมเครื่องแบบ Manual
 
 ติดตั้ง Docker Engine และ Docker Compose plugin แล้วตรวจสอบ:
 

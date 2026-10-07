@@ -2341,20 +2341,37 @@
 }
 
 .dangerButton {
-  padding: 8px 16px;
-  border-radius: 8px;
-  border: 1px solid #fca5a5;
-  background: #fef2f2;
-  color: #dc2626;
+  margin-right: auto;
+  min-height: 38px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid #fecaca !important;
+  background: #fff7f7 !important;
+  color: #dc2626 !important;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   transition: all 0.15s ease;
 }
 
 .dangerButton:hover:not(:disabled) {
-  background: #dc2626;
-  color: #ffffff;
+  background: #fee2e2 !important;
+  border-color: #f87171 !important;
+  color: #b91c1c !important;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.15);
+}
+
+.dangerButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.dangerButton svg {
+  width: 15px;
+  height: 15px;
 }
 
 .resultBox {

@@ -39,6 +39,7 @@ import {
   ClockIcon,
   CopyIcon,
   DatabaseIcon,
+  DeleteIcon,
   DeviceIcon,
   FileTextIcon,
   FolderIcon,
@@ -1137,9 +1138,11 @@ export function BackupsWorkspace({
                     createdAtRaw: backupDetail.created_at,
                   })}
                   disabled={saving}
+                  title="ลบชุดข้อมูลสำรองนี้"
                   type="button"
                 >
-                  Delete
+                  <DeleteIcon className={styles.miniIcon} />
+                  ลบชุดข้อมูลสำรอง
                 </button>
               ) : null}
               <button onClick={closeModal} type="button">Close</button>
@@ -1159,9 +1162,11 @@ export function BackupsWorkspace({
                   className={styles.dangerButton}
                   onClick={() => pathScope === "computer" ? void deleteComputerPath(editingPathTarget.path) : requestDeleteCustomPath(editingPathTarget.path)}
                   disabled={saving}
+                  title="ลบ Path สำรองข้อมูลนี้"
                   type="button"
                 >
-                  Delete {pathScope === "computer" ? "computer " : ""}path
+                  <DeleteIcon className={styles.miniIcon} />
+                  ลบ {pathScope === "computer" ? "computer " : ""}path
                 </button>
               ) : null}
               {mode === "path" ? (

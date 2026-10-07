@@ -33,7 +33,7 @@ services:
       AUTO_BACKUP_PATHS_FILE: /app/storage/config/auto_backup_paths.json
       AUTO_BACKUP_SETTINGS_FILE: /app/storage/config/auto_backup_settings.json
       AUTO_CLEANUP_SETTINGS_FILE: /app/storage/config/auto_cleanup_settings.json
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000,http://172.30.39.6:3000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
     depends_on:
       db:
         condition: service_healthy

@@ -541,6 +541,12 @@
   color: #0284c7;
 }
 
+.actionDelete:hover {
+  border-color: #fca5a5;
+  background: #fff1f2;
+  color: #b91c1c;
+}
+
 .emptyTableCell {
   height: 180px;
   text-align: center !important;
@@ -1011,6 +1017,92 @@
 .modalActions button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.modalActions .deleteDeviceBtn {
+  margin-right: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-color: #fecaca;
+  background: #fff7f7;
+  color: #dc2626;
+  font-weight: 700;
+}
+
+.modalActions .deleteDeviceBtn:hover:not(:disabled) {
+  background: #fee2e2;
+  border-color: #f87171;
+  color: #b91c1c;
+}
+
+.modalActions .deleteDeviceBtn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.confirmOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.confirmBackdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(15, 23, 42, 0.46);
+  backdrop-filter: blur(4px);
+}
+
+.confirmDialog {
+  position: relative;
+  z-index: 1;
+  width: min(420px, 100%);
+  padding: 24px;
+  border: 1px solid #fecaca;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.24);
+}
+
+.confirmDialog h2 {
+  margin: 0;
+  color: #162235;
+  font-size: 19px;
+}
+
+.confirmDialog p {
+  margin: 10px 0 20px;
+  color: #66758a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.confirmActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.confirmActions button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid #dbe4ee;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 760;
+}
+
+.confirmActions button:last-child {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: #ffffff;
 }
 
 /* File Browser Modal */

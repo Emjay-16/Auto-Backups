@@ -232,13 +232,18 @@ export default function RestorePage() {
           const gKey = getGroupKey(file);
           const customGroup = groupPaths[gKey]?.trim();
           if (customGroup) {
-            const relUnderCategory =
-              (gKey === MAPS_ROOT || gKey === SOUNDS_ROOT) && file.file_path
-                ? file.file_path.replace(/\\/g, "/").replace(new RegExp(`^.*?/(maps|sounds)/`), "")
-                : file.file_name;
-            finalTarget = isZipBackupFile(file)
-              ? customGroup
-              : `${customGroup.replace(/\/$/, "")}/${relUnderCategory}`;
+            // __nodered__ and __udev__ groups store the full file path (e.g. .../flows.json),
+            // NOT a directory — appending the filename would double it (.../flows.json/flows.json)
+            const isFilePath = gKey === "__nodered__" || gKey === "__udev__";
+            if (isZipBackupFile(file) || isFilePath) {
+              finalTarget = customGroup;
+            } else {
+              const relUnderCategory =
+                (gKey === MAPS_ROOT || gKey === SOUNDS_ROOT) && file.file_path
+                  ? file.file_path.replace(/\\/g, "/").replace(new RegExp(`^.*?/(maps|sounds)/`), "")
+                  : file.file_name;
+              finalTarget = `${customGroup.replace(/\/$/, "")}/${relUnderCategory}`;
+            }
           } else {
             const specificPath = targetPaths[file.backup_file_id]?.trim();
             finalTarget = specificPath || fallbackTargetPath.trim();

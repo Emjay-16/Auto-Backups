@@ -50,7 +50,7 @@ class DeviceGroupResponse(DeviceGroupBase):
 
 class DeviceBase(BaseModel):
     group_id: int
-    device_code: str
+    device_code: Optional[str] = None
     device_name: str
     ip_address: str
     device_status: int

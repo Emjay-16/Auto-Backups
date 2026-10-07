@@ -37,14 +37,13 @@ class DeviceGroup(Base):
 class Device(Base):
     __tablename__ = "devices"
     __table_args__ = (
-        UniqueConstraint("device_code", name="uq_devices_device_code"),
         UniqueConstraint("ip_address", name="uq_devices_ip_address"),
         Index("ix_devices_group_id", "group_id"),
     )
 
     device_id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     group_id = Column(Integer, ForeignKey("device_groups.group_id"), nullable=False)
-    device_code = Column(Text, nullable=False)
+    device_code = Column(Text, nullable=True, default="")
     device_name = Column(Text, nullable=False)
     ip_address = Column(Text, nullable=False)
     device_status = Column(Integer, nullable=False, default=0)

@@ -427,21 +427,36 @@ def create_device(
             "Device group not found",
         )
 
-    existing_device = (
-        db.query(Device)
-        .filter(
-            (Device.device_code == data.device_code)
-            | (Device.ip_address == data.ip_address)
+    device_code = (data.device_code or "").strip()
+    if device_code:
+        existing_device = (
+            db.query(Device)
+            .filter(
+                (Device.device_code == device_code)
+                | (Device.ip_address == data.ip_address)
+            )
+            .first()
         )
-        .first()
-    )
+    else:
+        existing_device = (
+            db.query(Device)
+            .filter(Device.ip_address == data.ip_address)
+            .first()
+        )
 
     if existing_device:
-        raise api_exception(
-            400,
-            "DEVICE_ALREADY_EXISTS",
-            "Device code or IP address already exists",
-        )
+        if existing_device.ip_address == data.ip_address:
+            raise api_exception(
+                400,
+                "DEVICE_ALREADY_EXISTS",
+                "IP address already exists",
+            )
+        else:
+            raise api_exception(
+                400,
+                "DEVICE_ALREADY_EXISTS",
+                "Device code already exists",
+            )
 
     if data.ssh_password and not data.ssh_username:
         raise api_exception(
@@ -459,7 +474,7 @@ def create_device(
     now = now_local()
     new_device = Device(
         group_id=data.group_id,
-        device_code=data.device_code,
+        device_code=device_code,
         device_name=data.device_name,
         ip_address=data.ip_address,
         device_status=data.device_status,
@@ -523,20 +538,23 @@ def update_device(
             )
 
     if "device_code" in update_data:
-        existing_device = (
-            db.query(Device)
-            .filter(
-                Device.device_code == update_data["device_code"],
-                Device.device_id != device_id,
+        device_code_val = (update_data["device_code"] or "").strip()
+        update_data["device_code"] = device_code_val
+        if device_code_val:
+            existing_device = (
+                db.query(Device)
+                .filter(
+                    Device.device_code == device_code_val,
+                    Device.device_id != device_id,
+                )
+                .first()
             )
-            .first()
-        )
-        if existing_device:
-            raise api_exception(
-                400,
-                "DEVICE_CODE_ALREADY_EXISTS",
-                "Device code already exists",
-            )
+            if existing_device:
+                raise api_exception(
+                    400,
+                    "DEVICE_CODE_ALREADY_EXISTS",
+                    "Device code already exists",
+                )
 
     if "ip_address" in update_data:
         existing_device = (

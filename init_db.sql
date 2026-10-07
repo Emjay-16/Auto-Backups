@@ -292,7 +292,7 @@ ALTER SEQUENCE public.device_groups_group_id_seq OWNED BY public.device_groups.g
 CREATE TABLE public.devices (
     device_id integer NOT NULL,
     group_id integer NOT NULL,
-    device_code text NOT NULL,
+    device_code text DEFAULT ''::text,
     device_name text NOT NULL,
     ip_address text NOT NULL,
     device_status integer NOT NULL,

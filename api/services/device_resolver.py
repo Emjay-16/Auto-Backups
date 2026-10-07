@@ -144,3 +144,7 @@ def _unique_device_code(db: Session, base_code: str) -> str:
     if not existing:
         return base_code
     return f"{base_code}-{now_local():%H%M%S}"
+
+
+def generate_device_code(db: Session, device_name: str, ip_address: str) -> str:
+    return _unique_device_code(db, _device_code(device_name, ip_address))

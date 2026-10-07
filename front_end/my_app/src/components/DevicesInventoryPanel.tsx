@@ -13,6 +13,7 @@ import {
   updateDevice,
   getDeviceBackupPaths,
   addDeviceBackupPath,
+  deleteDevice,
   deleteDeviceBackupPath,
   getErrorMessage,
   type BackupRunResult,
@@ -30,6 +31,7 @@ import {
   ChevronRightIcon,
   ClockIcon,
   DatabaseIcon,
+  DeleteIcon,
   DeviceIcon,
   FileTextIcon,
   FolderIcon,
@@ -120,6 +122,7 @@ export function DevicesInventoryPanel({
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [filesLoading, setFilesLoading] = useState(false);
+  const [pendingDeleteDevice, setPendingDeleteDevice] = useState<Device | null>(null);
 
   const [backupProgress, setBackupProgress] = useState<{
     isOpen: boolean;
@@ -250,6 +253,23 @@ export function DevicesInventoryPanel({
     setDevicePaths([]);
     setNewDevicePath("");
     setNewDevicePathLabel("");
+  }
+
+  async function confirmDeleteDevice() {
+    if (!pendingDeleteDevice?.id) return;
+    setSaving(true);
+    try {
+      await deleteDevice(pendingDeleteDevice.id);
+      setPendingDeleteDevice(null);
+      setMode(null);
+      setSelectedDevice(null);
+      showToast({ tone: "success", title: "Device deleted", message: pendingDeleteDevice.name });
+      router.refresh();
+    } catch (errorResponse) {
+      showToast({ tone: "error", title: "Failed to delete device", message: getErrorMessage(errorResponse, "Could not delete device") });
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function openBrowse(device: Device) {
@@ -705,11 +725,11 @@ export function DevicesInventoryPanel({
                     </select>
                   </label>
                   <label>
-                    <span>Device Code</span>
+                    <span>Device Code (ไม่บังคับ)</span>
                     <input
                       value={form.deviceCode}
                       onChange={(event) => setForm({ ...form, deviceCode: event.target.value })}
-                      placeholder="e.g. 4PS00901"
+                      placeholder="เว้นว่างได้ (Optional)"
                     />
                   </label>
                   <label>
@@ -909,6 +929,18 @@ export function DevicesInventoryPanel({
             </div>
 
             <div className={styles.modalActions}>
+              {mode === "edit" && selectedDevice ? (
+                <button
+                  className={styles.deleteDeviceBtn}
+                  onClick={() => setPendingDeleteDevice(selectedDevice)}
+                  disabled={saving}
+                  title="Delete this device"
+                  type="button"
+                >
+                  <DeleteIcon className={styles.miniIcon} />
+                  ลบอุปกรณ์
+                </button>
+              ) : null}
               <button onClick={closeModal} type="button">Cancel</button>
               <button onClick={submitForm} disabled={saving} type="button">
                 {saving ? "Saving..." : mode === "add" ? "Add Device" : "Save Changes"}
@@ -1214,6 +1246,29 @@ export function DevicesInventoryPanel({
                   {saving ? "Backing up..." : "Start Backup"}
                 </button>
               ) : null}
+            </div>
+          </section>
+        </div>
+      ) : null}
+
+      {pendingDeleteDevice ? (
+        <div className={styles.confirmOverlay} role="dialog" aria-modal="true" aria-labelledby="delete-device-title">
+          <button
+            className={styles.confirmBackdrop}
+            onClick={() => !saving && setPendingDeleteDevice(null)}
+            aria-label="Cancel delete"
+            type="button"
+          />
+          <section className={styles.confirmDialog}>
+            <h2 id="delete-device-title">Delete device?</h2>
+            <p>
+              This will delete <strong>{pendingDeleteDevice.name}</strong> and its device-specific backup paths.
+            </p>
+            <div className={styles.confirmActions}>
+              <button onClick={() => setPendingDeleteDevice(null)} disabled={saving} type="button">Cancel</button>
+              <button onClick={() => void confirmDeleteDevice()} disabled={saving} type="button">
+                {saving ? "Deleting..." : "Delete device"}
+              </button>
             </div>
           </section>
         </div>

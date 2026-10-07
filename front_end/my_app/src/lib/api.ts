@@ -58,7 +58,7 @@ type ApiDevice = {
 
 export type DeviceFormPayload = {
   group_id: number;
-  device_code: string;
+  device_code?: string;
   device_name: string;
   ip_address: string;
   device_status: number;
@@ -392,6 +392,13 @@ export async function createDevice(payload: DeviceFormPayload): Promise<void> {
 
 export async function updateDevice(deviceId: number, payload: Partial<DeviceFormPayload>): Promise<void> {
   await sendJson(`/devices/${deviceId}`, "PUT", payload);
+}
+
+export async function deleteDevice(deviceId: number): Promise<void> {
+  const response = await fetchApi(`/devices/${deviceId}`, { method: "DELETE" });
+  if (!response.ok) {
+    throw new Error(await readApiError(response, `API /devices/${deviceId} failed: ${response.status}`));
+  }
 }
 
 export async function getDeviceBackupPaths(deviceId: number): Promise<DeviceBackupPath[]> {

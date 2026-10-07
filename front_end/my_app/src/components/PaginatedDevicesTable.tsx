@@ -23,12 +23,14 @@ export function PaginatedDevicesTable({
   onBackup,
   onBrowse,
   onEdit,
+  onDelete,
   onRestore,
 }: {
   devices: Device[];
   onBackup?: (device: Device) => void;
   onBrowse?: (device: Device) => void;
   onEdit?: (device: Device) => void;
+  onDelete?: (device: Device) => void;
   onRestore?: (device: Device) => void;
 }) {
   const [page, setPage] = useState(0);
