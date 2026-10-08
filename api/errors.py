@@ -1,9 +1,21 @@
 from typing import Any, Dict, Optional
 
 from fastapi import HTTPException, Request, status
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
+
+
+def _safe_json_detail(detail: Any) -> Any:
+    if detail is None:
+        return None
+    try:
+        return jsonable_encoder(detail)
+    except Exception:
+        if isinstance(detail, list):
+            return [str(x) for x in detail]
+        return str(detail)
 
 
 def error_response(
@@ -18,7 +30,7 @@ def error_response(
         content={
             "error_code": error_code,
             "message": message,
-            "detail": detail,
+            "detail": _safe_json_detail(detail),
             "status_code": status_code,
             "path": request.url.path,
         },
@@ -67,12 +79,19 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 
 
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    cleaned_errors = []
+    for err in exc.errors():
+        item = dict(err)
+        if "ctx" in item and isinstance(item["ctx"], dict):
+            item["ctx"] = {k: str(v) for k, v in item["ctx"].items()}
+        cleaned_errors.append(item)
+
     return error_response(
         request=request,
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         error_code="VALIDATION_ERROR",
         message="Request validation failed",
-        detail=exc.errors(),
+        detail=cleaned_errors,
     )
 
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { Activity } from "@/lib/types";
 import styles from "@/styles/pages/logs/logs.module.css";
 import { PaginationControls } from "./PaginationControls";
@@ -10,9 +10,11 @@ const PAGE_SIZE = 10;
 export function PaginatedLogsList({ activities }: { activities: Activity[] }) {
   const [page, setPage] = useState(0);
 
-  useEffect(() => {
+  const [prevActivities, setPrevActivities] = useState(activities);
+  if (activities !== prevActivities) {
+    setPrevActivities(activities);
     setPage(0);
-  }, [activities]);
+  }
 
   const pageCount = Math.max(1, Math.ceil(activities.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);

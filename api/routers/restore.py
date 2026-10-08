@@ -126,9 +126,10 @@ def restore_backup(
             str(exc),
         )
         db.commit()
+        is_bad_target = "target_path" in str(exc)
         raise api_exception(
-            status.HTTP_500_INTERNAL_SERVER_ERROR,
-            "RESTORE_FAILED",
+            status.HTTP_400_BAD_REQUEST if is_bad_target else status.HTTP_500_INTERNAL_SERVER_ERROR,
+            "INVALID_TARGET_PATH" if is_bad_target else "RESTORE_FAILED",
             str(exc),
         )
     except Exception as exc:

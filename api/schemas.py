@@ -1,8 +1,9 @@
+import ipaddress
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from api import constants
 
@@ -58,11 +59,31 @@ class DeviceBase(BaseModel):
     last_seen_at: Optional[datetime] = None
     status_changed_at: Optional[datetime] = None
 
+    @field_validator("ip_address")
+    @classmethod
+    def validate_ip(cls, v: str) -> str:
+        v_stripped = (v or "").strip()
+        if not v_stripped:
+            raise ValueError("IP address is required")
+        try:
+            ipaddress.ip_address(v_stripped)
+        except ValueError:
+            raise ValueError(f"Invalid IP address format: {v}")
+        return v_stripped
+
 
 class DeviceCreate(DeviceBase):
     ssh_username: Optional[str] = None
     ssh_password: Optional[str] = None
     ssh_port: Optional[int] = None
+
+    @field_validator("device_name")
+    @classmethod
+    def validate_device_name(cls, v: str) -> str:
+        v_stripped = (v or "").strip()
+        if not v_stripped:
+            raise ValueError("Device name cannot be empty")
+        return v_stripped
 
 
 class DeviceUpdate(BaseModel):
@@ -79,6 +100,30 @@ class DeviceUpdate(BaseModel):
     ssh_port: Optional[int] = None
     clear_ssh_override: bool = False
 
+    @field_validator("device_name")
+    @classmethod
+    def validate_device_name(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v_stripped = v.strip()
+        if not v_stripped:
+            raise ValueError("Device name cannot be empty")
+        return v_stripped
+
+    @field_validator("ip_address")
+    @classmethod
+    def validate_ip(cls, v: Optional[str]) -> Optional[str]:
+        if v is None:
+            return v
+        v_stripped = v.strip()
+        if not v_stripped:
+            raise ValueError("IP address cannot be empty")
+        try:
+            ipaddress.ip_address(v_stripped)
+        except ValueError:
+            raise ValueError(f"Invalid IP address format: {v}")
+        return v_stripped
+
 
 class DeviceResponse(DeviceBase):
     model_config = ConfigDict(from_attributes=True)
@@ -94,6 +139,8 @@ class DeviceResponse(DeviceBase):
     @classmethod
     def from_device(cls, device) -> "DeviceResponse":
         data = cls.model_validate(device)
+        if not (data.device_name or "").strip():
+            data.device_name = "Unnamed Device"
         if device.group:
             data.group_name = device.group.group_name
         data.has_ssh_override = device.has_ssh_override

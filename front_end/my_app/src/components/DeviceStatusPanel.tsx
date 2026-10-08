@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import type { Backup, Device } from "@/lib/types";
@@ -35,18 +35,24 @@ function formatBytes(bytes: number): string {
 export function DeviceStatusPanel({ devices, backups }: DeviceStatusPanelProps) {
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [modalSearch, setModalSearch] = useState("");
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const [prevDevice, setPrevDevice] = useState(selectedDevice);
+  if (selectedDevice !== prevDevice) {
+    setPrevDevice(selectedDevice);
+    if (!selectedDevice) {
+      setModalSearch("");
+    }
+  }
 
   useEffect(() => {
     if (selectedDevice) {
       closeButtonRef.current?.focus();
-    } else {
-      setModalSearch("");
     }
   }, [selectedDevice]);
 

@@ -145,12 +145,14 @@ function ThaiDateInput({ label, value, onCommit }: { label: string; value: strin
   const [viewYear, setViewYear] = useState(() => parsed?.year ?? new Date().getFullYear());
   const [viewMonth, setViewMonth] = useState(() => parsed?.month ?? new Date().getMonth());
 
-  useEffect(() => {
+  const [prevParsed, setPrevParsed] = useState(parsed);
+  if (parsed !== prevParsed) {
+    setPrevParsed(parsed);
     if (parsed) {
       setViewYear(parsed.year);
       setViewMonth(parsed.month);
     }
-  }, [parsed]);
+  }
 
   function commitDate() {
     const committed = onCommit(toApiDate(draftDate));

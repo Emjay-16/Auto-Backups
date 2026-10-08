@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import styles from "@/styles/components/AppModal.module.css";
 
@@ -15,6 +15,8 @@ type AppModalProps = {
   labelledBy?: string;
 };
 
+const emptySubscribe = () => () => {};
+
 export function AppModal({
   title,
   eyebrow,
@@ -25,10 +27,8 @@ export function AppModal({
   bodyClassName = "",
   labelledBy = "app-modal-title",
 }: AppModalProps) {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
   const modalRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -51,7 +51,7 @@ export function AppModal({
 
   return createPortal(
     <div className={styles.overlay} role="dialog" aria-modal="true" aria-labelledby={labelledBy}>
-      <div role="none" aria-hidden="true" className={styles.backdrop} onClick={onClose} />
+      <div aria-hidden="true" className={styles.backdrop} onClick={onClose} />
       <section ref={modalRef} className={`${styles.modal} ${className}`}>
         <header className={styles.header}>
           <div>

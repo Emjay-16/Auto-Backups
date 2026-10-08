@@ -101,19 +101,15 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [clearedNotificationIds, setClearedNotificationIds] = useState<string[]>([]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const notificationWrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
     try {
-      const saved = localStorage.getItem("auto_backup_sidebar_collapsed");
-      if (saved !== null) {
-        setIsCollapsed(saved === "true");
-      }
+      return localStorage.getItem("auto_backup_sidebar_collapsed") === "true";
     } catch {
-      // ignore
+      return false;
     }
-  }, []);
+  });
+  const notificationWrapRef = useRef<HTMLDivElement>(null);
 
   function toggleSidebar() {
     setIsCollapsed((prev) => {

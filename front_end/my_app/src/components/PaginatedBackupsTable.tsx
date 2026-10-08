@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Backup } from "@/lib/types";
 import styles from "@/styles/pages/backups/backups.module.css";
 import { ClockIcon, DeleteIcon, DetailsIcon, DownloadIcon, FileTextIcon } from "./ActionIcons";
@@ -29,9 +29,11 @@ export function PaginatedBackupsTable({
 }) {
   const [page, setPage] = useState(0);
 
-  useEffect(() => {
+  const [prevBackups, setPrevBackups] = useState(backups);
+  if (backups !== prevBackups) {
+    setPrevBackups(backups);
     setPage(0);
-  }, [backups]);
+  }
 
   const totalPages = Math.max(1, Math.ceil(backups.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages - 1);

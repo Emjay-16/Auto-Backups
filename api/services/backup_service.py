@@ -7,6 +7,7 @@ import shutil
 import tempfile
 import threading
 import time
+import uuid
 import zipfile
 from datetime import timedelta
 from decimal import Decimal
@@ -188,6 +189,11 @@ def delete_backup(backup_id: int, db: Session) -> schemas.BackupDeleteResponse:
     (
         db.query(models.ActivityLog)
         .filter(models.ActivityLog.backup_id == backup.backup_id)
+        .update({"backup_id": None}, synchronize_session=False)
+    )
+    (
+        db.query(models.BackupJob)
+        .filter(models.BackupJob.backup_id == backup.backup_id)
         .update({"backup_id": None}, synchronize_session=False)
     )
 
@@ -1049,7 +1055,7 @@ def backup_history_response(backup: models.Backup) -> schemas.BackupHistoryRespo
 def _backup_detail_files(backup: models.Backup) -> List[dict]:
     manifest = _read_auto_backup_manifest(backup)
     return [
-        _backup_file_detail(backup_file, manifest)
+        _backup_file_detail(backup_file, manifest, device=backup.device)
         for backup_file in backup.files
     ]
 
@@ -1057,9 +1063,10 @@ def _backup_detail_files(backup: models.Backup) -> List[dict]:
 def _backup_file_detail(
     backup_file: models.BackupFile,
     manifest: Optional[Dict[str, Any]],
+    device: Optional[models.Device] = None,
 ) -> dict:
     detail = schemas.BackupFileResponse.model_validate(backup_file).model_dump()
-    detail["remote_path"] = _backup_file_remote_path(backup_file, manifest)
+    detail["remote_path"] = _backup_file_remote_path(backup_file, manifest, device=device)
     file_path = resolve_backup_file_path(backup_file.file_path)
     detail["file_exists"] = file_path.exists() and file_path.is_file()
     return detail
@@ -1068,10 +1075,12 @@ def _backup_file_detail(
 def _backup_file_remote_path(
     backup_file: models.BackupFile,
     manifest: Optional[Dict[str, Any]],
+    device: Optional[models.Device] = None,
 ) -> Optional[str]:
     file_path = resolve_backup_file_path(backup_file.file_path)
     file_name = backup_file.file_name
     parent_name = file_path.parent.name
+    device = device or (backup_file.backup.device if backup_file.backup else None)
 
     # Check if this is a database backup file
     configured_database_file = _configured_robot_database_path(Path("/tmp"))
@@ -1129,7 +1138,51 @@ def _backup_file_remote_path(
         except ValueError:
             pass
 
-    # 3. Check if file belongs to standard robot directory structures on disk
+    # 2b. Match directory structure from manifest items even if root manifest is missing
+    for item in non_db_items:
+        rp = item["remote_path"]
+        dir_name = posixpath.basename(rp.rstrip("/\\"))
+        if dir_name in file_path.parts:
+            dir_idx = file_path.parts.index(dir_name)
+            sub_parts = file_path.parts[dir_idx + 1:]
+            if sub_parts:
+                return posixpath.join(rp, *sub_parts)
+            return rp
+
+    # 3. Match against configured device backup paths (e.g. Computer devices with custom paths)
+    if device and getattr(device, "backup_paths", None):
+        for bp in device.backup_paths:
+            bp_path = bp.path.rstrip("/\\")
+            bp_base = posixpath.basename(bp_path)
+            # Exact file match
+            if bp_base == file_name:
+                return bp.path
+            # Directory match
+            if bp_base in file_path.parts:
+                dir_idx = file_path.parts.index(bp_base)
+                sub_parts = file_path.parts[dir_idx + 1:]
+                if sub_parts:
+                    return posixpath.join(bp.path, *sub_parts)
+                return bp.path
+
+    # 4. Match against custom auto backup targets
+    try:
+        from api.services.backup_targets import get_custom_auto_backup_targets
+        for target in get_custom_auto_backup_targets():
+            tgt_path = target.path.rstrip("/\\")
+            tgt_base = posixpath.basename(tgt_path)
+            if tgt_base == file_name:
+                return target.path
+            if tgt_base in file_path.parts:
+                dir_idx = file_path.parts.index(tgt_base)
+                sub_parts = file_path.parts[dir_idx + 1:]
+                if sub_parts:
+                    return posixpath.join(target.path, *sub_parts)
+                return target.path
+    except Exception:
+        pass
+
+    # 5. Check standard robot files & directory structures on disk
     path_parts_lower = [part.lower() for part in file_path.parts]
     if "maps" in path_parts_lower:
         maps_idx = path_parts_lower.index("maps")
@@ -1140,7 +1193,7 @@ def _backup_file_remote_path(
     if "sounds" in path_parts_lower:
         sounds_idx = path_parts_lower.index("sounds")
         sub_parts = list(file_path.parts[sounds_idx + 1:])
-        sounds_root = "/home/matrix/public_web/ist_web_release/writable/uploads/sounds"
+        sounds_root = os.getenv("ROBOT_SOUNDS_PATH", "/home/matrix/public_web/ist_web_release/writable/uploads/sounds")
         return posixpath.join(sounds_root, *sub_parts) if sub_parts else sounds_root
 
     if file_name == "flows.json":
@@ -1149,7 +1202,21 @@ def _backup_file_remote_path(
     if file_name == "matrix_robot.rules":
         return "/etc/udev/rules.d/matrix_robot.rules"
 
-    # 4. Check if root-level JSON file is a database map row
+    if file_name == "auto_run.sh":
+        return "/home/matrix/auto_run.sh"
+
+    # 6. Audio files fallback (default to robot sounds directory)
+    audio_extensions = {".mp3", ".wav", ".ogg", ".flac", ".aac", ".m4a", ".opus", ".wma"}
+    if file_path.suffix.lower() in audio_extensions:
+        sounds_root = os.getenv("ROBOT_SOUNDS_PATH", "/home/matrix/public_web/ist_web_release/writable/uploads/sounds")
+        return posixpath.join(sounds_root, file_name)
+
+    # 7. Map files fallback (.pgm)
+    if file_path.suffix.lower() == ".pgm":
+        maps_root = os.getenv("ROBOT_MAPS_PATH", "/home/matrix/public_web/ist_web_release/writable/uploads/maps")
+        return posixpath.join(maps_root, file_name)
+
+    # 8. Check if root-level JSON file is a database map row
     if file_path.suffix.lower() == ".json":
         if parent_name in {"istuvd", "ros_maps", "istuvd.ros_maps"}:
             return database_items[0]["remote_path"] if database_items else f"database://{file_name}"
@@ -1162,7 +1229,7 @@ def _backup_file_remote_path(
         except Exception:
             pass
 
-    # 5. Default fallback to match file_name in non_db_items
+    # 9. Default fallback to match file_name in non_db_items
     for item in non_db_items:
         rp = item["remote_path"]
         if posixpath.basename(rp.rstrip("/\\")) == file_name:
@@ -1257,10 +1324,45 @@ def _create_combined_auto_backup(
 
         if manifest:
             _write_auto_backup_manifest(local_path, manifest)
-        elif database_dump:
+        else:
+            manifest_paths = {}
+            for df in downloaded_files:
+                if df.remote_path:
+                    manifest_paths[_normalize_remote_manifest_path(df.remote_path)] = {
+                        "remote_path": df.remote_path,
+                        "checksum": df.checksum,
+                        "modified_at": None,
+                        "is_directory": False,
+                        "size_bytes": int(df.file_size_mb * 1024 * 1024) if df.file_size_mb else None,
+                    }
+            if remote_paths:
+                for rp in remote_paths:
+                    norm = _normalize_remote_manifest_path(rp)
+                    if norm not in manifest_paths:
+                        manifest_paths[norm] = {
+                            "remote_path": rp,
+                            "checksum": None,
+                            "modified_at": None,
+                            "is_directory": True,
+                            "size_bytes": None,
+                        }
+            if database_dump:
+                for dump_file in database_dump:
+                    manifest_paths[_normalize_remote_manifest_path(dump_file.remote_path)] = {
+                        "remote_path": dump_file.remote_path,
+                        "checksum": dump_file.checksum,
+                        "modified_at": None,
+                        "is_directory": False,
+                        "size_bytes": None,
+                    }
             _write_auto_backup_manifest(
                 local_path,
-                _build_auto_backup_manifest([], database_dump, backup_mode="manual"),
+                {
+                    "version": 1,
+                    "backup_mode": "manual",
+                    "created_at": now_local().isoformat(),
+                    "paths": manifest_paths,
+                },
             )
 
         if zip_output:
@@ -1993,7 +2095,7 @@ def _make_download_zip(backup: models.Backup, backup_files: List[models.BackupFi
         )
 
     # Atomic write to unique temp file before replacing final zip to prevent partial/corrupted download
-    temp_zip = base_path / f".tmp_{backup.backup_id}_{int(time.time() * 1000)}.zip"
+    temp_zip = base_path / f".tmp_{backup.backup_id}_{uuid.uuid4().hex}.zip"
     try:
         with zipfile.ZipFile(temp_zip, "w", zipfile.ZIP_DEFLATED) as archive:
             used_names = set()

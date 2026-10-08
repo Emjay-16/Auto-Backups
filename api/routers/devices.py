@@ -429,6 +429,23 @@ def create_device(
             "Device group not found",
         )
 
+    device_name = (data.device_name or "").strip()
+    if not device_name:
+        raise api_exception(
+            400,
+            "INVALID_DEVICE_NAME",
+            "Device name cannot be empty",
+        )
+
+    try:
+        ipaddress.ip_address(data.ip_address.strip())
+    except ValueError:
+        raise api_exception(
+            400,
+            "INVALID_IP_ADDRESS",
+            f"Invalid IP address: {data.ip_address}",
+        )
+
     device_code = (data.device_code or "").strip()
     if device_code:
         existing_device = (
@@ -515,11 +532,14 @@ def update_device(
             "Device not found",
         )
 
-    update_data = {
-        field: value
-        for field, value in data.model_dump(exclude_unset=True).items()
-        if value is not None and value != ""
-    }
+    raw_data = data.model_dump(exclude_unset=True)
+    update_data = {}
+    for field, value in raw_data.items():
+        if field == "device_code":
+            # device_code can be cleared or set to empty string (optional field)
+            update_data[field] = (value or "").strip()
+        elif value is not None and value != "":
+            update_data[field] = value
 
     clear_ssh_override = update_data.pop("clear_ssh_override", False)
 
@@ -538,6 +558,16 @@ def update_device(
                 "DEVICE_GROUP_NOT_FOUND",
                 "Device group not found",
             )
+
+    if "device_name" in update_data:
+        device_name_val = (update_data["device_name"] or "").strip()
+        if not device_name_val:
+            raise api_exception(
+                400,
+                "INVALID_DEVICE_NAME",
+                "Device name cannot be empty",
+            )
+        update_data["device_name"] = device_name_val
 
     if "device_code" in update_data:
         device_code_val = (update_data["device_code"] or "").strip()
@@ -559,6 +589,15 @@ def update_device(
                 )
 
     if "ip_address" in update_data:
+        try:
+            ipaddress.ip_address(update_data["ip_address"].strip())
+        except ValueError:
+            raise api_exception(
+                400,
+                "INVALID_IP_ADDRESS",
+                f"Invalid IP address: {update_data['ip_address']}",
+            )
+
         existing_device = (
             db.query(Device)
             .filter(
@@ -656,6 +695,19 @@ def delete_device(
             "DEVICE_NOT_FOUND",
             "Device not found",
         )
+
+    from api.models import Backup, BackupJob, ActivityLog, RestoreLog
+    backup_count = db.query(Backup).filter(Backup.device_id == device_id).count()
+    if backup_count > 0:
+        raise api_exception(
+            400,
+            "DEVICE_HAS_BACKUPS",
+            f"Cannot delete device with {backup_count} existing backup(s). Please delete backups first.",
+        )
+
+    db.query(BackupJob).filter(BackupJob.device_id == device_id).update({"device_id": None}, synchronize_session=False)
+    db.query(ActivityLog).filter(ActivityLog.device_id == device_id).update({"device_id": None}, synchronize_session=False)
+    db.query(RestoreLog).filter(RestoreLog.device_id == device_id).update({"device_id": None}, synchronize_session=False)
 
     db.delete(device)
     db.commit()

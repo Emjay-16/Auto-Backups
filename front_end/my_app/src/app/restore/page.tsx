@@ -231,22 +231,27 @@ export default function RestorePage() {
         } else {
           const gKey = getGroupKey(file);
           const customGroup = groupPaths[gKey]?.trim();
-          if (customGroup) {
-            // __nodered__ and __udev__ groups store the full file path (e.g. .../flows.json),
-            // NOT a directory — appending the filename would double it (.../flows.json/flows.json)
-            const isFilePath = gKey === "__nodered__" || gKey === "__udev__";
-            if (isZipBackupFile(file) || isFilePath) {
-              finalTarget = customGroup;
-            } else {
-              const relUnderCategory =
-                (gKey === MAPS_ROOT || gKey === SOUNDS_ROOT) && file.file_path
-                  ? file.file_path.replace(/\\/g, "/").replace(new RegExp(`^.*?/(maps|sounds)/`), "")
-                  : file.file_name;
-              finalTarget = `${customGroup.replace(/\/$/, "")}/${relUnderCategory}`;
+          const defaultBase = getGroupDefaultPath(file).trim().replace(/\/+$/, "");
+          const originalTarget = inferRestoreTarget(file);
+
+          if (isZipBackupFile(file)) {
+            finalTarget = customGroup || originalTarget || defaultBase;
+          } else if (isSingleFilePathGroup(gKey)) {
+            finalTarget = customGroup || originalTarget;
+          } else if (customGroup && customGroup !== defaultBase) {
+            // User modified the target folder for this group
+            let relPath = file.file_name;
+            if (defaultBase && originalTarget.startsWith(defaultBase + "/")) {
+              relPath = originalTarget.slice(defaultBase.length + 1);
             }
+            finalTarget = `${customGroup.replace(/\/+$/, "")}/${relPath}`;
           } else {
+            // User kept the default folder, or used specific path override
             const specificPath = targetPaths[file.backup_file_id]?.trim();
-            finalTarget = specificPath || fallbackTargetPath.trim();
+            finalTarget =
+              specificPath ||
+              originalTarget ||
+              (fallbackTargetPath.trim() ? `${fallbackTargetPath.trim().replace(/\/+$/, "")}/${file.file_name}` : "");
           }
         }
         return {
@@ -254,6 +259,16 @@ export default function RestorePage() {
           target_path: finalTarget,
         };
       });
+
+    const missingTarget = items.find((item) => {
+      const file = (backupDetail?.files ?? []).find((f) => f.backup_file_id === item.backup_file_id);
+      return !isLikelyDatabaseBackupFile(file!) && !item.target_path.trim();
+    });
+    if (missingTarget) {
+      setError("มีบางไฟล์ที่ไม่ทราบตำแหน่งปลายทาง กรุณาระบุโฟลเดอร์หรือตำแหน่งไฟล์ปลายทาง");
+      setSaving(false);
+      return;
+    }
 
     try {
       const response = await restoreBackup(backupId, {
@@ -484,7 +499,7 @@ export default function RestorePage() {
                         </button>
                       ))
                     ) : (
-                      <p className={styles.empty}>No backups available.</p>
+                      <p className={styles.empty}>{isLoadingList ? "กำลังโหลดรายการไฟล์สำรอง..." : "ไม่พบชุดข้อมูลสำรอง"}</p>
                     )}
                   </div>
 
@@ -712,7 +727,11 @@ export default function RestorePage() {
                             onClick={() =>
                               setExpandedGroups((cur) => {
                                 const next = new Set(cur);
-                                next.has(group.groupKey) ? next.delete(group.groupKey) : next.add(group.groupKey);
+                                if (next.has(group.groupKey)) {
+                                  next.delete(group.groupKey);
+                                } else {
+                                  next.add(group.groupKey);
+                                }
                                 return next;
                               })
                             }
@@ -724,11 +743,11 @@ export default function RestorePage() {
 
                         {group.groupType !== "database" ? (
                           <div className={styles.groupPathRow}>
-                            <span>TARGET FOLDER</span>
+                            <span>{isSingleFilePathGroup(group.groupKey) ? "TARGET FILE" : "TARGET FOLDER"}</span>
                             <input
                               value={currentGroupPath}
                               onChange={(e) => setGroupPaths((cur) => ({ ...cur, [group.groupKey]: e.target.value }))}
-                              placeholder="/remote/path/on/robot"
+                              placeholder={isSingleFilePathGroup(group.groupKey) ? "/remote/file/on/device" : "/remote/path/on/device"}
                             />
                             {currentGroupPath !== group.sharedTargetPath && group.sharedTargetPath ? (
                               <button
@@ -863,6 +882,10 @@ export default function RestorePage() {
   );
 }
 
+function isSingleFilePathGroup(groupKey: string): boolean {
+  return groupKey === "__nodered__" || groupKey === "__udev__" || groupKey === "__autorun__";
+}
+
 function inferRestoreTarget(file: BackupFileDetail): string {
   if (isLikelyDatabaseBackupFile(file)) return "";
 
@@ -878,6 +901,7 @@ function inferRestoreTarget(file: BackupFileDetail): string {
 
   if (file.file_name === "flows.json") return "/home/matrix/node-red-dev/node-red-user/flows.json";
   if (file.file_name === "matrix_robot.rules") return "/etc/udev/rules.d/matrix_robot.rules";
+  if (file.file_name === "auto_run.sh") return "/home/matrix/auto_run.sh";
 
   const filePath = (file.file_path ?? "").replace(/\\/g, "/");
   const lowerPath = filePath.toLowerCase();
@@ -896,6 +920,15 @@ function inferRestoreTarget(file: BackupFileDetail): string {
     return `${soundsRoot}/${rel}`;
   }
 
+  const ext = file.file_name.includes(".") ? file.file_name.slice(file.file_name.lastIndexOf(".")).toLowerCase() : "";
+  if ([".mp3", ".wav", ".ogg", ".flac", ".aac", ".m4a", ".opus", ".wma"].includes(ext)) {
+    return `${soundsRoot}/${file.file_name}`;
+  }
+
+  if (ext === ".pgm") {
+    return `${mapsRoot}/${file.file_name}`;
+  }
+
   if (isZipBackupFile(file)) {
     if (file.file_name.toLowerCase().includes("maps") || lowerPath.includes("maps")) {
       return mapsRoot;
@@ -906,7 +939,7 @@ function inferRestoreTarget(file: BackupFileDetail): string {
     return mapsRoot;
   }
 
-  return `${mapsRoot}/${file.file_name}`;
+  return "";
 }
 
 function isLikelyDatabaseBackupFile(file: BackupFileDetail): boolean {
@@ -952,6 +985,20 @@ function getGroupKey(file: BackupFileDetail): string {
 
   if (target === "/home/matrix/node-red-dev/node-red-user/flows.json") return "__nodered__";
   if (target === "/etc/udev/rules.d/matrix_robot.rules") return "__udev__";
+  if (target === "/home/matrix/auto_run.sh") return "__autorun__";
+
+  // Check if file_path has a sub-folder under the backup directory
+  // e.g., /app/storage/backups/<device>/<timestamp>/<top_folder>/<nested_path>
+  const filePath = (file.file_path ?? "").replace(/\\/g, "/");
+  const parts = filePath.split("/").filter(Boolean);
+  const backupsIdx = parts.lastIndexOf("backups");
+  if (backupsIdx !== -1 && parts.length > backupsIdx + 3) {
+    const topSegment = parts[backupsIdx + 3];
+    if (topSegment && topSegment !== file.file_name && target.includes(`/${topSegment}`)) {
+      const segIdx = target.indexOf(`/${topSegment}`);
+      return target.slice(0, segIdx + 1 + topSegment.length);
+    }
+  }
 
   const slashIdx = target.lastIndexOf("/");
   return slashIdx > 0 ? target.slice(0, slashIdx) : target;
@@ -964,10 +1011,12 @@ function getGroupLabel(file: BackupFileDetail): string {
   if (key === SOUNDS_ROOT) return "Sounds";
   if (key === "__nodered__") return "Node-RED flows";
   if (key === "__udev__") return "udev rules";
+  if (key === "__autorun__") return "auto_run.sh";
   if (key === "__other__") return "Other files";
+
   const parts = key.split("/").filter(Boolean);
-  const lastTwo = parts.slice(-2).join("/");
-  return lastTwo;
+  const lastPart = parts[parts.length - 1];
+  return lastPart || key;
 }
 
 function getGroupDefaultPath(file: BackupFileDetail): string {
@@ -975,5 +1024,6 @@ function getGroupDefaultPath(file: BackupFileDetail): string {
   if (key === "__database__" || key === "__other__") return "";
   if (key === "__nodered__") return "/home/matrix/node-red-dev/node-red-user/flows.json";
   if (key === "__udev__") return "/etc/udev/rules.d/matrix_robot.rules";
+  if (key === "__autorun__") return "/home/matrix/auto_run.sh";
   return key;
 }

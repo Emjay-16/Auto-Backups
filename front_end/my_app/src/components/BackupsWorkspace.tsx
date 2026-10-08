@@ -13,11 +13,8 @@ import {
   getAutoCleanupSettings,
   getBackupDetail,
   getBackupTargets,
-  getDeviceBackupProgress,
-  cancelDeviceBackup,
   deleteDeviceBackupPath,
   listDeviceFiles,
-  runCombinedBackup,
   saveBackupPathLabel,
   saveCustomBackupPath,
   updateAutoBackupSettings,
@@ -27,7 +24,6 @@ import {
   type AutoCleanupSettings,
   type BackupDetail,
   type BackupCleanupResult,
-  type BackupProgressInfo,
   type BackupRunResult,
   type BackupTarget,
   type RemoteFile,
@@ -37,10 +33,8 @@ import styles from "@/styles/pages/backups/backups.module.css";
 import {
   ArrowUpIcon,
   BackupIcon,
-  CheckIcon,
   CleanupIcon,
   ClockIcon,
-  CopyIcon,
   DatabaseIcon,
   DeleteIcon,
   DeviceIcon,
@@ -114,37 +108,23 @@ export function BackupsWorkspace({
   const [editingPathTarget, setEditingPathTarget] = useState<BackupTarget | null>(null);
   const [pathScope, setPathScope] = useState<"fleet" | "computer">("fleet");
   const [selectedDeviceBackups, setSelectedDeviceBackups] = useState("");
-  const [copiedTargetKey, setCopiedTargetKey] = useState<string | null>(null);
   const backupTargets = useMemo(
     () => mergeBackupTargets(liveTargets, addedBackupTargets),
     [liveTargets, addedBackupTargets],
   );
 
-  function copyTargetPath(path: string, key: string) {
-    if (typeof navigator !== "undefined" && navigator.clipboard) {
-      navigator.clipboard.writeText(path).then(() => {
-        setCopiedTargetKey(key);
-        setTimeout(() => setCopiedTargetKey(null), 1800);
-      }).catch(() => {
-        showToast({
-          tone: "error",
-          title: "คัดลอกไม่สำเร็จ",
-          message: "เบราว์เซอร์ไม่อนุญาตให้เข้าถึงคลิปบอร์ด",
-        });
-      });
-    }
-  }
-
   useEffect(() => {
     const numericDeviceId = Number(deviceId);
 
     if (!numericDeviceId) {
-      setTargetsLoading(false);
       return;
     }
 
-    setTargetsLoading(true);
     let cancelled = false;
+    const timer = setTimeout(() => {
+      if (!cancelled) setTargetsLoading(true);
+    }, 0);
+
     getBackupTargets(numericDeviceId, backupCategory)
       .then((fetched) => {
         if (!cancelled) setLiveTargets(fetched);
@@ -158,6 +138,7 @@ export function BackupsWorkspace({
 
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId, backupCategory]);
@@ -2077,60 +2058,4 @@ function findOpenedParentFolder(path: string, openedPath: string): string | null
 
 function uniquePaths(paths: string[]): string[] {
   return Array.from(new Set(paths));
-}
-
-function getTargetIconBox(target: BackupTarget) {
-  const isDb =
-    target.backup_api === "robot_db" ||
-    target.target_type === "database" ||
-    target.path.includes("database") ||
-    target.path.includes("db") ||
-    target.label.toLowerCase().includes("json");
-  const isFile =
-    target.target_type === "file" ||
-    target.path.endsWith(".sh") ||
-    target.path.endsWith(".rules") ||
-    target.path.endsWith(".py") ||
-    target.path.endsWith(".json");
-  if (isDb) {
-    return (
-      <span className={`${styles.pathIconBox} ${styles.pathIconBoxDb}`} aria-hidden="true">
-        <DatabaseIcon />
-      </span>
-    );
-  }
-  if (isFile) {
-    return (
-      <span className={`${styles.pathIconBox} ${styles.pathIconBoxFile}`} aria-hidden="true">
-        <FileTextIcon />
-      </span>
-    );
-  }
-  return (
-    <span className={`${styles.pathIconBox} ${styles.pathIconBoxFolder}`} aria-hidden="true">
-      <FolderIcon />
-    </span>
-  );
-}
-
-function getTargetTypeBadge(target: BackupTarget) {
-  const isDb =
-    target.backup_api === "robot_db" ||
-    target.target_type === "database" ||
-    target.path.includes("database") ||
-    target.path.includes("db") ||
-    target.label.toLowerCase().includes("json");
-  const isFile =
-    target.target_type === "file" ||
-    target.path.endsWith(".sh") ||
-    target.path.endsWith(".rules") ||
-    target.path.endsWith(".py") ||
-    target.path.endsWith(".json");
-  if (isDb) {
-    return <span className={`${styles.pathTypeBadge} ${styles.pathTypeBadgeDb}`}>DB</span>;
-  }
-  if (isFile) {
-    return <span className={`${styles.pathTypeBadge} ${styles.pathTypeBadgeFile}`}>FILE</span>;
-  }
-  return <span className={`${styles.pathTypeBadge} ${styles.pathTypeBadgeFolder}`}>DIR</span>;
 }

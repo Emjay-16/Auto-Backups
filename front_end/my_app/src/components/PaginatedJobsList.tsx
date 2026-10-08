@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Job } from "@/lib/types";
 import styles from "@/styles/pages/jobs/jobs.module.css";
 import { StatusBadge } from "./StatusBadge";
@@ -11,9 +11,11 @@ const PAGE_SIZE = 10;
 export function PaginatedJobsList({ jobs }: { jobs: Job[] }) {
   const [page, setPage] = useState(0);
 
-  useEffect(() => {
+  const [prevJobs, setPrevJobs] = useState(jobs);
+  if (jobs !== prevJobs) {
+    setPrevJobs(jobs);
     setPage(0);
-  }, [jobs]);
+  }
 
   const pageCount = Math.max(1, Math.ceil(jobs.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount - 1);

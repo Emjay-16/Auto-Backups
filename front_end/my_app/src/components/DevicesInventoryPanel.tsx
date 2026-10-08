@@ -1,16 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Device } from "@/lib/types";
 import {
   createDevice,
   backupTargetTypeFromPath,
   getBackupTargets,
   listDeviceFiles,
-  runCombinedBackup,
-  getDeviceBackupProgress,
-  cancelDeviceBackup,
   saveCustomBackupPath,
   updateDevice,
   getDeviceBackupPaths,
@@ -18,7 +15,6 @@ import {
   deleteDevice,
   deleteDeviceBackupPath,
   getErrorMessage,
-  type BackupProgressInfo,
   type BackupRunResult,
   type BackupTarget,
   type DeviceFormPayload,
@@ -1297,7 +1293,7 @@ function buildUpdatePayload(form: FormState, original: Device): Partial<DeviceFo
   const ipAddress = form.ipAddress.trim();
 
   if (groupId && groupId !== original.groupId) payload.group_id = groupId;
-  if (deviceCode !== original.code) payload.device_code = deviceCode;
+  if (deviceCode !== (original.code ?? "")) payload.device_code = deviceCode;
   if (deviceName !== original.name) payload.device_name = deviceName;
   if (ipAddress !== original.ip) payload.ip_address = ipAddress;
   if (form.autoBackupEnabled !== original.autoBackupEnabled) payload.auto_backup_enabled = form.autoBackupEnabled;
