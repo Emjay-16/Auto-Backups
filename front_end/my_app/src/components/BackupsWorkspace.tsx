@@ -44,6 +44,7 @@ import {
   SettingsIcon,
 } from "./ActionIcons";
 import { AppModal } from "./AppModal";
+import { AutoRefresh } from "./AutoRefresh";
 import { useActiveBackup } from "./ActiveBackupProvider";
 import { PaginatedBackupsTable } from "./PaginatedBackupsTable";
 import { Panel } from "./Panel";
@@ -92,6 +93,8 @@ export function BackupsWorkspace({
   const [cleanupIntervalHours, setCleanupIntervalHours] = useState("720");
   const [cleanupKeepLatest, setCleanupKeepLatest] = useState(true);
   const [cleanupSettings, setCleanupSettings] = useState<AutoCleanupSettings | null>(null);
+  const [cleanupPreview, setCleanupPreview] = useState<BackupCleanupResult | null>(null);
+  const [pendingCleanupConfirm, setPendingCleanupConfirm] = useState(false);
   const [autoBackupSettings, setAutoBackupSettings] = useState<AutoBackupSettings | null>(null);
   const [autoBackupEnabled, setAutoBackupEnabled] = useState(false);
   const [autoBackupIntervalHours, setAutoBackupIntervalHours] = useState("168");
@@ -203,6 +206,8 @@ export function BackupsWorkspace({
     }
     setMode(nextMode);
     setResult(null);
+    setCleanupPreview(null);
+    setPendingCleanupConfirm(false);
     setError("");
   }
 
@@ -273,6 +278,8 @@ export function BackupsWorkspace({
     }
     setMode(null);
     setResult(null);
+    setCleanupPreview(null);
+    setPendingCleanupConfirm(false);
     setError("");
   }
 
@@ -407,18 +414,56 @@ export function BackupsWorkspace({
     }
   }
 
+  function buildCleanupPayload(dryRun: boolean) {
+    const daysValue = Number(cleanupDays);
+    return {
+      older_than_days: Math.max(Number.isFinite(daysValue) ? Math.floor(daysValue) : 1, 1),
+      keep_latest_per_device: cleanupKeepLatest,
+      // Manual "Clean now" respects the retention shown in this modal.
+      // (Previously ignore_retention:true wiped almost everything.)
+      ignore_retention: false,
+      dry_run: dryRun,
+    };
+  }
+
+  function cleanupDeviceName(deviceId: number): string {
+    return devices.find((device) => device.id === deviceId)?.name ?? `Device #${deviceId}`;
+  }
+
+  async function previewCleanup() {
+    setSaving(true);
+    setError("");
+    setResult(null);
+    setCleanupPreview(null);
+    try {
+      const response = await cleanupBackups(buildCleanupPayload(true));
+      setCleanupPreview(response);
+      if (!response.candidates) {
+        showToast({
+          tone: "info",
+          title: "ไม่มีอะไรต้องลบ",
+          message: "No backups matched the cleanup rule",
+        });
+      }
+    } catch (errorResponse) {
+      showToast({
+        tone: "error",
+        title: "ดูตัวอย่างการล้างข้อมูลไม่สำเร็จ",
+        message: getErrorMessage(errorResponse, "ไม่สามารถดูตัวอย่างการล้างไฟล์สำรองเก่าได้"),
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function submitCleanup() {
     setSaving(true);
     setError("");
     setResult(null);
     try {
-      const daysValue = Number(cleanupDays);
-      const olderThanDays = Math.max(Number.isFinite(daysValue) ? Math.floor(daysValue) : 1, 1);
-      const response = await cleanupBackups({
-        older_than_days: olderThanDays,
-        keep_latest_per_device: cleanupKeepLatest,
-        ignore_retention: true,
-      });
+      const response = await cleanupBackups(buildCleanupPayload(false));
+      setCleanupPreview(null);
+      setPendingCleanupConfirm(false);
       setResult(response);
       showToast({
         tone: "success",
@@ -452,6 +497,7 @@ export function BackupsWorkspace({
         keep_latest_per_device: cleanupKeepLatest,
       });
       setCleanupSettings(settings);
+      setCleanupPreview(null);
       setCleanupDays(String(settings.older_than_days));
       setCleanupEnabled(settings.enabled);
       setCleanupIntervalHours(String(settings.interval_hours));
@@ -797,6 +843,7 @@ export function BackupsWorkspace({
 
   return (
     <div className={styles.page}>
+      <AutoRefresh intervalMs={30000} />
       <div className={styles.leftColumn}>
         <section className={styles.overviewPanel}>
           <div className={styles.sectionIntro}>
@@ -1132,8 +1179,9 @@ export function BackupsWorkspace({
                 </button>
               ) : null}
               {mode === "autoBackup" ? <button onClick={saveAutoBackupSettings} disabled={saving} type="button">{saving ? "Saving..." : "Save settings"}</button> : null}
-              {mode === "cleanup" ? <button onClick={saveCleanupSettings} disabled={saving} type="button">{saving ? "Saving..." : "Save settings"}</button> : null}
-              {mode === "cleanup" ? <button onClick={submitCleanup} disabled={saving} type="button">{saving ? "Cleaning..." : "Clean now"}</button> : null}
+              {mode === "cleanup" && !cleanupPreview ? <button onClick={saveCleanupSettings} disabled={saving} type="button">{saving ? "Saving..." : "Save settings"}</button> : null}
+              {mode === "cleanup" && !cleanupPreview ? <button onClick={previewCleanup} disabled={saving} type="button">{saving ? "Loading..." : "ดูตัวอย่างก่อนลบ"}</button> : null}
+              {mode === "cleanup" && cleanupPreview ? <button onClick={() => setCleanupPreview(null)} disabled={saving} type="button">ย้อนกลับ</button> : null}
             </>
           )}
         >
@@ -1260,6 +1308,7 @@ export function BackupsWorkspace({
               </label>
             </div>
           ) : mode === "cleanup" ? (
+            <>
             <div className={styles.formGrid}>
               <label className={styles.switchContainer}>
                 <div className={styles.switchInfo}>
@@ -1273,7 +1322,7 @@ export function BackupsWorkspace({
               </label>
               <label>
                 Older than days
-                <input value={cleanupDays} onChange={(event) => setCleanupDays(event.target.value)} />
+                <input value={cleanupDays} onChange={(event) => { setCleanupDays(event.target.value); setCleanupPreview(null); }} />
                 {cleanupSettings ? (
                   <span className={styles.fieldHint}>
                     Current auto cleanup setting: {formatCleanupRetention(cleanupSettings)}
@@ -1290,11 +1339,50 @@ export function BackupsWorkspace({
                   <span className={styles.switchSubtitle}>เก็บสำรองข้อมูลล่าสุดของแต่ละอุปกรณ์ไว้เสมอ แม้จะหมดอายุ</span>
                 </div>
                 <span className={styles.toggleSwitch}>
-                  <input checked={cleanupKeepLatest} onChange={(event) => setCleanupKeepLatest(event.target.checked)} type="checkbox" />
+                  <input checked={cleanupKeepLatest} onChange={(event) => { setCleanupKeepLatest(event.target.checked); setCleanupPreview(null); }} type="checkbox" />
                   <span className={styles.slider} />
                 </span>
               </label>
             </div>
+            {mode === "cleanup" && cleanupPreview ? (
+              <section className={styles.cleanupPreview} aria-live="polite">
+                <header className={styles.cleanupPreviewHeader}>
+                  <strong>ตัวอย่างก่อนลบ (ยังไม่มีอะไรถูกลบ)</strong>
+                  <span>
+                    {cleanupPreview.deleted} ชุดจะถูกลบ · {cleanupPreview.skipped} ชุดถูกข้าม · จาก {cleanupPreview.candidates} ชุดที่เข้าเกณฑ์
+                  </span>
+                </header>
+                {cleanupPreview.items.length ? (
+                  <ul className={styles.cleanupPreviewList}>
+                    {cleanupPreview.items.map((item) => (
+                      <li key={item.backup_id} className={styles.cleanupPreviewItem}>
+                        <b className={item.deleted ? styles.previewDelete : styles.previewSkip}>
+                          {item.deleted ? "จะลบ" : "ข้าม"}
+                        </b>
+                        <div>
+                          <strong>{item.backup_name}</strong>
+                          <span>{cleanupDeviceName(item.device_id)} · {formatCleanupDate(item.created_at)}</span>
+                        </div>
+                        <small>{item.reason}</small>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className={styles.emptyText}>ไม่มีรายการที่เข้าเกณฑ์การล้างข้อมูล</p>
+                )}
+                <div className={styles.cleanupPreviewActions}>
+                  <button
+                    className={styles.dangerButton}
+                    disabled={saving || !cleanupPreview.deleted}
+                    onClick={() => setPendingCleanupConfirm(true)}
+                    type="button"
+                  >
+                    {saving ? "Deleting..." : `ยืนยันลบ ${cleanupPreview.deleted} ชุด`}
+                  </button>
+                </div>
+              </section>
+            ) : null}
+            </>
           ) : mode === "path" ? (
             <div className={styles.pathManager}>
               <div className={styles.pathManagerIntro}>
@@ -1728,6 +1816,29 @@ export function BackupsWorkspace({
         </AppModal>
       ) : null}
 
+      {pendingCleanupConfirm && cleanupPreview ? (
+        <div className={styles.confirmOverlay} role="dialog" aria-modal="true" aria-labelledby="confirm-cleanup-title">
+          <button className={styles.confirmBackdrop} onClick={() => !saving && setPendingCleanupConfirm(false)} aria-label="Cancel cleanup" type="button" />
+          <section className={styles.confirmDialog}>
+            <div className={styles.confirmIcon}>!</div>
+            <div className={styles.confirmContent}>
+              <h2 id="confirm-cleanup-title">ยืนยันการลบข้อมูลถาวร</h2>
+              <p>
+                จะลบชุดสำรองข้อมูล {cleanupPreview.deleted} ชุด (ข้าม {cleanupPreview.skipped} ชุด)
+                ไฟล์บนเซิร์ฟเวอร์และประวัติที่เกี่ยวข้องจะหายถาวร กู้คืนไม่ได้ ตรวจสอบรายการในตัวอย่างให้เรียบร้อยก่อนกดยืนยัน
+              </p>
+            </div>
+            {error ? <p className={styles.formError}>{error}</p> : null}
+            <div className={styles.confirmActions}>
+              <button onClick={() => setPendingCleanupConfirm(false)} disabled={saving} type="button">Cancel</button>
+              <button onClick={submitCleanup} disabled={saving} type="button">
+                {saving ? "Deleting..." : `ลบ ${cleanupPreview.deleted} ชุด`}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
+
       {pendingDeleteBackup ? (
         <div className={styles.confirmOverlay} role="dialog" aria-modal="true" aria-labelledby="delete-backup-title">
           <button className={styles.confirmBackdrop} onClick={() => !saving && setPendingDeleteBackup(null)} aria-label="Cancel delete" type="button" />
@@ -2020,6 +2131,23 @@ function formatCleanupRetention(settings: AutoCleanupSettings): string {
     return `older than ${settings.older_than_hours} hour(s)`;
   }
   return `older than ${settings.older_than_days} day(s)`;
+}
+
+function formatCleanupDate(raw: string): string {
+  try {
+    // API returns "YYYY-MM-DD HH:MM:SS.microseconds" — trim to seconds for safe parsing.
+    const date = new Date(raw.slice(0, 19).replace(" ", "T"));
+    if (Number.isNaN(date.getTime())) return raw;
+    return date.toLocaleString("th-TH", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return raw;
+  }
 }
 
 function normalizeZipFilename(filename: string): string {

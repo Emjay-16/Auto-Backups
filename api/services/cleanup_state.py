@@ -66,7 +66,20 @@ def update_auto_cleanup_settings(
         keep_latest_per_device=keep_latest_per_device,
     )
     _settings_changed_event.set()
+    _notify_scheduler_changed()
     return settings
+
+
+def _notify_scheduler_changed() -> None:
+    """Tell APScheduler to re-read intervals (lazy import: scheduler imports us)."""
+    try:
+        from api.services.scheduler import refresh_schedules
+    except ImportError:
+        return
+    try:
+        refresh_schedules()
+    except Exception:
+        logger.exception("Failed to refresh scheduler after settings change")
 
 
 def auto_cleanup_loop(stop_event: threading.Event, cleanup_func) -> None:

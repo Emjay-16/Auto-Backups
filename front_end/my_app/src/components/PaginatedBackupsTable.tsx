@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { Backup } from "@/lib/types";
 import styles from "@/styles/pages/backups/backups.module.css";
@@ -137,6 +138,10 @@ export function PaginatedBackupsTable({
                 <td className={styles.emptyTableCell} colSpan={8}>
                   <strong>ไม่พบรายการสำรองข้อมูล</strong>
                   <span>สร้างการสำรองข้อมูลใหม่ หรือปรับเปลี่ยนเงื่อนไขการค้นหา</span>
+                  <div className={styles.emptyActions}>
+                    <Link href="/backups">ล้างการค้นหา</Link>
+                    <Link href="/devices">ไปเพิ่มอุปกรณ์</Link>
+                  </div>
                 </td>
               </tr>
             )}

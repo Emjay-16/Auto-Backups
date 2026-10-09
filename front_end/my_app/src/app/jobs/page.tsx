@@ -1,3 +1,4 @@
+import { AutoRefresh } from "@/components/AutoRefresh";
 import { DateFilter } from "@/components/DateFilter";
 import { JobsWorkspace } from "@/components/JobsWorkspace";
 import { getJobsForUi } from "@/lib/api";
@@ -26,6 +27,7 @@ export default async function JobsPage({ searchParams }: JobsPageProps) {
 
   return (
     <div className={styles.page}>
+      <AutoRefresh intervalMs={10000} />
       <JobsWorkspace jobs={filteredJobs} action={<DateFilter value={selectedDate} label="เลือกวันที่" />} />
     </div>
   );

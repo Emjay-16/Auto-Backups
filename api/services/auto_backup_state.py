@@ -68,7 +68,20 @@ def update_auto_backup_settings(
         run_on_startup=run_on_startup,
     )
     _settings_changed_event.set()
+    _notify_scheduler_changed()
     return settings
+
+
+def _notify_scheduler_changed() -> None:
+    """Tell APScheduler to re-read intervals (lazy import: scheduler imports us)."""
+    try:
+        from api.services.scheduler import refresh_schedules
+    except ImportError:
+        return
+    try:
+        refresh_schedules()
+    except Exception:
+        logger.exception("Failed to refresh scheduler after settings change")
 
 
 def auto_backup_loop(stop_event: threading.Event, backup_func) -> None:

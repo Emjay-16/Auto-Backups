@@ -40,6 +40,7 @@ export type Job = {
   target: string;
   status: JobStatus;
   time: string;
+  startedAtRaw?: string;
   updatedAt: string;
   finishedAt: string;
   progress: number;

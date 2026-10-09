@@ -1,6 +1,6 @@
 import os
 import sys
-import threading
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -12,7 +12,6 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 if __package__ in (None, ""):
     sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from api import schemas
 from api.database import SessionLocal
 from api.errors import (
     http_exception_handler,
@@ -21,18 +20,40 @@ from api.errors import (
     validation_exception_handler,
 )
 from api.routers import auth, backups, device_groups, devices, jobs, logs, restore, uploads
+from api.services import task_runner
 from api.services.api_token_auth import api_token_auth_middleware
-from api.services.auto_backup_state import auto_backup_loop, pending_backup_loop
-from api.services.backup_service import (
-    cleanup_old_backups,
-    process_pending_auto_backups,
-    recover_stale_running_records,
-    run_auto_backups,
+from api.services.backup_service import recover_stale_running_records
+from api.services.scheduler import (
+    next_run_times,
+    refresh_schedules,
+    shutdown_scheduler,
+    start_scheduler,
 )
-from api.services.cleanup_state import auto_cleanup_loop
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: mark interrupted RUNNING rows as failed, then start APScheduler
+    # (replaces the 3 raw threading.Thread loops). One-off run_on_startup is
+    # submitted to the worker pool without blocking startup.
+    recovery_db = SessionLocal()
+    try:
+        recover_stale_running_records(recovery_db, is_startup=True)
+    finally:
+        recovery_db.close()
+
+    start_scheduler()
+    refresh_schedules()
+    yield
+    # Shutdown: stop scheduler first, then drain worker pool (no docker restart
+    # needed for code changes alone — rebuild only to pick up new deps).
+    shutdown_scheduler(wait=False)
+    task_runner.shutdown(wait=False)
+
 
 app = FastAPI(
-    title="Auto Backup"
+    title="Auto Backup",
+    lifespan=lifespan,
 )
 
 app.add_exception_handler(HTTPException, http_exception_handler)
@@ -71,98 +92,6 @@ app.include_router(logs.router)
 app.include_router(restore.router)
 app.include_router(uploads.router)
 
-_cleanup_stop_event = threading.Event()
-_cleanup_thread = None
-_backup_stop_event = threading.Event()
-_backup_thread = None
-_pending_backup_stop_event = threading.Event()
-_pending_backup_thread = None
-
-
-def _run_cleanup_from_settings(settings):
-    db = SessionLocal()
-    try:
-        cleanup_old_backups(
-            schemas.BackupCleanupRequest(
-                older_than_days=settings.older_than_days,
-                older_than_hours=settings.older_than_hours,
-                keep_latest_per_device=settings.keep_latest_per_device,
-            ),
-            db,
-        )
-    finally:
-        db.close()
-
-
-def _run_backup_from_settings(settings):
-    db = SessionLocal()
-    try:
-        run_auto_backups(
-            schemas.AutoBackupRequest(
-                zip_output=settings.zip_output,
-                full_baseline_interval_days=settings.full_baseline_interval_days,
-            ),
-            db,
-        )
-    finally:
-        db.close()
-
-
-def _run_pending_backups():
-    db = SessionLocal()
-    try:
-        recover_stale_running_records(db)
-        process_pending_auto_backups(db)
-    finally:
-        db.close()
-
-
-@app.on_event("startup")
-def start_background_jobs():
-    global _backup_thread, _cleanup_thread, _pending_backup_thread
-    recovery_db = SessionLocal()
-    try:
-        recover_stale_running_records(recovery_db)
-    finally:
-        recovery_db.close()
-
-    _cleanup_stop_event.clear()
-    _cleanup_thread = threading.Thread(
-        target=auto_cleanup_loop,
-        args=(_cleanup_stop_event, _run_cleanup_from_settings),
-        daemon=True,
-    )
-    _cleanup_thread.start()
-
-    _backup_stop_event.clear()
-    _backup_thread = threading.Thread(
-        target=auto_backup_loop,
-        args=(_backup_stop_event, _run_backup_from_settings),
-        daemon=True,
-    )
-    _backup_thread.start()
-
-    _pending_backup_stop_event.clear()
-    _pending_backup_thread = threading.Thread(
-        target=pending_backup_loop,
-        args=(_pending_backup_stop_event, _run_pending_backups),
-        daemon=True,
-    )
-    _pending_backup_thread.start()
-
-
-@app.on_event("shutdown")
-def stop_background_jobs():
-    _backup_stop_event.set()
-    _cleanup_stop_event.set()
-    _pending_backup_stop_event.set()
-    if _backup_thread:
-        _backup_thread.join(timeout=5)
-    if _cleanup_thread:
-        _cleanup_thread.join(timeout=5)
-    if _pending_backup_thread:
-        _pending_backup_thread.join(timeout=5)
-
 
 @app.get("/")
 async def root():
@@ -171,3 +100,10 @@ async def root():
     }
 
 
+@app.get("/scheduler/status")
+async def scheduler_status():
+    """Ops/debug: next fire time of each background job (behind API token auth)."""
+    return {
+        "running": True,
+        "next_run": next_run_times(),
+    }

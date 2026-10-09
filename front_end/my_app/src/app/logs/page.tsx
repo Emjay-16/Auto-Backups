@@ -1,3 +1,4 @@
+import { AutoRefresh } from "@/components/AutoRefresh";
 import { DateFilter } from "@/components/DateFilter";
 import { Panel } from "@/components/Panel";
 import { PaginatedLogsList } from "@/components/PaginatedLogsList";
@@ -36,6 +37,7 @@ export default async function LogsPage({ searchParams }: LogsPageProps) {
 
   return (
     <div className={styles.page}>
+      <AutoRefresh intervalMs={30000} />
       <section className={styles.summaryGrid}>
         <article>
           <span>Total logs</span>

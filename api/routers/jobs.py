@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 from api import models, schemas
 from api.database import get_db
 from api.errors import api_exception
-from api.services.backup_service import recover_stale_running_records
+from api.services.job_service import job_response_with_progress
 
 
 router = APIRouter(
@@ -26,7 +26,10 @@ def list_jobs(
     limit: int = 100,
     db: Session = Depends(get_db),
 ):
-    recover_stale_running_records(db)
+    # NOTE: no recover_stale_running_records here on purpose — this endpoint is
+    # polled every few seconds, and sweeping on reads used to kill healthy
+    # long-running jobs (e.g. job #115: 16 devices, murdered at 15.15 min).
+    # Stale reaping happens in the scheduler tick + startup + write paths.
     limit = max(1, min(limit, 500))
     query = db.query(models.BackupJob).options(joinedload(models.BackupJob.device))
 
@@ -56,7 +59,7 @@ def get_job(
     job_id: int,
     db: Session = Depends(get_db),
 ):
-    recover_stale_running_records(db)
+    # NOTE: no stale sweep on reads (see list_jobs).
     job = (
         db.query(models.BackupJob)
         .options(joinedload(models.BackupJob.device))

@@ -332,6 +332,17 @@ class BackupJobResponse(BaseModel):
     started_at: datetime
     finished_at: Optional[datetime] = None
     updated_at: datetime
+    # Live progress 0-99 while RUNNING (real per-file % for single-device
+    # runs, device fraction for fleet runs). None when unknown/not running.
+    progress_percent: Optional[float] = None
+
+
+class JobEnqueueResponse(BaseModel):
+    """202 response for non-blocking enqueue endpoints. Poll GET /jobs/{job_id}."""
+
+    job_id: int
+    job_type: str
+    message: str
 
 
 class BackupDeleteResponse(BaseModel):
@@ -345,6 +356,7 @@ class BackupCleanupRequest(BaseModel):
     older_than_hours: Optional[int] = None
     keep_latest_per_device: bool = True
     ignore_retention: bool = False
+    dry_run: bool = False
 
 
 class BackupCleanupItemResponse(BaseModel):

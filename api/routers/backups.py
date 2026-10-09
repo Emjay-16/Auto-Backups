@@ -24,11 +24,11 @@ from api.services.backup_service import (
     get_backup_detail,
     get_backup_download_zip,
     get_backup_history,
-    recover_stale_running_records,
     run_auto_backups,
     run_combined_backup,
     safe_download_filename,
 )
+from api.services import enqueue_service
 
 
 router = APIRouter(
@@ -43,7 +43,8 @@ def list_backups(
     db: Session = Depends(get_db),
 ):
     """แสดงรายการสำรองข้อมูลทั้งหมด"""
-    recover_stale_running_records(db)
+    # NOTE: no stale sweep on reads — GET must not mutate job states
+    # (see routers/jobs.py). Reaping runs in scheduler tick + write paths.
     return get_backup_history(db, limit)
 
 
@@ -71,16 +72,43 @@ def cleanup_backups(
     data: schemas.BackupCleanupRequest,
     db: Session = Depends(get_db),
 ):
-    """ล้างข้อมูลสำรองเก่า"""
+    """ล้างข้อมูลสำรองเก่า (sync — เก็บไว้เพื่อ backward compat)"""
     return cleanup_old_backups(data, db)
+
+
+@router.post("/cleanup/enqueue", response_model=schemas.JobEnqueueResponse, status_code=202)
+def enqueue_cleanup_backups(
+    data: schemas.BackupCleanupRequest,
+):
+    """เข้าคิวล้างข้อมูลแบบ non-blocking — ตอบ 202 + job_id ทันที"""
+    job_id = enqueue_service.enqueue_cleanup(data)
+    return schemas.JobEnqueueResponse(
+        job_id=job_id,
+        job_type="cleanup",
+        message="Cleanup queued, track progress at GET /jobs/{job_id}",
+    )
 
 @router.post("/auto", response_model=schemas.AutoBackupResponse)
 def auto_backup(
     data: schemas.AutoBackupRequest,
     db: Session = Depends(get_db),
 ):
-    """เรียกใช้การสำรองข้อมูลอัตโนมัติ"""
+    """เรียกใช้การสำรองข้อมูลอัตโนมัติ (sync — ค้างจนงานเสร็จ, เก็บไว้เพื่อ backward compat)"""
     return run_auto_backups(data, db)
+
+
+@router.post("/auto/enqueue", response_model=schemas.JobEnqueueResponse, status_code=202)
+def enqueue_auto_backup(
+    data: schemas.AutoBackupRequest,
+):
+    """เข้าคิวสำรองข้อมูลอัตโนมัติแบบ non-blocking — ตอบ 202 + job_id ทันที
+    แล้วตามสถานะที่ GET /jobs/{job_id} (frontend poll /jobs อยู่แล้ว)"""
+    job_id = enqueue_service.enqueue_auto_backup(data)
+    return schemas.JobEnqueueResponse(
+        job_id=job_id,
+        job_type="auto_backup",
+        message="Auto backup queued, track progress at GET /jobs/{job_id}",
+    )
 
 
 @router.get("/auto/settings", response_model=schemas.AutoBackupSettingsResponse)
@@ -108,8 +136,21 @@ def combined_backup(
     data: schemas.CombinedBackupRequest,
     db: Session = Depends(get_db),
 ):
-    """สำรองข้อมูล"""
+    """สำรองข้อมูล (sync — เก็บไว้เพื่อ backward compat)"""
     return run_combined_backup(data, db)
+
+
+@router.post("/combined/enqueue", response_model=schemas.JobEnqueueResponse, status_code=202)
+def enqueue_combined_backup(
+    data: schemas.CombinedBackupRequest,
+):
+    """เข้าคิวสำรองข้อมูลแบบ non-blocking — ตอบ 202 + job_id ทันที"""
+    job_id, _ = enqueue_service.enqueue_combined_backup(data)
+    return schemas.JobEnqueueResponse(
+        job_id=job_id,
+        job_type="combined_backup",
+        message="Combined backup queued, track progress at GET /jobs/{job_id}",
+    )
 
 
 @router.post("/auto-paths", response_model=schemas.CustomBackupPathResponse)

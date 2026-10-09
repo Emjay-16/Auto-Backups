@@ -87,7 +87,31 @@ export function DashboardAnalytics({ backups, jobs, devices }: DashboardAnalytic
       });
     }
 
+    const trackedBackupIds = new Set<number>();
+
+    // 1. Process all backup jobs (captures both successful and failed attempts)
+    for (const j of jobs) {
+      const rawDate = j.startedAtRaw || j.time || "";
+      const match = rawDate.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (match) {
+        const itemDate = match[1];
+        const dayEntry = days.find((d) => d.dateKey === itemDate);
+        if (dayEntry) {
+          if (j.status === "failed") {
+            dayEntry.total += 1;
+            dayEntry.failed += 1;
+          } else if (j.status === "success") {
+            dayEntry.total += 1;
+            dayEntry.success += 1;
+            if (j.backupId) trackedBackupIds.add(j.backupId);
+          }
+        }
+      }
+    }
+
+    // 2. Also include any standalone backups not associated with a job
     for (const b of backups) {
+      if (b.id && trackedBackupIds.has(b.id)) continue;
       const rawDate = b.createdAtRaw || b.createdAt || "";
       const match = rawDate.match(/^(\d{4}-\d{2}-\d{2})/);
       if (match) {
@@ -105,7 +129,7 @@ export function DashboardAnalytics({ backups, jobs, devices }: DashboardAnalytic
     }
 
     return days;
-  }, [backups]);
+  }, [backups, jobs]);
 
   // Peak backups in a single day for chart height scaling
   const maxDayCount = useMemo(() => {

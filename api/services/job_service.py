@@ -7,7 +7,8 @@ from typing import Optional
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from api import constants, models
+from api import constants, models, schemas
+from api.services.backup_progress import progress_tracker
 from api.utils.time import now_local
 
 
@@ -257,3 +258,35 @@ def clear_stale_job_locks(db: Session) -> int:
     if cleared > 0:
         db.commit()
     return cleared
+
+
+def job_response_with_progress(job: models.BackupJob) -> "schemas.BackupJobResponse":
+    """Build a BackupJobResponse with live progress attached.
+
+    - Single-device runs (combined_backup): real per-file % from the
+      in-memory progress tracker (same process as the worker threads).
+    - Fleet runs: checked/total device fraction.
+    - Anything else / not running: None (caller falls back).
+    """
+    response = schemas.BackupJobResponse.model_validate(job)
+    response.progress_percent = live_progress_percent(job)
+    return response
+
+
+def live_progress_percent(job: models.BackupJob) -> Optional[float]:
+    if job.job_status != constants.JOB_STATUS_RUNNING:
+        return None
+    if job.job_type == "combined_backup" and job.device_id is not None:
+        state = progress_tracker.get(job.device_id)
+        if state and state.get("status") == "running":
+            try:
+                return max(0.0, min(99.0, float(state.get("overall_percent") or 0.0)))
+            except (TypeError, ValueError):
+                return None
+    total = job.total_devices or 0
+    if total > 0:
+        try:
+            return round(min(99.0, (job.checked_devices / total) * 100.0), 1)
+        except (TypeError, ZeroDivisionError):
+            return None
+    return None

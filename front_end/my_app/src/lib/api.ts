@@ -175,6 +175,7 @@ export type BackupCleanupPayload = {
   older_than_hours?: number;
   keep_latest_per_device: boolean;
   ignore_retention?: boolean;
+  dry_run?: boolean;
 };
 
 export type BackupCleanupResult = {
@@ -290,6 +291,7 @@ type ApiJob = {
   failed_devices: number;
   retry_count: number;
   max_retries: number;
+  progress_percent?: number | null;
   job_message?: string | null;
   started_at: string;
   finished_at?: string | null;
@@ -869,9 +871,10 @@ function mapJob(job: ApiJob): Job {
     target: message || `checked ${job.checked_devices}/${job.total_devices}`,
     status: mapJobStatus(job.job_status),
     time: formatTime(job.started_at ?? job.updated_at),
+    startedAtRaw: job.started_at ?? job.updated_at,
     updatedAt: formatTime(job.updated_at),
     finishedAt: job.finished_at ? formatTime(job.finished_at) : "-",
-    progress: mapJobProgress(job.job_status),
+    progress: mapJobProgress(job),
     checkedDevices: job.checked_devices,
     totalDevices: job.total_devices,
     onlineDevices: job.online_devices,
@@ -892,11 +895,19 @@ function mapJobStatus(jobStatus: number): JobStatus {
   return "pending";
 }
 
-function mapJobProgress(jobStatus: number): number {
-  if (jobStatus === 1) return 100;
-  if (jobStatus === 4) return 0;
-  if (jobStatus === 3) return 12;
-  if (jobStatus === 2) return 20;
+function mapJobProgress(job: ApiJob): number {
+  if (job.job_status === 1) return 100;
+  if (job.job_status === 4) return 0;
+  if (job.job_status === 3) return 12;
+  if (job.job_status === 2) return 20;
+  // Live per-file % from the server (single-device runs). Never show 100
+  // while still running — success flips it via job_status above.
+  if (typeof job.progress_percent === "number" && Number.isFinite(job.progress_percent)) {
+    return Math.min(99, Math.max(0, job.progress_percent));
+  }
+  if (job.total_devices > 0) {
+    return Math.min(99, Math.round((job.checked_devices / job.total_devices) * 100));
+  }
   return 55;
 }
 

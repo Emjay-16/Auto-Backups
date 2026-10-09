@@ -75,8 +75,41 @@ def recover_stale_running_records(
     db: Session,
     max_age_minutes: Optional[float] = None,
     max_age_hours: Optional[float] = None,
+    is_startup: bool = False,
 ) -> Tuple[int, int]:
     try:
+        if is_startup:
+            # On server startup, any job or backup in RUNNING state was interrupted
+            # by the server restart/shutdown, because active threads from the old process are gone.
+            interrupted_backups = (
+                db.query(models.Backup)
+                .filter(models.Backup.backup_status == constants.BACKUP_STATUS_RUNNING)
+                .all()
+            )
+            for backup in interrupted_backups:
+                _finish_backup_failed(
+                    db,
+                    backup,
+                    "Backup interrupted: Server restarted during execution",
+                )
+
+            interrupted_jobs = (
+                db.query(models.BackupJob)
+                .filter(models.BackupJob.job_status == constants.JOB_STATUS_RUNNING)
+                .all()
+            )
+            for job in interrupted_jobs:
+                update_job(
+                    db,
+                    job,
+                    status=constants.JOB_STATUS_FAILED,
+                    message="Job interrupted: Server restarted during execution",
+                    finished=True,
+                )
+
+            clear_stale_job_locks(db)
+            return len(interrupted_backups), len(interrupted_jobs)
+
         if max_age_minutes is None:
             if max_age_hours is not None:
                 max_age_minutes = float(max_age_hours) * 60
@@ -85,7 +118,7 @@ def recover_stale_running_records(
             elif os.getenv("STALE_RUNNING_TIMEOUT_HOURS"):
                 max_age_minutes = float(os.getenv("STALE_RUNNING_TIMEOUT_HOURS", "0.25")) * 60
             else:
-                max_age_minutes = 15.0
+                max_age_minutes = 180.0
 
         max_age_minutes = max(float(max_age_minutes), 1.0)
         cutoff = now_local() - timedelta(minutes=max_age_minutes)
@@ -213,6 +246,14 @@ def cleanup_old_backups(
     data: schemas.BackupCleanupRequest,
     db: Session,
 ) -> schemas.BackupCleanupResponse:
+    """Delete old backups per retention rules.
+
+    When ``data.dry_run`` is True, the exact same candidate/skip evaluation
+    runs but nothing is deleted: items that *would* be deleted are returned
+    with ``deleted=True`` and a ``"Would delete..."`` reason, top-level
+    ``deleted`` counts them, and the DB + disk are left untouched. This lets
+    the UI preview match a real run 1:1 (same request minus dry_run).
+    """
     monthly_candidate_ids: set[int] = set()
     if data.ignore_retention:
         backups = (
@@ -250,6 +291,19 @@ def cleanup_old_backups(
         if reason:
             skipped += 1
             items.append(_cleanup_item(backup, deleted=False, reason=reason))
+            continue
+
+        if data.dry_run:
+            items.append(
+                _cleanup_item(
+                    backup,
+                    deleted=True,
+                    reason="Would delete: more than 4 auto backups in this month"
+                    if monthly_excess
+                    else "Would delete",
+                )
+            )
+            deleted += 1
             continue
 
         item = _cleanup_item(
@@ -304,7 +358,11 @@ def cleanup_age_delta(data: schemas.BackupCleanupRequest) -> timedelta:
 def run_combined_backup(
     data: schemas.CombinedBackupRequest,
     db: Session,
+    existing_job_id: Optional[int] = None,
 ) -> schemas.BackupRunResponse:
+    """Run a combined backup. If *existing_job_id* is given (non-blocking
+    enqueue path), the pre-created job row is reused instead of creating
+    a second one, and the heavy SFTP work updates that same job."""
     device = resolve_device(db, data.device_id, data.ip_address, data.device_name)
     user = resolve_user(db, data.created_by)
     remote_paths = [path for path in data.remote_paths if path]
@@ -322,13 +380,21 @@ def run_combined_backup(
     total_targets = len(remote_paths) + (1 if data.include_database else 0)
     progress_tracker.start(device.device_id, device.device_name, total_targets=total_targets)
 
-    job = create_job(
-        db,
-        job_type="combined_backup",
-        requested_by=user.user_id,
-        device_id=device.device_id,
-        message="Combined backup started",
-    )
+    job = None
+    if existing_job_id is not None:
+        job = (
+            db.query(models.BackupJob)
+            .filter(models.BackupJob.job_id == existing_job_id)
+            .first()
+        )
+    if job is None:
+        job = create_job(
+            db,
+            job_type="combined_backup",
+            requested_by=user.user_id,
+            device_id=device.device_id,
+            message="Combined backup started",
+        )
 
     try:
         database_dump = None
@@ -420,7 +486,13 @@ def run_combined_backup(
         )
 
 
-def run_auto_backups(data: schemas.AutoBackupRequest, db: Session) -> schemas.AutoBackupResponse:
+def run_auto_backups(
+    data: schemas.AutoBackupRequest,
+    db: Session,
+    existing_job_id: Optional[int] = None,
+) -> schemas.AutoBackupResponse:
+    """Run fleet auto backup. If *existing_job_id* is given (non-blocking
+    enqueue path), reuse that job row instead of creating a second one."""
     max_retries = int(os.getenv("AUTO_BACKUP_MAX_RETRIES", "3"))
     retry_delay_seconds = float(os.getenv("AUTO_BACKUP_RETRY_DELAY_SECONDS", "15"))
 
@@ -447,13 +519,21 @@ def run_auto_backups(data: schemas.AutoBackupRequest, db: Session) -> schemas.Au
                 "Auto backup is already running",
             )
 
-        job = create_job(
-            db,
-            job_type="auto_backup",
-            requested_by=data.created_by,
-            max_retries=max_retries,
-            message="Auto backup queued",
-        )
+        job = None
+        if existing_job_id is not None:
+            job = (
+                db.query(models.BackupJob)
+                .filter(models.BackupJob.job_id == existing_job_id)
+                .first()
+            )
+        if job is None:
+            job = create_job(
+                db,
+                job_type="auto_backup",
+                requested_by=data.created_by,
+                max_retries=max_retries,
+                message="Auto backup queued",
+            )
         response = _run_auto_backups(data, db, job, max_retries, retry_delay_seconds)
         update_job(
             db,
